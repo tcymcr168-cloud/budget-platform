@@ -719,3 +719,75 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BPC-KB-002：模型、维度、成员、层级知识抽取。
 
 该阶段继续只写文档，不写业务代码，重点抽取元模型边界和自研预算平台的最小元数据闭环。
+
+## BPC-KB-002
+
+阶段名称：模型、维度、成员、层级知识抽取
+
+记录日期：2026-05-06
+
+### 阶段目标
+
+抽取 SAP BPC 中模型、维度、成员、层级的产品思想，形成自研预算平台元数据模型的最小闭环建议。本阶段只写文档，不写业务代码。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/bpc-kb-001-core-terms.md`、`docs/product/bpc-knowledge-extraction-plan.md`、本地 OCR 缓存 |
+| 允许修改 | `docs/product/bpc-kb-002-model-dimension.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | `backend/src`、`frontend/src`、migration、PDF 原文、OCR 全文 |
+| 验证命令 | `git status --short`、`git check-ignore`、禁止范围检查 |
+| 授权状态 | 全自动模式，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/product/bpc-kb-002-model-dimension.md` | 新增模型、维度、成员、层级知识抽取文档 |
+| `PROJECT_STEP_RECORD.md` | 追加 BPC-KB-002 阶段记录 |
+
+### 关键产出
+
+1. 明确自研平台的最小元数据闭环：Budget Workspace、Budget Model、Dimension、Dimension Member、Member Hierarchy、Model Dimension。
+2. 明确事实数据粒度建议：模型、科目、组织、期间、类别、版本、自定义维度成员、数值、来源。
+3. 明确 Category 与 Version 必须分开，Category 表示数据性质，Version 表示版本或场景。
+4. 明确层级汇总应由层级计算产生，不依赖模板手工合计行。
+5. 明确 MVP 只支持预算主线模型，不提前引入合并模型和复杂多层级权限。
+
+### 来源定位
+
+| 主题 | 来源 |
+| --- | --- |
+| Model | BPC420 p19-p22；BPC440 p10-p17；BPC450 p13-p14；S4F80 p11-p19；s4f90 p20-p21，OCR |
+| Dimension | BPC420 p19-p22；BPC430 p16-p21；BPC440 p16-p17；BPC450 p31, p42；s4f90 p20-p34，OCR |
+| Member | BPC420 p20-p22, p31；BPC430 p5-p21；BPC440 p18, p26-p28；BPC450 p83-p109，OCR |
+| Hierarchy | BPC420 p20-p22, p56-p57；BPC430 p47, p67；BPC440 p28, p36-p38；BPC450 p110-p127，OCR |
+
+### 验证结果
+
+| 验证项 | 结果 |
+| --- | --- |
+| 读取治理文件 | 已读取 |
+| 读取相关产品文档 | 已读取 BPC-KB-001 与知识抽取计划 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| `backend/src` | 不存在，未修改 |
+| `frontend/src` | 不存在，未修改 |
+| migration | 未新增 |
+
+### 失败项与修复记录
+
+无失败项。本阶段未执行删除操作。
+
+### 是否建议关闭本阶段
+
+建议关闭 BPC-KB-002。
+
+关闭理由：模型、维度、成员、层级的结构化知识抽取已完成，并已形成元数据模型建议和后续阶段输入。
+
+### 下一阶段建议
+
+下一阶段：BPC-KB-003：模板 / Input Schedule 知识抽取。
+
+该阶段继续只写文档，不写业务代码，重点分析 Web Native 填报模板如何绑定模型、维度、成员和事实数据。
