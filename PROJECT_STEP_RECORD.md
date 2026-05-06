@@ -638,3 +638,84 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段：BPC-KB-001：SAP BPC 核心概念与术语抽取。该阶段只写 `docs/product` 文档，不写业务代码，不提交 PDF 原文或 OCR 全文。
+
+## BPC-KB-001
+
+阶段名称：SAP BPC 核心概念与术语抽取
+
+记录日期：2026-05-06
+
+### 阶段目标
+
+建立 SAP BPC 核心概念与术语表，覆盖 Environment、Model、Dimension、Member、Hierarchy、Category、Version、Input Schedule、Work Status、Data Manager 等基础概念，并输出自研预算平台的命名建议、吸收原则和规避原则。本阶段只写文档，不写业务代码。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/bpc-knowledge-extraction-plan.md`、`docs/product/bpc-full-ocr-report.md`、本地 OCR 缓存 |
+| 允许修改 | `docs/product/bpc-kb-001-core-terms.md`、`docs/product/bpc-core-concepts.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | `backend/src`、`frontend/src`、migration、PDF 原文、OCR 全文 |
+| 验证命令 | OCR 缓存术语页码定位、`git status --short`、`git check-ignore`、禁止范围检查 |
+| 授权状态 | 全自动模式，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/product/bpc-kb-001-core-terms.md` | 新增 BPC 核心概念与术语表 |
+| `docs/product/bpc-core-concepts.md` | 更新为指向正式 BPC-KB-001 文档的 DRAFT 占位 |
+| `PROJECT_STEP_RECORD.md` | 追加 BPC-KB-001 阶段记录 |
+
+### 关键产出
+
+1. 建立 BPC 核心术语表，覆盖 20 余个基础术语。
+2. 给出自研平台命名建议，如预算空间、预算模型、维度、成员、层级、类别、版本、填报模板、导入任务等。
+3. 明确必须吸收的设计原则：模型驱动、维度驱动、成员层级驱动、类别版本分离、模板只是入口、预算与实际同源。
+4. 明确必须规避的复杂形态：Excel 插件依赖、黑盒 Data Manager、复杂 Script Logic、复杂 Work Status、多维权限矩阵、过早合并报表、过早 BI/ERP/差异分析。
+
+### 来源定位
+
+通过 OCR 缓存定位术语来源页。示例：
+
+| 术语 | 主要来源 |
+| --- | --- |
+| Model | BPC420 p19-p22；BPC440 p10-p17；BPC450 p13-p14；s4f90 p20-p21 |
+| Dimension | BPC420 p19-p22；BPC430 p16-p21；BPC440 p16-p17 |
+| Member | BPC420 p20-p22；BPC430 p5-p21 |
+| Hierarchy | BPC420 p20-p22, p56-p57；BPC450 p110-p127 |
+| Input Schedule | BPC420 p18, p32, p41, p133, p320；BPC430 p57, p82, p209 |
+| Work Status | BPC420 p82-p83, p109；BPC450 p98-p99；S4F80 p146-p147 |
+| Data Manager | BPC420 p13, p25-p26, p73, p78；BPC430 p12-p25 |
+| Script Logic | BPC420 p115-p121；BPC430 p108；BPC440 p49-p54 |
+
+所有来源均标注为 OCR 来源，后续阶段应继续抽样复核页码。
+
+### 验证结果
+
+| 验证项 | 结果 |
+| --- | --- |
+| 读取治理文件 | 已读取 `AGENTS.md` 和 `PROJECT_STEP_RECORD.md` |
+| 读取相关产品文档 | 已读取知识抽取计划和全量 OCR 报告 |
+| 术语页码定位 | 已通过 OCR 缓存检索核心术语页码分布 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| `backend/src` | 不存在，未修改 |
+| `frontend/src` | 不存在，未修改 |
+| migration | 未新增 |
+
+### 失败项与修复记录
+
+无失败项。本阶段未执行删除操作。
+
+### 是否建议关闭本阶段
+
+建议关闭 BPC-KB-001。
+
+关闭理由：核心术语文档已生成，来源页码已标注，自研吸收与规避原则已明确，业务代码边界未被触碰。
+
+### 下一阶段建议
+
+下一阶段：BPC-KB-002：模型、维度、成员、层级知识抽取。
+
+该阶段继续只写文档，不写业务代码，重点抽取元模型边界和自研预算平台的最小元数据闭环。
