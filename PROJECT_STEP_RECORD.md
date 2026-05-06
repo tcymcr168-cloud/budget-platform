@@ -1317,3 +1317,91 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：ARCH-001：技术架构基线设计。
 
 该阶段继续只写架构与 ADR 文档，不创建业务代码。重点固定技术栈、分层架构、同源事实数据、动态维度落库、状态权限审计和导入批次设计。
+
+## ARCH-001
+
+阶段名称：技术架构基线设计
+
+记录日期：2026-05-06
+
+### 阶段目标
+
+基于 BPC-KB-001 至 BPC-KB-009 的知识抽取结果，固定 Web Native 全面预算管理平台的技术架构基线、模块边界、同源事实数据原则、状态权限审计边界和导入架构。本阶段只写架构与 ADR 文档，不创建业务代码，不新增 migration。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/bpc-kb-001-core-terms.md` 至 `docs/product/bpc-kb-009-budget-platform-roadmap.md` |
+| 允许修改 | `docs/architecture/arch-001-technical-baseline.md`、`docs/adr/*.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | `backend/src`、`frontend/src`、migration、PDF 原文、OCR 全文 |
+| 验证命令 | `git status --short`、`git check-ignore`、禁止范围检查、架构与 ADR 文件存在性检查 |
+| 授权状态 | 全自动模式，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/arch-001-technical-baseline.md` | 新增技术架构基线文档 |
+| `docs/adr/0001-technology-stack.md` | 新增技术栈基线 ADR |
+| `docs/adr/0002-web-native-no-excel-plugin.md` | 新增 Web Native 与不做 Excel 插件 ADR |
+| `docs/adr/0003-single-source-fact-value.md` | 新增同源事实数据 ADR |
+| `PROJECT_STEP_RECORD.md` | 追加 ARCH-001 阶段记录 |
+
+### 关键产出
+
+1. 固定后端 Java 17 + Spring Boot 3.x + Maven、前端 React + TypeScript + Vite + pnpm、数据库 PostgreSQL 16 的技术基线。
+2. 明确 MVP 采用模块化单体优先，不提前拆分微服务。
+3. 明确核心领域模块：Governance、Metadata、Budget Model、Template、Submission、Query、Import、Access、Audit。
+4. 明确同源事实数据原则：Budget、Actual、Forecast 不拆表，通过 Category / Version 与同一事实层表达。
+5. 明确 `fact_value` + `fact_value_axis` 的混合坐标模型方向，核心维度显式列，自定义维度使用轴表。
+6. 明确填报状态与导入批次状态分离，状态变更必须审计。
+7. 明确 MVP 不包含 Excel 插件、ERP 直连、BI 图表平台、合并报表引擎、通用脚本语言和复杂工作流引擎。
+
+### 关键决策
+
+| 决策 | 结论 |
+| --- | --- |
+| 技术栈 | Java 17 + Spring Boot 3.x + Maven；React + TypeScript + Vite + pnpm；PostgreSQL 16 |
+| 架构形态 | MVP 模块化单体优先 |
+| 数据访问 | Spring Data JPA 起步，复杂查询在 BUD-008 前评估 jOOQ 或 SQL Mapper |
+| 数据迁移 | Flyway 仅在允许 migration 的开发阶段启用 |
+| 模板形态 | Web Native 模板，不做 Excel / Office 插件 |
+| 事实数据 | `fact_value` 同源事实层，Budget / Actual / Forecast 不拆表 |
+
+### 验证结果
+
+| 验证项 | 结果 |
+| --- | --- |
+| 读取治理文件 | 已读取 |
+| 读取路线图输入 | 已读取 BPC-KB-009，并基于 BPC-KB-001 至 BPC-KB-009 的阶段结论设计 |
+| 架构文档 | `docs/architecture/arch-001-technical-baseline.md` 已存在 |
+| ADR 文件 | 3 个 ADR 已存在 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| `backend/src` | 不存在，未修改 |
+| `frontend/src` | 不存在，未修改 |
+| migration | 未新增 |
+
+### 失败项与修复记录
+
+无失败项。本阶段未执行删除操作。
+
+### 未解决问题
+
+1. README 当前仍有历史本地修改，未纳入本阶段提交范围。
+2. Docker 暂不可用，DEV-000 或 BUD-001 需要确认本地 PostgreSQL 运行方式。
+3. 动态维度最终物理索引策略需在 BUD-002 细化。
+4. 导入覆盖、冲销或版本化策略需在 BUD-009 前细化。
+
+### 是否建议关闭本阶段
+
+建议关闭 ARCH-001。
+
+关闭理由：技术栈、分层架构、模块边界、同源事实数据、模板/查询/导入/权限审计基线和关键 ADR 已形成，足以支撑 PRODUCT-001 进行 MVP 产品范围与阶段拆分。
+
+### 下一阶段建议
+
+下一阶段：PRODUCT-001：MVP 产品范围与阶段拆分。
+
+该阶段继续只写产品文档，不写业务代码，重点固定 MVP 用户角色、用户故事、功能范围、默认预算场景、验收标准和阶段拆分。
