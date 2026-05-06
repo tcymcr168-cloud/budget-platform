@@ -1,3 +1,7 @@
 # DRAFT: BPC Template Input Schedule
 
-Status: DRAFT placeholder. Do not treat this file as a formal BPC knowledge package until FOUNDATION-002 OCR validation and a later BPC-KB stage provide source-supported extraction.
+Status: DRAFT placeholder retained for compatibility.
+
+Formal BPC-KB-003 output is now maintained in:
+
+`docs/product/bpc-kb-003-input-schedule.md`

@@ -791,3 +791,78 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BPC-KB-003：模板 / Input Schedule 知识抽取。
 
 该阶段继续只写文档，不写业务代码，重点分析 Web Native 填报模板如何绑定模型、维度、成员和事实数据。
+
+## BPC-KB-003
+
+阶段名称：模板 / Input Schedule 知识抽取
+
+记录日期：2026-05-06
+
+### 阶段目标
+
+抽取 SAP BPC 中模板、Input Schedule、Input Form 与报表输入体验的产品思想，转换为自研 Web Native 预算填报模板设计原则。本阶段只写文档，不写业务代码。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/bpc-kb-001-core-terms.md`、`docs/product/bpc-kb-002-model-dimension.md`、本地 OCR 缓存 |
+| 允许修改 | `docs/product/bpc-kb-003-input-schedule.md`、`docs/product/bpc-template-input-schedule.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | `backend/src`、`frontend/src`、migration、PDF 原文、OCR 全文 |
+| 验证命令 | OCR 缓存术语页码定位、`git status --short`、`git check-ignore`、禁止范围检查 |
+| 授权状态 | 全自动模式，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/product/bpc-kb-003-input-schedule.md` | 新增模板 / Input Schedule 知识抽取文档 |
+| `docs/product/bpc-template-input-schedule.md` | 更新为指向正式 BPC-KB-003 文档的 DRAFT 占位 |
+| `PROJECT_STEP_RECORD.md` | 追加 BPC-KB-003 阶段记录 |
+
+### 关键产出
+
+1. 明确 Input Schedule 本质是绑定模型与维度口径的数据输入视图。
+2. 明确自研平台必须 Web Native 化，不开发 Excel 插件。
+3. 明确模板只保存布局、轴定义、范围、校验和绑定规则，不保存事实数据结构。
+4. 提出 Template、Axis Definition、Axis Item、Cell Rule、Template Scope、Data Binding 等模板对象建议。
+5. 明确 MVP 模板能力边界：模型绑定、行列配置、筛选条件、数字填报、保存、提交和基础校验。
+
+### 来源定位
+
+| 主题 | 来源 |
+| --- | --- |
+| Input Schedule | BPC420 p18, p32, p41, p51, p133；BPC430 p57, p82, p209；BPC440 p58, p138, p144；s4f90 p117，OCR |
+| Template | BPC420 p41, p44, p48, p51, p73；BPC430 p96-p104, p120；BPC440 p17, p23, p47, p57；S4F80 p180-p185，OCR |
+| Workbook / Worksheet | BPC420 p135-p150；BPC430 p16, p20, p22, p33, p43-p49；BPC450 p81-p83，OCR |
+| Save Data / Submit | BPC420 p142, p227, p292-p309；BPC450 p85, p146, p152；S4F80 p182-p183, p225，OCR |
+| Member Recognition / Local Member | BPC420 p142, p244；BPC430 p43, p55-p56, p73, p94；BPC450 p121-p130，OCR |
+
+### 验证结果
+
+| 验证项 | 结果 |
+| --- | --- |
+| 读取治理文件 | 已读取 |
+| 读取相关产品文档 | 已读取 BPC-KB-001 与 BPC-KB-002 |
+| 术语页码定位 | 已通过 OCR 缓存检索 Input Schedule、Template、Input Form、Workbook、Worksheet、Save Data 等页码分布 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| `backend/src` | 不存在，未修改 |
+| `frontend/src` | 不存在，未修改 |
+| migration | 未新增 |
+
+### 失败项与修复记录
+
+无失败项。本阶段未执行删除操作。
+
+### 是否建议关闭本阶段
+
+建议关闭 BPC-KB-003。
+
+关闭理由：模板/Input Schedule 的结构化知识抽取已完成，Web Native 模板取舍和 MVP 边界已明确。
+
+### 下一阶段建议
+
+下一阶段：BPC-KB-004：填报、数据输入、Work Status 知识抽取。
+
+该阶段继续只写文档，不写业务代码，重点分析保存、提交、锁定、退回、状态范围和 Work Status 简化策略。
