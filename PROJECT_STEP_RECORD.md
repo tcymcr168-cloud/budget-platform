@@ -1021,3 +1021,80 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BPC-KB-006：实际数导入 / Data Manager 知识抽取。
 
 该阶段继续只写文档，不写业务代码，重点分析 Data Manager、Transformation、Conversion、Import、Actual 数据导入如何转化为透明、可预览、可审计的 Web 导入能力。
+
+## BPC-KB-006
+
+阶段名称：实际数导入 / Data Manager 知识抽取
+
+记录日期：2026-05-06
+
+### 阶段目标
+
+抽取 SAP BPC 中 Data Manager、Data Package、Transformation、Conversion、Flat File、Import、Actual Data 等产品思想，转换为自研 Web Native 预算平台实际数导入设计原则。本阶段只写文档，不写业务代码。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/bpc-kb-002-model-dimension.md`、`docs/product/bpc-kb-004-input-work-status.md`、`docs/product/bpc-kb-005-query-reporting.md`、本地 OCR 缓存 |
+| 允许修改 | `docs/product/bpc-kb-006-data-manager-actual-import.md`、`docs/product/bpc-data-manager-actual-import.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | `backend/src`、`frontend/src`、migration、PDF 原文、OCR 全文 |
+| 验证命令 | OCR 缓存术语页码定位、`git status --short`、`git check-ignore`、禁止范围检查 |
+| 授权状态 | 全自动模式，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/product/bpc-kb-006-data-manager-actual-import.md` | 新增实际数导入 / Data Manager 知识抽取文档 |
+| `docs/product/bpc-data-manager-actual-import.md` | 从占位草稿更新为指向 BPC-KB-006 的 DRAFT index |
+| `PROJECT_STEP_RECORD.md` | 追加 BPC-KB-006 阶段记录 |
+
+### 关键产出
+
+1. 明确 BPC Data Manager 的可吸收思想是导入过程编排，而不是黑盒数据包形态。
+2. 明确自研平台导入对象建议：Import Job、Import Batch、Import File、Import Mapping、Conversion Rule、Validation Result、Validation Error、Import Preview、Import Commit、Import Audit Log。
+3. 明确导入流程：Upload、Parse、Mapping、Conversion、Validate、Preview、Confirm Commit、Fact Value。
+4. 明确 Actual 与 Budget 应进入同源 Fact Value，通过 Category 区分 Actual / Budget / Forecast。
+5. 明确 Actual 导入不走填报提交流，但必须有批次状态、期间锁定控制和审计。
+6. 明确 MVP 不做 ERP 直连、复杂 Transformation/Conversion 文件语法、预算执行差异分析。
+
+### 来源定位
+
+| 主题 | 来源 |
+| --- | --- |
+| Data Manager | BPC420 p13, p25-p26, p51, p73, p78, p81, p120, p133, p160-p162；BPC430 p12, p17, p20, p25, p39-p40；BPC440 p10, p50, p53-p54, p58, p75-p76, p82-p83；BPC450 p16，OCR |
+| Data Package / Run Package | BPC420 p162-p166, p169, p173, p192-p195, p217, p264；BPC440 p58, p82；s4f90 p132，OCR |
+| Transformation / Transformation File | BPC420 p75-p76, p161-p162, p173, p175-p179, p183, p187-p188, p191-p194, p209-p212；BPC440 p75-p79, p83, p159，OCR |
+| Conversion / Conversion File | BPC420 p75-p76, p162, p175-p177, p179, p187, p191, p195, p207, p212, p224, p274；BPC440 p75-p79, p83, p153, p159，OCR |
+| Flat File / Import | BPC420 p160, p175-p183, p305；BPC440 p75-p83, p111, p256；BPC450 p113-p114, p122, p125, p139-p140, p185-p188；S4F80 p208，OCR |
+| Actual / Actual Data | BPC420 p12, p56, p147, p237, p242, p246, p248-p249, p271-p272, p303；BPC450 p49, p66, p170-p171；S4F80 p19, p50, p58-p68, p72, p103，OCR |
+
+### 验证结果
+
+| 验证项 | 结果 |
+| --- | --- |
+| 读取治理文件 | 已读取 |
+| 读取相关产品文档 | 已读取 BPC-KB-002、BPC-KB-004、BPC-KB-005 |
+| 术语页码定位 | 已通过 OCR 缓存检索 Data Manager、Data Package、Transformation、Conversion、Flat File、Import、Actual、Validation、Audit 等页码分布 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| `backend/src` | 不存在，未修改 |
+| `frontend/src` | 不存在，未修改 |
+| migration | 未新增 |
+
+### 失败项与修复记录
+
+无失败项。本阶段未执行删除操作。
+
+### 是否建议关闭本阶段
+
+建议关闭 BPC-KB-006。
+
+关闭理由：实际数导入 / Data Manager 的结构化知识抽取已完成，透明导入、映射转换、校验预览、批次审计和同源事实数据原则已形成后续产品与架构输入。
+
+### 下一阶段建议
+
+下一阶段：BPC-KB-007：权限、状态、流程与协作知识抽取。
+
+该阶段继续只写文档，不写业务代码，重点分析 Data Access、Team、Owner、Reviewer、Process、Work Status 与自研最小权限和协作模型的关系。
