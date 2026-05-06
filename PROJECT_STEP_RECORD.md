@@ -1575,3 +1575,95 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BUD-001：项目治理与基础框架。
 
 该阶段可以在已创建工程内建立统一错误响应、基础异常结构、基础审计接口和工程规范，但仍不得进入元数据、预算模型、模板、填报、查询或导入业务模块。
+
+## BUD-001
+
+阶段名称：项目治理与基础框架
+
+记录日期：2026-05-06
+
+### 阶段目标
+
+在 DEV-000 创建的正式工程内建立横切基础框架，包括统一 API 响应、统一异常响应、基础错误码、健康检查、基础审计接口和前端 API 类型封装。本阶段不进入元数据、预算模型、模板、填报、查询或导入业务模块，不新增 migration。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/architecture/arch-001-technical-baseline.md`、`docs/product/product-001-mvp-scope.md` |
+| 允许修改 | `backend/src/main/java/com/budgetplatform/common`、`backend/src/test/java/com/budgetplatform/common`、`frontend/src/shared`、`docs/architecture/bud-001-framework-baseline.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 元数据、预算模型、模板、填报、查询、导入业务模块、migration、PDF 原文、OCR 全文 |
+| 验证命令 | `mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build`、`git status --short`、`git check-ignore` |
+| 授权状态 | 全自动模式，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/common/api/*` | 新增统一响应、错误结构、错误码、应用异常和全局异常处理 |
+| `backend/src/main/java/com/budgetplatform/common/audit/*` | 新增基础审计事件、动作、服务接口和 Noop 实现 |
+| `backend/src/main/java/com/budgetplatform/common/web/HealthController.java` | 新增 `GET /api/health` 健康检查 |
+| `backend/src/test/java/com/budgetplatform/common/api/GlobalExceptionHandlerTests.java` | 新增统一异常响应测试 |
+| `backend/src/test/java/com/budgetplatform/common/web/HealthControllerTests.java` | 新增健康检查测试 |
+| `frontend/src/shared/api/types.ts` | 新增前端统一 API 类型 |
+| `frontend/src/shared/api/http.ts` | 新增前端基础 JSON 请求封装 |
+| `docs/architecture/bud-001-framework-baseline.md` | 新增基础框架说明 |
+| `PROJECT_STEP_RECORD.md` | 追加 BUD-001 阶段记录 |
+
+### 关键产出
+
+1. 后端统一响应结构：`ApiResponse<T>`、`ApiError`。
+2. 后端统一异常结构：`ApplicationException`、`ErrorCode`、`GlobalExceptionHandler`。
+3. 后端基础健康检查：`GET /api/health`。
+4. 后端基础审计接口：`AuditEvent`、`AuditAction`、`AuditService`、`NoopAuditService`。
+5. 前端共享 API 类型和请求封装：`ApiResponse`、`ApiError`、`requestJson`。
+6. 阶段架构说明已沉淀到 `docs/architecture/bud-001-framework-baseline.md`。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 修复后通过；Tests run: 3, Failures: 0, Errors: 0, Skipped: 0 |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过 |
+
+### 失败项与修复记录
+
+1. `mvn test` 第一次失败：`No ParameterResolver registered for parameter MockMvc`。定位为 `@WebMvcTest` 测试类构造器注入未被当前测试上下文解析。修复：改用 `@Autowired` 字段注入。
+2. `mvn test` 第二次失败：`/test/fail` 请求被 `ResourceHttpRequestHandler` 处理，返回 `NoResourceFoundException` 并被统一异常处理成 500。定位为嵌套测试 Controller 未被 `@WebMvcTest` 正确注册。修复：异常处理测试改为 `MockMvcBuilders.standaloneSetup(...).setControllerAdvice(...)`。
+3. 修复后后端测试全部通过。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 元数据业务模块 | 未新增 |
+| 预算模型业务模块 | 未新增 |
+| 模板业务模块 | 未新增 |
+| 填报业务模块 | 未新增 |
+| 查询业务模块 | 未新增 |
+| 导入业务模块 | 未新增 |
+| migration | 未新增 |
+| 数据库表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| README | 仍为历史本地修改，未纳入本阶段提交范围 |
+
+### 未解决问题
+
+1. 审计持久化未实现，需在后续审计存储或具体业务阶段进入。
+2. 认证与授权上下文未实现，需在权限基础阶段进入。
+3. README 历史本地修改仍需专门阶段处理。
+
+### 是否建议关闭本阶段
+
+建议关闭 BUD-001。
+
+关闭理由：项目基础框架、统一响应、统一错误、健康检查、审计接口和前端 API 基础类型已建立并通过验证，后续可以进入 BUD-002 元数据模型设计。
+
+### 下一阶段建议
+
+下一阶段：BUD-002：元数据模型设计。
+
+该阶段应先输出维度、成员、层级、Category、Version、预算模型、同源事实数据和权限范围的逻辑模型与物理模型设计，不直接新增 migration，除非阶段明确允许。
