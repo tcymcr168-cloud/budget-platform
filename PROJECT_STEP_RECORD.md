@@ -1252,3 +1252,68 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BPC-KB-009：自研预算平台模块路线图。
 
 该阶段继续只写文档，不写业务代码，重点把前序知识包转换为可执行阶段路线图，并明确 MVP 与后置范围。
+
+## BPC-KB-009
+
+阶段名称：自研预算平台模块路线图
+
+记录日期：2026-05-06
+
+### 阶段目标
+
+基于 BPC-KB-001 至 BPC-KB-008，制定自研 Web Native 企业级全面预算管理平台的模块路线图，明确 MVP 主线、后置范围、架构前置决策和产品前置决策。本阶段只写文档，不写业务代码。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/bpc-kb-001-core-terms.md` 至 `docs/product/bpc-kb-008-pain-points-guardrails.md` |
+| 允许修改 | `docs/product/bpc-kb-009-budget-platform-roadmap.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | `backend/src`、`frontend/src`、migration、PDF 原文、OCR 全文 |
+| 验证命令 | 路线图边界检查、`git status --short`、`git check-ignore`、禁止范围检查 |
+| 授权状态 | 全自动模式，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/product/bpc-kb-009-budget-platform-roadmap.md` | 新增自研预算平台模块路线图 |
+| `PROJECT_STEP_RECORD.md` | 追加 BPC-KB-009 阶段记录 |
+
+### 关键产出
+
+1. 明确 MVP 主线闭环：治理基础、元数据模型、预算模型管理、预算模板管理、预算填报、预算查询与基础汇总、实际数导入。
+2. 明确后置范围：预算执行差异分析、BI 图表、合并报表、ERP 直连、Excel 插件、通用脚本逻辑、复杂流程设计器和多级审批。
+3. 输出 ARCH-001、PRODUCT-001、DEV-000、BUD-001 至 BUD-010 的阶段路线。
+4. 明确核心对象演进顺序：Dimension/Member/Hierarchy -> Budget Model -> Input Template -> Submission Task -> Fact Value -> Query View，Import Job 写入 Fact Value。
+5. 明确 ARCH-001 和 PRODUCT-001 必须回答的前置决策。
+6. 明确不建议立即进入开发，需先完成 ARCH-001 和 PRODUCT-001。
+
+### 验证结果
+
+| 验证项 | 结果 |
+| --- | --- |
+| 读取治理文件 | 已读取 |
+| 读取相关产品文档 | 已读取 BPC-KB-001 至 BPC-KB-008 |
+| 路线图边界检查 | 已确认路线图未把 BI、合并报表、ERP 直连、预算执行差异分析放入 MVP |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| `backend/src` | 不存在，未修改 |
+| `frontend/src` | 不存在，未修改 |
+| migration | 未新增 |
+
+### 失败项与修复记录
+
+无失败项。本阶段未执行删除操作。
+
+### 是否建议关闭本阶段
+
+建议关闭 BPC-KB-009。
+
+关闭理由：自研预算平台模块路线图已形成，BPC-KB-001 至 BPC-KB-009 知识抽取阶段闭环完成，后续可以进入 ARCH-001 技术架构基线设计。
+
+### 下一阶段建议
+
+下一阶段：ARCH-001：技术架构基线设计。
+
+该阶段继续只写架构与 ADR 文档，不创建业务代码。重点固定技术栈、分层架构、同源事实数据、动态维度落库、状态权限审计和导入批次设计。
