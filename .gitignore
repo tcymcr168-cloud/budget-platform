@@ -2,3 +2,7 @@
 # Do not commit original PDF files or OCR derivatives generated from them.
 docs/source/bpc-pdf/*.pdf
 docs/source/bpc-pdf/*.PDF
+docs/source/bpc-ocr-cache/
+docs/source/bpc-ocr-text/
+docs/source/bpc-ocr-output/
+__pycache__/
