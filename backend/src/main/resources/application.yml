@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: budget-platform-backend
+
+server:
+  port: 8080

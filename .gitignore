@@ -6,3 +6,10 @@ docs/source/bpc-ocr-cache/
 docs/source/bpc-ocr-text/
 docs/source/bpc-ocr-output/
 __pycache__/
+backend/target/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts

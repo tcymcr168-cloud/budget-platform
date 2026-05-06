@@ -1479,3 +1479,99 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：DEV-000：创建后端 / 前端基础工程。
 
 该阶段允许创建正式后端和前端基础工程，但仍不进入预算业务模块实现。重点是 Spring Boot、React Vite、基础测试命令、工程目录和 README 后续整理策略。
+
+## DEV-000
+
+阶段名称：创建后端 / 前端基础工程
+
+记录日期：2026-05-06
+
+### 阶段目标
+
+创建正式 Spring Boot 后端基础工程和 React/Vite 前端基础工程，建立可运行的最小工程壳、依赖锁定、基础测试命令和构建忽略规则。本阶段不实现预算业务模块，不新增 migration，不创建数据库表，不提交 PDF 或 OCR 全文。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/architecture/arch-001-technical-baseline.md`、`docs/product/product-001-mvp-scope.md` |
+| 允许修改 | `backend`、`frontend`、`.gitignore`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 预算业务模块、migration、PDF 原文、OCR 全文、临时入口页 |
+| 验证命令 | `mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build`、`git status --short`、`git check-ignore` |
+| 授权状态 | 全自动模式，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `.gitignore` | 增加后端 `target`、前端 `node_modules`、`dist`、Vite/TypeScript 构建副产物忽略规则 |
+| `backend/pom.xml` | 新增 Spring Boot 3.5.10 + Java 17 + Maven 基础工程配置 |
+| `backend/src/main/java/com/budgetplatform/BudgetPlatformApplication.java` | 新增 Spring Boot 启动类 |
+| `backend/src/main/resources/application.yml` | 新增基础应用名和端口配置 |
+| `backend/src/test/java/com/budgetplatform/BudgetPlatformApplicationTests.java` | 新增 Spring 上下文加载测试 |
+| `frontend/package.json` | 新增 React/Vite/TypeScript/pnpm 工程脚本和依赖 |
+| `frontend/pnpm-lock.yaml` | 新增前端依赖锁文件 |
+| `frontend/index.html` | 新增正式 Vite 入口 |
+| `frontend/tsconfig.json` | 新增前端 TypeScript 配置 |
+| `frontend/tsconfig.node.json` | 新增 Vite 配置 TypeScript 配置 |
+| `frontend/vite.config.ts` | 新增 Vite 配置 |
+| `frontend/eslint.config.js` | 新增 ESLint flat config |
+| `frontend/src/main.tsx` | 新增 React 挂载入口 |
+| `frontend/src/App.tsx` | 新增正式工程壳组件 |
+| `frontend/src/styles.css` | 新增基础样式 |
+| `PROJECT_STEP_RECORD.md` | 追加 DEV-000 阶段记录 |
+
+### 关键产出
+
+1. 后端基础工程可通过 `mvn test`。
+2. 前端基础工程可通过 `pnpm type-check`、`pnpm lint`、`pnpm build`。
+3. `.gitignore` 已排除后端和前端构建产物，同时继续保护 PDF 与 OCR 缓存。
+4. 前端只包含正式 React/Vite 工程壳，不是临时 HTML 入口。
+5. 后端只包含应用启动类和上下文测试，不包含预算业务 API。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 1, Failures: 0, Errors: 0, Skipped: 0 |
+| `pnpm install` | 通过；生成 `frontend/pnpm-lock.yaml` |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 第一次因构建副产物 `vite.config.d.ts` 被 ESLint 解析失败；修复后通过 |
+| `pnpm build` | 第一次因缺少 Node 类型和 Node TS 配置不足失败；修复后通过 |
+| `git check-ignore` | PDF、OCR、`backend/target`、`frontend/node_modules`、`frontend/dist`、Vite 构建副产物均被忽略 |
+
+### 失败项与修复记录
+
+1. `pnpm build` 初次失败，真实错误包括 `Cannot find type definition file for 'node'`、`Cannot find name 'Set'`、`Cannot find name 'Buffer'`。定位为 Vite 配置侧缺少 `@types/node` 且 `tsconfig.node.json` 未显式声明 `target/lib/types`。修复：新增 `@types/node`，更新 `tsconfig.node.json`。
+2. `pnpm lint` 初次失败，真实错误为 `vite.config.d.ts` 不在 `parserOptions.project` 范围内。定位为 `tsc -b` 生成声明副产物。修复：构建脚本改为 `tsc --noEmit && vite build`，并将相关副产物加入 `.gitignore` 与 ESLint ignore。
+3. 本阶段未删除任何生成文件，只通过忽略规则防止副产物进入 Git。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 预算业务模块 | 未新增 |
+| migration | 未新增 |
+| 数据库表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| 临时沙箱配置 | 未新增 |
+| README | 仍为历史本地修改，未纳入本阶段提交范围 |
+
+### 未解决问题
+
+1. `frontend/vite.config.js`、`frontend/vite.config.d.ts` 和 TypeScript build info 是本地构建副产物，已被忽略但未删除，后续如需清理需用户明确授权。
+2. Docker 暂不可用，后续数据库相关阶段优先使用本地 PostgreSQL 或另立容器化修复阶段。
+3. README 历史本地修改仍需专门阶段处理。
+
+### 是否建议关闭本阶段
+
+建议关闭 DEV-000。
+
+关闭理由：后端和前端基础工程已创建并通过基线验证，未进入预算业务模块，后续可以进入 BUD-001 项目治理与基础框架。
+
+### 下一阶段建议
+
+下一阶段：BUD-001：项目治理与基础框架。
+
+该阶段可以在已创建工程内建立统一错误响应、基础异常结构、基础审计接口和工程规范，但仍不得进入元数据、预算模型、模板、填报、查询或导入业务模块。
