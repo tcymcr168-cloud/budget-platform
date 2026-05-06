@@ -866,3 +866,80 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BPC-KB-004：填报、数据输入、Work Status 知识抽取。
 
 该阶段继续只写文档，不写业务代码，重点分析保存、提交、锁定、退回、状态范围和 Work Status 简化策略。
+
+## BPC-KB-004
+
+阶段名称：填报、数据输入、Work Status 知识抽取
+
+记录日期：2026-05-06
+
+### 阶段目标
+
+抽取 SAP BPC 中数据填报、保存、提交、审批、锁定与 Work Status 的产品思想，转换为自研 Web Native 预算填报状态设计原则。本阶段只写文档，不写业务代码。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/bpc-kb-001-core-terms.md`、`docs/product/bpc-kb-003-input-schedule.md`、本地 OCR 缓存 |
+| 允许修改 | `docs/product/bpc-kb-004-input-work-status.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | `backend/src`、`frontend/src`、migration、PDF 原文、OCR 全文 |
+| 验证命令 | OCR 缓存术语页码定位、`git status --short`、`git check-ignore`、禁止范围检查 |
+| 授权状态 | 全自动模式，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/product/bpc-kb-004-input-work-status.md` | 新增填报、数据输入、Work Status 知识抽取文档 |
+| `PROJECT_STEP_RECORD.md` | 追加 BPC-KB-004 阶段记录 |
+
+### 关键产出
+
+1. 明确 Work Status 的可吸收思想是“按数据区域控制填报生命周期”，而不是直接照搬复杂切片锁定。
+2. 明确自研平台的最小填报状态模型：`NOT_STARTED`、`DRAFT`、`SUBMITTED`、`RETURNED`、`APPROVED`、`LOCKED`。
+3. 明确保存与提交必须分离：保存是草稿，提交是流程承诺。
+4. 明确 MVP 状态范围建议：Template + Entity + Time + Category + Version。
+5. 明确填报人、审核人、预算管理员、只读用户的最小权限边界。
+6. 明确状态变更必须审计，避免 BPC 黑盒 Work Status 和隐式 Excel 提交体验。
+
+### 来源定位
+
+| 主题 | 来源 |
+| --- | --- |
+| Work Status | BPC420 p6, p16, p82-p83, p94, p109；BPC450 p98-p99, p228；S4F80 p146-p149；s4f90 p69, p107，OCR |
+| Submit / Submitted | BPC420 p292, p295, p300, p302, p347；BPC450 p42, p85, p93, p146, p152；S4F80 p182-p183，OCR |
+| Approve / Approval | BPC420 p108-p109, p291, p297, p300；BPC450 p246, p248, p278, p285；S4F80 p170, p183，OCR |
+| Reject | BPC420 p292, p300；BPC440 p248, p253, p263；S4F80 p181, p183；s4f90 p258, p262-p263，OCR |
+| Lock / Unlock | BPC420 p83, p94, p145-p149；BPC450 p16-p17, p94-p95, p182, p249；S4F80 p122-p123, p146-p147，OCR |
+| Owner / Reviewer | BPC420 p16, p32-p33, p300；BPC440 p253-p263；S4F80 p170-p183；s4f90 p257-p267，OCR |
+| Data Input / Save Data | BPC420 p133, p140, p142, p227, p296, p309；BPC430 p125；BPC450 p228-p229；S4F80 p78, p155, p192，OCR |
+
+### 验证结果
+
+| 验证项 | 结果 |
+| --- | --- |
+| 读取治理文件 | 已读取 |
+| 读取相关产品文档 | 已读取 BPC-KB-001 与 BPC-KB-003 |
+| 术语页码定位 | 已通过 OCR 缓存检索 Work Status、Submit、Approve、Reject、Lock、Owner、Reviewer、Save Data 等页码分布 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| `backend/src` | 不存在，未修改 |
+| `frontend/src` | 不存在，未修改 |
+| migration | 未新增 |
+
+### 失败项与修复记录
+
+无失败项。本阶段未执行删除操作。
+
+### 是否建议关闭本阶段
+
+建议关闭 BPC-KB-004。
+
+关闭理由：填报、数据输入与 Work Status 的结构化知识抽取已完成，状态模型、状态范围、权限最小化和审计要求已形成后续产品与架构输入。
+
+### 下一阶段建议
+
+下一阶段：BPC-KB-005：查询、汇总、报表知识抽取。
+
+该阶段继续只写文档，不写业务代码，重点分析 SAP BPC 查询、报表、汇总与 EPM 报表思想如何转化为 Web Native 基础查询与汇总能力，并避免提前建设复杂 BI。
