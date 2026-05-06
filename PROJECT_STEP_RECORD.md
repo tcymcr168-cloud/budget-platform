@@ -1174,3 +1174,81 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BPC-KB-008：用户痛点与自研规避原则。
 
 该阶段继续只写文档，不写业务代码，重点把 BPC 复杂形态归纳为自研平台的设计护栏和阶段边界。
+
+## BPC-KB-008
+
+阶段名称：用户痛点与自研规避原则
+
+记录日期：2026-05-06
+
+### 阶段目标
+
+基于 BPC-KB-001 至 BPC-KB-007 的资料抽取结果，归纳 SAP BPC 对自研 Web Native 全面预算平台的核心痛点、规避原则和产品护栏。本阶段只写文档，不写业务代码。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/bpc-kb-001-core-terms.md`、`docs/product/bpc-kb-003-input-schedule.md`、`docs/product/bpc-kb-004-input-work-status.md`、`docs/product/bpc-kb-006-data-manager-actual-import.md`、`docs/product/bpc-kb-007-access-process-collaboration.md` |
+| 允许修改 | `docs/product/bpc-kb-008-pain-points-guardrails.md`、`docs/product/bpc-pain-points-and-design-guardrails.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | `backend/src`、`frontend/src`、migration、PDF 原文、OCR 全文 |
+| 验证命令 | 文档引用检查、`git status --short`、`git check-ignore`、禁止范围检查 |
+| 授权状态 | 全自动模式，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/product/bpc-kb-008-pain-points-guardrails.md` | 新增用户痛点与自研规避原则文档 |
+| `docs/product/bpc-pain-points-and-design-guardrails.md` | 从占位草稿更新为指向 BPC-KB-008 的 DRAFT index |
+| `PROJECT_STEP_RECORD.md` | 追加 BPC-KB-008 阶段记录 |
+
+### 关键产出
+
+1. 明确自研平台必须吸收 BPC 的模型驱动、维度驱动、成员层级、Category/Version、模板、状态、实际与预算同源思想。
+2. 明确必须规避 Excel / Office 插件依赖、黑盒 Data Manager、复杂 Script Logic、Work Status 切片锁定、多维权限矩阵。
+3. 明确 BI 图表、合并报表、ERP 直连、预算执行差异分析不得提前进入 MVP。
+4. 输出 Web Native First、Model First、Fact Value Single Source、Explicit Workflow、Explainable Access、Transparent Import、No Hidden Logic、Stage Discipline 八条正向设计原则。
+5. 输出元数据、模板、填报、查询、实际数导入、权限的模块级护栏。
+
+### 来源定位
+
+| 痛点或护栏 | 来源 |
+| --- | --- |
+| Excel / EPM Add-in 依赖 | BPC-KB-003；BPC420 p135-p150；BPC430 p43-p61, p90, p95, p113-p117，OCR |
+| 黑盒 Data Manager | BPC-KB-006；BPC420 p160-p179, p187-p195；BPC440 p75-p83，OCR |
+| Transformation / Conversion 复杂语法 | BPC-KB-006；BPC420 p175-p179, p187-p192, p209-p212；BPC440 p75-p79，OCR |
+| Script Logic / Dynamic Calculation 复杂化 | BPC-KB-001；BPC420 p115-p121, p282-p285；BPC430 p107-p109；BPC440 p49-p54，OCR |
+| Work Status 切片锁定 | BPC-KB-004；BPC420 p82-p83, p290-p296；BPC450 p245-p250；S4F80 p146-p149, p170-p173，OCR |
+| Data Access 多维权限矩阵 | BPC-KB-007；BPC420 p90-p104；BPC450 p260-p266；s4f90 p330-p333，OCR |
+| BPF 流程复杂化 | BPC-KB-007；BPC420 p299-p309；BPC440 p246-p264；S4F80 p170-p184；s4f90 p334-p342，OCR |
+| Actual 与 Budget 同源 | BPC-KB-002、BPC-KB-006；S4F80 p19, p50, p58-p68, p72, p103；BPC450 p49, p66，OCR |
+
+### 验证结果
+
+| 验证项 | 结果 |
+| --- | --- |
+| 读取治理文件 | 已读取 |
+| 读取相关产品文档 | 已读取 BPC-KB-001、BPC-KB-003、BPC-KB-004、BPC-KB-006、BPC-KB-007 |
+| 文档引用检查 | 已确认 BPC-KB-008 引用了前序知识包和来源页码 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| `backend/src` | 不存在，未修改 |
+| `frontend/src` | 不存在，未修改 |
+| migration | 未新增 |
+
+### 失败项与修复记录
+
+无失败项。本阶段未执行删除操作。
+
+### 是否建议关闭本阶段
+
+建议关闭 BPC-KB-008。
+
+关闭理由：用户痛点、规避原则、正向设计原则和模块级护栏已形成，能够作为 BPC-KB-009 路线图、ARCH-001 架构基线和 PRODUCT-001 MVP 范围的输入。
+
+### 下一阶段建议
+
+下一阶段：BPC-KB-009：自研预算平台模块路线图。
+
+该阶段继续只写文档，不写业务代码，重点把前序知识包转换为可执行阶段路线图，并明确 MVP 与后置范围。
