@@ -1405,3 +1405,77 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：PRODUCT-001：MVP 产品范围与阶段拆分。
 
 该阶段继续只写产品文档，不写业务代码，重点固定 MVP 用户角色、用户故事、功能范围、默认预算场景、验收标准和阶段拆分。
+
+## PRODUCT-001
+
+阶段名称：MVP 产品范围与阶段拆分
+
+记录日期：2026-05-06
+
+### 阶段目标
+
+基于 BPC-KB-001 至 BPC-KB-009 和 ARCH-001，将 SAP BPC 产品思想和自研规避原则转化为 MVP 产品范围、首个预算场景、用户角色、用户故事、状态流、验收标准和后续开发阶段拆分。本阶段只写产品文档，不创建后端或前端工程，不写业务代码，不新增 migration。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/bpc-kb-009-budget-platform-roadmap.md`、`docs/architecture/arch-001-technical-baseline.md` |
+| 允许修改 | `docs/product/product-001-mvp-scope.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | `backend/src`、`frontend/src`、migration、PDF 原文、OCR 全文 |
+| 验证命令 | `git status --short`、`git check-ignore`、禁止范围检查、产品文档存在性检查 |
+| 授权状态 | 全自动模式，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/product/product-001-mvp-scope.md` | 新增 MVP 产品范围与阶段拆分文档 |
+| `PROJECT_STEP_RECORD.md` | 追加 PRODUCT-001 阶段记录 |
+
+### 关键产出
+
+1. 确定 MVP 首个业务场景为费用预算。
+2. 确定 MVP 角色：Budget Admin、Metadata Manager、Template Designer、Budget Owner、Budget Reviewer、Import Operator、Read Only User。
+3. 确定强制内置核心维度类型：Account、Entity、Time、Category、Version。
+4. 确定模板 MVP 只支持单页 Web 模板、行轴、列轴、筛选和基础校验。
+5. 确定填报状态保留 `APPROVED` 与 `LOCKED` 两个状态，不合并。
+6. 确定实际数导入 MVP 先支持 CSV，XLSX 后续评估。
+7. 确定查询 MVP 支持表格查询、基础汇总、明细和 CSV 导出，不做 BI 图表。
+8. 确定 DEV-000、BUD-001 至 BUD-009 的产品范围拆分。
+
+### 验证结果
+
+| 验证项 | 结果 |
+| --- | --- |
+| 读取治理文件 | 已读取 |
+| 读取产品路线图 | 已读取 BPC-KB-009 |
+| 读取架构基线 | 已读取 ARCH-001 |
+| 产品文档 | `docs/product/product-001-mvp-scope.md` 已存在 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| `backend/src` | 不存在，未修改 |
+| `frontend/src` | 不存在，未修改 |
+| migration | 未新增 |
+
+### 失败项与修复记录
+
+无失败项。本阶段未执行删除操作。
+
+### 未解决问题
+
+1. README 当前仍有历史本地修改，未纳入本阶段提交范围。
+2. Docker 暂不可用，DEV-000 创建工程后如果需要本地数据库，应优先使用已可用的本地 PostgreSQL 或延后容器化。
+3. XLSX 导入不进入 MVP 首轮验收，BUD-009 后续可评估。
+
+### 是否建议关闭本阶段
+
+建议关闭 PRODUCT-001。
+
+关闭理由：MVP 场景、角色、功能边界、状态流、验收标准和开发阶段拆分已确定，满足进入 DEV-000 创建基础工程的前置条件。
+
+### 下一阶段建议
+
+下一阶段：DEV-000：创建后端 / 前端基础工程。
+
+该阶段允许创建正式后端和前端基础工程，但仍不进入预算业务模块实现。重点是 Spring Boot、React Vite、基础测试命令、工程目录和 README 后续整理策略。
