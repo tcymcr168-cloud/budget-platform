@@ -943,3 +943,81 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BPC-KB-005：查询、汇总、报表知识抽取。
 
 该阶段继续只写文档，不写业务代码，重点分析 SAP BPC 查询、报表、汇总与 EPM 报表思想如何转化为 Web Native 基础查询与汇总能力，并避免提前建设复杂 BI。
+
+## BPC-KB-005
+
+阶段名称：查询、汇总、报表知识抽取
+
+记录日期：2026-05-06
+
+### 阶段目标
+
+抽取 SAP BPC 中查询、汇总、报表、EPM Report、Query、Axis、Refresh、Drill、Aggregation 等产品思想，转换为自研 Web Native 预算平台基础查询与汇总设计原则。本阶段只写文档，不写业务代码。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/bpc-kb-001-core-terms.md` 至 `docs/product/bpc-kb-004-input-work-status.md`、本地 OCR 缓存 |
+| 允许修改 | `docs/product/bpc-kb-005-query-reporting.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | `backend/src`、`frontend/src`、migration、PDF 原文、OCR 全文 |
+| 验证命令 | OCR 缓存术语页码定位、`git status --short`、`git check-ignore`、禁止范围检查 |
+| 授权状态 | 全自动模式，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/product/bpc-kb-005-query-reporting.md` | 新增查询、汇总、报表知识抽取文档 |
+| `PROJECT_STEP_RECORD.md` | 追加 BPC-KB-005 阶段记录 |
+
+### 关键产出
+
+1. 明确 BPC 报表与查询的核心是“基于模型、维度、成员、层级和过滤条件读取事实数据，并按行列轴展示汇总结果”。
+2. 明确自研平台查询对象建议：Query View、Query Axis、Axis Member Set、Query Filter、Query Measure、Aggregation Rule、Drill Context。
+3. 明确报表视图只保存查询定义，不保存事实数据。
+4. 明确汇总应来自成员层级和事实数据，不依赖模板或报表中的手工合计行。
+5. 明确查询与 BPC-KB-004 填报状态的关系：正式报表默认使用已提交或已通过预算数据，草稿数据只在填报工作台展示。
+6. 明确 MVP 不做 BI 图表、Office 插件报表、复杂动态计算、外部 Drill Through 和预算执行差异分析。
+
+### 来源定位
+
+| 主题 | 来源 |
+| --- | --- |
+| Report / Reporting | BPC420 p11-p15, p51, p74-p77；BPC430 p1, p5-p6, p13, p16, p18-p25, p34；BPC440 p11, p15, p23, p37-p38；BPC450 p6, p17, p32, p44, p47；S4F80 p5, p9, p14, p21，OCR |
+| EPM Report | BPC420 p149, p153；BPC430 p5, p22, p43-p44, p61, p90, p107, p116-p117, p125；BPC440 p60；s4f90 p342，OCR |
+| Query | BPC420 p86, p118, p123, p282-p285；BPC430 p95, p113, p115-p118, p143-p149；BPC450 p13, p17, p19, p38, p46, p49, p66-p67, p77-p78；S4F80 p71-p72, p79-p81，OCR |
+| Page / Row / Column Axis | BPC420 p147-p150；BPC430 p48, p56, p61, p78, p97-p98, p103, p113, p119, p137-p140；BPC440 p61, p64, p66-p67；BPC450 p237，OCR |
+| Member Selector | BPC420 p142, p146, p150；BPC430 p43-p44, p51, p53, p63, p65, p71-p72, p75；BPC440 p61, p63, p66-p67，OCR |
+| Refresh / Retrieve | BPC420 p124, p142-p143, p154, p157, p258, p261, p285；BPC430 p51, p62, p85, p91, p127, p131, p135, p137, p173, p203，OCR |
+| Drill / Drill Through | BPC420 p46, p94, p142, p282, p351, p376；BPC430 p17, p22, p33, p94-p95, p143-p146；S4F80 p16, p52, p119, p124，OCR |
+| Aggregation / Aggregate | BPC420 p14, p21-p22, p115, p273, p282；BPC430 p79, p171, p176-p181, p226；BPC450 p29, p31-p32, p85, p150；S4F80 p11, p20, p58, p60，OCR |
+
+### 验证结果
+
+| 验证项 | 结果 |
+| --- | --- |
+| 读取治理文件 | 已读取 |
+| 读取相关产品文档 | 已读取 BPC-KB-001 至 BPC-KB-004 |
+| 术语页码定位 | 已通过 OCR 缓存检索 Report、EPM Report、Query、Axis、Member Selector、Refresh、Drill、Aggregation 等页码分布 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| `backend/src` | 不存在，未修改 |
+| `frontend/src` | 不存在，未修改 |
+| migration | 未新增 |
+
+### 失败项与修复记录
+
+无失败项。本阶段未执行删除操作。
+
+### 是否建议关闭本阶段
+
+建议关闭 BPC-KB-005。
+
+关闭理由：查询、汇总、报表的结构化知识抽取已完成，基础 Query View、轴定义、层级汇总、状态口径和 MVP 边界已形成后续产品与架构输入。
+
+### 下一阶段建议
+
+下一阶段：BPC-KB-006：实际数导入 / Data Manager 知识抽取。
+
+该阶段继续只写文档，不写业务代码，重点分析 Data Manager、Transformation、Conversion、Import、Actual 数据导入如何转化为透明、可预览、可审计的 Web 导入能力。
