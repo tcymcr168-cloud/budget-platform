@@ -1098,3 +1098,79 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BPC-KB-007：权限、状态、流程与协作知识抽取。
 
 该阶段继续只写文档，不写业务代码，重点分析 Data Access、Team、Owner、Reviewer、Process、Work Status 与自研最小权限和协作模型的关系。
+
+## BPC-KB-007
+
+阶段名称：权限、状态、流程与协作知识抽取
+
+记录日期：2026-05-06
+
+### 阶段目标
+
+抽取 SAP BPC 中 Data Access、Task Profile、Team、Owner、Reviewer、Work Status、Business Process Flow、Activity、Comment、Audit 等产品思想，转换为自研 Web Native 预算平台最小权限、状态、流程与协作设计原则。本阶段只写文档，不写业务代码。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/bpc-kb-002-model-dimension.md`、`docs/product/bpc-kb-004-input-work-status.md`、`docs/product/bpc-kb-006-data-manager-actual-import.md`、本地 OCR 缓存 |
+| 允许修改 | `docs/product/bpc-kb-007-access-process-collaboration.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | `backend/src`、`frontend/src`、migration、PDF 原文、OCR 全文 |
+| 验证命令 | OCR 缓存术语页码定位、`git status --short`、`git check-ignore`、禁止范围检查 |
+| 授权状态 | 全自动模式，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/product/bpc-kb-007-access-process-collaboration.md` | 新增权限、状态、流程与协作知识抽取文档 |
+| `PROJECT_STEP_RECORD.md` | 追加 BPC-KB-007 阶段记录 |
+
+### 关键产出
+
+1. 明确 BPC 的权限协作体系由功能权限、数据权限、团队、Owner/Reviewer、Work Status 和 Business Process Flow 共同构成。
+2. 明确自研平台应分离功能权限与数据权限。
+3. 明确 MVP 使用 Role、Permission、Responsibility Scope、Data Scope、Owner Assignment、Reviewer Assignment 和 Access Audit Log。
+4. 明确 Owner / Reviewer 是填报协作最小闭环。
+5. 明确 Work Status 只作为状态和可编辑性来源，不复刻复杂切片锁定。
+6. 明确 BPF 的活动、评论、跟踪思想可吸收，但复杂流程设计器、多级审批和 Teams 后置。
+
+### 来源定位
+
+| 主题 | 来源 |
+| --- | --- |
+| Data Access / Data Access Profile | BPC420 p39, p77, p90, p93, p97-p100, p102, p276, p309, p333, p345；BPC440 p250, p264；BPC450 p15, p56, p192, p260, p265-p266, p268；s4f90 p17, p97, p342，OCR |
+| Task Profile | BPC420 p39, p90, p93-p96, p99-p103, p162-p163；BPC430 p168；BPC440 p139, p250, p264；s4f90 p332，OCR |
+| Team / Teams | BPC420 p39, p90, p93, p95-p104, p107, p182, p292；BPC440 p82, p102, p250, p252-p255；BPC450 p24, p35, p219, p246, p250-p251, p261, p265, p283；S4F80 p172, p182, p184，OCR |
+| Owner / Reviewer | BPC420 p16, p32-p33, p300, p302, p307, p310-p311, p318；BPC440 p253-p254, p257, p262-p263；BPC450 p246-p250, p253, p277, p282, p284；S4F80 p170-p173, p182-p187；s4f90 p337-p338，OCR |
+| Security / Authorization | BPC420 p16-p17, p27, p35, p39, p41, p46, p77, p89-p94, p101, p222, p332, p368；BPC450 p24, p123, p126, p203, p260-p267；s4f90 p330-p333，OCR |
+| Business Process Flow / BPF | BPC420 p290, p296, p299-p303, p307, p309；BPC430 p35-p42, p203；BPC440 p246, p251-p264；BPC450 p245, p253, p277-p289；S4F80 p159, p170-p184；s4f90 p330, p334-p342，OCR |
+
+### 验证结果
+
+| 验证项 | 结果 |
+| --- | --- |
+| 读取治理文件 | 已读取 |
+| 读取相关产品文档 | 已读取 BPC-KB-002、BPC-KB-004、BPC-KB-006 |
+| 术语页码定位 | 已通过 OCR 缓存检索 Data Access、Task Profile、Team、Owner、Reviewer、Security、Authorization、Work Status、BPF、Activity、Comment、Audit 等页码分布 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| `backend/src` | 不存在，未修改 |
+| `frontend/src` | 不存在，未修改 |
+| migration | 未新增 |
+
+### 失败项与修复记录
+
+无失败项。本阶段未执行删除操作。
+
+### 是否建议关闭本阶段
+
+建议关闭 BPC-KB-007。
+
+关闭理由：权限、状态、流程与协作的结构化知识抽取已完成，最小权限模型、责任范围、Owner/Reviewer 协作、审计事件和 MVP 规避边界已形成后续产品与架构输入。
+
+### 下一阶段建议
+
+下一阶段：BPC-KB-008：用户痛点与自研规避原则。
+
+该阶段继续只写文档，不写业务代码，重点把 BPC 复杂形态归纳为自研平台的设计护栏和阶段边界。
