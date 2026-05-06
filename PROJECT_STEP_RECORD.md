@@ -1667,3 +1667,74 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BUD-002：元数据模型设计。
 
 该阶段应先输出维度、成员、层级、Category、Version、预算模型、同源事实数据和权限范围的逻辑模型与物理模型设计，不直接新增 migration，除非阶段明确允许。
+
+## BUD-002
+
+阶段名称：元数据模型设计
+
+记录日期：2026-05-06
+
+### 阶段目标
+
+设计全面预算平台 MVP 的元数据逻辑模型和物理模型候选，覆盖预算空间、预算模型、维度、成员、单主层级、Category、Version、同源事实数据坐标和权限范围预留。本阶段只写架构和 ADR 文档，不创建 migration，不新增数据库表，不实现后端 API 或前端页面。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/bpc-kb-002-model-dimension.md`、`docs/product/product-001-mvp-scope.md`、`docs/architecture/arch-001-technical-baseline.md` |
+| 允许修改 | `docs/architecture/bud-002-metadata-model-design.md`、`docs/adr/0004-dynamic-dimension-physical-model.md`、`docs/adr/0005-single-primary-hierarchy.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | migration、后端元数据业务 API、前端元数据页面、PDF 原文、OCR 全文 |
+| 验证命令 | 文档存在性检查、`git status --short`、`git check-ignore`、migration 检查、现有测试 |
+| 授权状态 | 全自动模式，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/bud-002-metadata-model-design.md` | 新增元数据模型设计文档 |
+| `docs/adr/0004-dynamic-dimension-physical-model.md` | 新增动态维度物理模型 ADR |
+| `docs/adr/0005-single-primary-hierarchy.md` | 新增单主层级 MVP ADR |
+| `PROJECT_STEP_RECORD.md` | 追加 BUD-002 阶段记录 |
+
+### 关键产出
+
+1. 确定元数据逻辑模型：`budget_workspace`、`dimension`、`dimension_member`、`budget_model`、`model_dimension`、`fact_value`、`fact_value_axis`。
+2. 确定 MVP 强制内置维度类型：Account、Entity、Time、Category、Version。
+3. 确定动态维度采用混合坐标模型：核心维度显式列，自定义维度轴表。
+4. 确定成员层级 MVP 只支持单主父子层级。
+5. 确定事实数据不按模型动态建表，Budget / Actual / Forecast 不拆表。
+6. 输出校验规则、索引候选和权限范围预留。
+
+### 测试与验证结果
+
+| 验证项 | 结果 |
+| --- | --- |
+| 文档存在性 | 3 个设计/ADR 文件已存在 |
+| migration | 未新增 |
+| 后端业务 API | 未新增 |
+| 前端业务页面 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+
+### 失败项与修复记录
+
+无失败项。本阶段未执行删除操作。
+
+### 未解决问题
+
+1. BUD-003 进入实现前，需要明确是否允许新增 migration。
+2. 历史层级版本、多层级和多父节点能力后置。
+3. 导入覆盖、冲销或版本化策略仍需在 BUD-009 前决策。
+
+### 是否建议关闭本阶段
+
+建议关闭 BUD-002。
+
+关闭理由：元数据逻辑模型、动态维度物理模型取舍、单主层级约束、索引候选和权限范围预留已形成，足以支撑 BUD-003 元数据后端实现。
+
+### 下一阶段建议
+
+下一阶段：BUD-003：元数据后端。
+
+该阶段将首次进入元数据业务后端实现。根据当前全自动授权，除删除文件外无需额外授权；但必须在阶段计划中明确 migration 范围、测试命令和不进入前端/模板/填报/查询/导入模块。
