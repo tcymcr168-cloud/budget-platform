@@ -2220,3 +2220,101 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BUD-008：预算查询与基础汇总。
 
 该阶段应基于 `fact_value` 实现表格查询、基础明细和轻量汇总，不做 BI 图表、不做预算执行差异分析。
+
+## BUD-008
+
+阶段名称：预算查询与基础汇总
+
+记录日期：2026-05-07
+
+### 阶段目标
+
+基于 BUD-007 的 `fact_value` 统一事实表，实现预算明细只读查询、基础维度汇总和 CSV 文本导出。本阶段不新增 migration，不实现实际数导入、预算与实际差异分析、BI 图表、ERP 直连或合并报表。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/product-001-mvp-scope.md`、`docs/architecture/bud-007-budget-submission-baseline.md`、现有 `fact_value` |
+| 允许修改 | `backend/src/main/java/com/budgetplatform/budgetquery`、`backend/src/test/java/com/budgetplatform/budgetquery`、必要的 `FactValue` 只读 getter、`frontend/src/features/budgetQuery`、`frontend/src/App.tsx`、`frontend/src/styles.css`、`docs/architecture/bud-008-budget-query-baseline.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 新增 migration、实际数导入、预算执行差异分析、BI 图表、ERP 直连、合并报表、PDF 原文、OCR 全文、删除接口 |
+| 验证命令 | `mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build`、`git status --short`、`git check-ignore` |
+| 授权状态 | 全自动模式；本阶段不涉及删除文件，不新增 migration |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/budgetsubmission/domain/FactValue.java` | 增加预算模型、模板、任务范围成员的只读 getter，供查询投影使用 |
+| `backend/src/main/java/com/budgetplatform/budgetsubmission/repository/FactValueRepository.java` | 增加按预算模型读取事实值的查询方法 |
+| `backend/src/main/java/com/budgetplatform/budgetquery/api/*` | 新增查询分组枚举、明细响应、汇总响应和 Controller |
+| `backend/src/main/java/com/budgetplatform/budgetquery/service/BudgetQueryService.java` | 新增明细查询、基础汇总和 CSV 文本导出服务 |
+| `backend/src/test/java/com/budgetplatform/budgetquery/api/BudgetQueryControllerIntegrationTests.java` | 新增预算查询集成测试 |
+| `frontend/src/features/budgetQuery/budgetQueryApi.ts` | 新增预算查询前端 API client |
+| `frontend/src/App.tsx` | 新增查询过滤、明细表、汇总表和 CSV 预览 UI |
+| `frontend/src/styles.css` | 新增查询区域样式 |
+| `docs/architecture/bud-008-budget-query-baseline.md` | 新增本阶段架构说明 |
+| `PROJECT_STEP_RECORD.md` | 追加 BUD-008 阶段记录 |
+
+### 关键产出
+
+1. 查询入口固定为 Budget Model，保持模型驱动。
+2. 明细查询读取统一 `fact_value`，当前支持 Account、Entity、Time、Category、Version 坐标。
+3. 基础汇总支持按 Account、Entity、Time、Category、Version 求和。
+4. CSV 导出仅为轻量文本核对能力，不引入报表引擎。
+5. 查询模块为只读能力，不改变填报状态和事实数据。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 20, Failures: 0, Errors: 0, Skipped: 0 |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过 |
+
+### 失败项与修复记录
+
+1. 本阶段前端首轮 `type-check`、`lint`、`build` 均通过。
+2. 后端查询模块首轮 `mvn test` 已通过；实现过程中移除了未使用的异常辅助方法和 import，保持服务层简洁。
+
+### 风险与记录
+
+1. 查询当前按预算模型读取后在服务层过滤，适合 MVP；大数据量需下推数据库条件和分页。
+2. 汇总当前是基础金额求和，不含层级递归、币种、单位、账户符号翻转或公式。
+3. CSV 是轻量导出，不是正式报表包。
+4. 当前没有鉴权上下文，后续权限阶段需补齐数据访问边界。
+5. `README.md` 仍是历史本地修改，未纳入本阶段提交范围。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 新增 migration | 未新增 |
+| 实际数导入 | 未新增 |
+| 预算执行分析 | 未新增 |
+| BI 图表 | 未新增 |
+| ERP 直连 | 未新增 |
+| 合并报表 | 未新增 |
+| 删除接口 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| README | 仍为历史本地修改，未纳入本阶段提交范围 |
+
+### 未解决问题
+
+1. 查询暂不支持分页、排序配置、保存查询视图和下载文件。
+2. 暂不支持层级汇总、自定义维度坐标和权限过滤。
+3. 暂不支持 Actual 来源事实，因此没有预算与实际同源查询。
+
+### 是否建议关闭本阶段
+
+建议关闭 BUD-008。
+
+关闭理由：预算事实明细查询、基础汇总、CSV 文本导出、前端查询工作台和集成测试已完成，且未越界进入导入、BI 或差异分析。
+
+### 下一阶段建议
+
+下一阶段：BUD-009：实际数导入。
+
+该阶段应在统一事实表思想上引入 Actual 来源的手工 CSV 导入或轻量文件导入基线，保持导入透明、可校验、可回溯；仍不得进入 ERP 直连、复杂 Data Manager 黑盒或预算执行差异分析。

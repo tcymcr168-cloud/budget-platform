@@ -121,8 +121,32 @@ public class FactValue {
         return submissionTask;
     }
 
+    public BudgetModel getBudgetModel() {
+        return budgetModel;
+    }
+
+    public BudgetTemplate getBudgetTemplate() {
+        return budgetTemplate;
+    }
+
     public DimensionMember getAccountMember() {
         return accountMember;
+    }
+
+    public DimensionMember getEntityMember() {
+        return entityMember;
+    }
+
+    public DimensionMember getTimeMember() {
+        return timeMember;
+    }
+
+    public DimensionMember getCategoryMember() {
+        return categoryMember;
+    }
+
+    public DimensionMember getVersionMember() {
+        return versionMember;
     }
 
     public BigDecimal getAmount() {

@@ -16,6 +16,8 @@ public interface FactValueRepository extends JpaRepository<FactValue, UUID> {
 
     List<FactValue> findBySubmissionTask_Id(UUID submissionTaskId);
 
+    List<FactValue> findByBudgetModel_IdOrderByUpdatedAtDesc(UUID budgetModelId);
+
     long countBySubmissionTask_Id(UUID submissionTaskId);
 
     default void updateStatuses(UUID submissionTaskId, FactValueStatus status) {

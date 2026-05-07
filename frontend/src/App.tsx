@@ -22,6 +22,14 @@ import {
   TemplateAxisType,
 } from './features/budgetTemplates/budgetTemplateApi';
 import {
+  exportFactsCsv,
+  FactQueryRow,
+  FactSummaryRow,
+  queryFacts,
+  QueryGroupBy,
+  summarizeFacts,
+} from './features/budgetQuery/budgetQueryApi';
+import {
   createDimension,
   createMember,
   createWorkspace,
@@ -36,6 +44,7 @@ import {
 import {
   approveSubmissionTask,
   createSubmissionTask,
+  FactValueStatus,
   FactValue,
   listFactValues,
   listSubmissionTasks,
@@ -56,6 +65,8 @@ const dimensionTypes: DimensionType[] = [
 ];
 
 const axisTypes: TemplateAxisType[] = ['ROW', 'COLUMN', 'FILTER'];
+
+const queryGroupByOptions: QueryGroupBy[] = ['ACCOUNT', 'ENTITY', 'TIME', 'CATEGORY', 'VERSION'];
 
 const initialScopeMembers: Record<DimensionType, DimensionMember[]> = {
   ACCOUNT: [],
@@ -78,6 +89,9 @@ function App() {
     useState<Record<DimensionType, DimensionMember[]>>(initialScopeMembers);
   const [submissionTasks, setSubmissionTasks] = useState<SubmissionTask[]>([]);
   const [factValues, setFactValues] = useState<FactValue[]>([]);
+  const [queryRows, setQueryRows] = useState<FactQueryRow[]>([]);
+  const [summaryRows, setSummaryRows] = useState<FactSummaryRow[]>([]);
+  const [csvExport, setCsvExport] = useState('');
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('');
   const [selectedDimensionId, setSelectedDimensionId] = useState('');
   const [selectedBudgetModelId, setSelectedBudgetModelId] = useState('');
@@ -129,6 +143,14 @@ function App() {
     accountMemberId: '',
     amount: '',
     note: '',
+  });
+  const [queryDraft, setQueryDraft] = useState({
+    entityMemberId: '',
+    timeMemberId: '',
+    categoryMemberId: '',
+    versionMemberId: '',
+    status: 'APPROVED' as '' | FactValueStatus,
+    groupBy: 'ACCOUNT' as QueryGroupBy,
   });
   const [returnReason, setReturnReason] = useState('');
   const [loading, setLoading] = useState(false);
@@ -185,6 +207,9 @@ function App() {
       setScopeMembers(initialScopeMembers);
       setSubmissionTasks([]);
       setSelectedSubmissionTaskId('');
+      setQueryRows([]);
+      setSummaryRows([]);
+      setCsvExport('');
       return;
     }
     void refreshDimensions(selectedWorkspaceId);
@@ -208,6 +233,9 @@ function App() {
       setModelBindings([]);
       setBudgetTemplates([]);
       setSelectedBudgetTemplateId('');
+      setQueryRows([]);
+      setSummaryRows([]);
+      setCsvExport('');
       return;
     }
     void refreshModelBindings(selectedBudgetModelId);
@@ -667,6 +695,59 @@ function App() {
       await refreshSubmissionTasks(selectedBudgetTemplateId);
       await refreshFactValues(selectedSubmissionTaskId);
       setNotice(`Submission task ${action} completed.`);
+    });
+  }
+
+  function buildFactQueryFilters() {
+    return {
+      budgetModelId: selectedBudgetModelId,
+      entityMemberId: queryDraft.entityMemberId || undefined,
+      timeMemberId: queryDraft.timeMemberId || undefined,
+      categoryMemberId: queryDraft.categoryMemberId || undefined,
+      versionMemberId: queryDraft.versionMemberId || undefined,
+      status: queryDraft.status || undefined,
+    };
+  }
+
+  async function handleRunQuery() {
+    if (!selectedBudgetModelId) {
+      setError('Select a budget model first.');
+      return;
+    }
+
+    await runAction(async () => {
+      const rows = await queryFacts(buildFactQueryFilters());
+      setQueryRows(rows);
+      setNotice(`${rows.length} fact rows loaded.`);
+    });
+  }
+
+  async function handleRunSummary() {
+    if (!selectedBudgetModelId) {
+      setError('Select a budget model first.');
+      return;
+    }
+
+    await runAction(async () => {
+      const rows = await summarizeFacts({
+        ...buildFactQueryFilters(),
+        groupBy: queryDraft.groupBy,
+      });
+      setSummaryRows(rows);
+      setNotice(`${rows.length} summary rows loaded.`);
+    });
+  }
+
+  async function handleExportCsv() {
+    if (!selectedBudgetModelId) {
+      setError('Select a budget model first.');
+      return;
+    }
+
+    await runAction(async () => {
+      const content = await exportFactsCsv(buildFactQueryFilters());
+      setCsvExport(content);
+      setNotice('CSV export generated.');
     });
   }
 
@@ -1520,6 +1601,233 @@ function App() {
               </tbody>
             </table>
           </div>
+        </section>
+      </section>
+
+      <section className="query-layout" aria-label="Budget query and summary">
+        <section className="panel" aria-labelledby="query-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Step 10</p>
+              <h2 id="query-title">Fact Query</h2>
+            </div>
+            <span>{selectedBudgetModel?.code ?? 'No model'}</span>
+          </div>
+
+          <form
+            className="query-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleRunQuery();
+            }}
+          >
+            <label>
+              Entity
+              <select
+                value={queryDraft.entityMemberId}
+                onChange={(event) =>
+                  setQueryDraft({ ...queryDraft, entityMemberId: event.target.value })
+                }
+              >
+                <option value="">All entities</option>
+                {scopeMembers.ENTITY.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Time
+              <select
+                value={queryDraft.timeMemberId}
+                onChange={(event) =>
+                  setQueryDraft({ ...queryDraft, timeMemberId: event.target.value })
+                }
+              >
+                <option value="">All time</option>
+                {scopeMembers.TIME.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Category
+              <select
+                value={queryDraft.categoryMemberId}
+                onChange={(event) =>
+                  setQueryDraft({ ...queryDraft, categoryMemberId: event.target.value })
+                }
+              >
+                <option value="">All categories</option>
+                {scopeMembers.CATEGORY.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Version
+              <select
+                value={queryDraft.versionMemberId}
+                onChange={(event) =>
+                  setQueryDraft({ ...queryDraft, versionMemberId: event.target.value })
+                }
+              >
+                <option value="">All versions</option>
+                {scopeMembers.VERSION.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Status
+              <select
+                value={queryDraft.status}
+                onChange={(event) =>
+                  setQueryDraft({
+                    ...queryDraft,
+                    status: event.target.value as '' | FactValueStatus,
+                  })
+                }
+              >
+                <option value="">All statuses</option>
+                <option value="DRAFT">DRAFT</option>
+                <option value="SUBMITTED">SUBMITTED</option>
+                <option value="APPROVED">APPROVED</option>
+                <option value="LOCKED">LOCKED</option>
+              </select>
+            </label>
+            <label>
+              Group by
+              <select
+                value={queryDraft.groupBy}
+                onChange={(event) =>
+                  setQueryDraft({
+                    ...queryDraft,
+                    groupBy: event.target.value as QueryGroupBy,
+                  })
+                }
+              >
+                {queryGroupByOptions.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+            <div className="query-actions">
+              <button type="submit" disabled={loading || !selectedBudgetModelId}>
+                Query
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleRunSummary()}
+                disabled={loading || !selectedBudgetModelId}
+              >
+                Summarize
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleExportCsv()}
+                disabled={loading || !selectedBudgetModelId}
+              >
+                CSV
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section className="panel" aria-labelledby="query-results-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Read only</p>
+              <h2 id="query-results-title">Results</h2>
+            </div>
+            <span>{queryRows.length} rows</span>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Account</th>
+                  <th>Entity</th>
+                  <th>Time</th>
+                  <th>Category</th>
+                  <th>Version</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {queryRows.map((row) => (
+                  <tr key={row.id}>
+                    <td>
+                      {row.accountCode} - {row.accountName}
+                    </td>
+                    <td>{row.entityCode}</td>
+                    <td>{row.timeCode}</td>
+                    <td>{row.categoryCode}</td>
+                    <td>{row.versionCode}</td>
+                    <td>{row.amount}</td>
+                    <td>{row.valueStatus}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section className="query-layout" aria-label="Budget summary and export">
+        <section className="panel" aria-labelledby="summary-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Summary</p>
+              <h2 id="summary-title">Basic Aggregation</h2>
+            </div>
+            <span>{summaryRows.length} groups</span>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Group</th>
+                  <th>Member</th>
+                  <th>Total</th>
+                  <th>Lines</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summaryRows.map((row) => (
+                  <tr key={`${row.groupBy}-${row.memberId}`}>
+                    <td>{row.groupBy}</td>
+                    <td>
+                      {row.memberCode} - {row.memberName}
+                    </td>
+                    <td>{row.totalAmount}</td>
+                    <td>{row.lineCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="panel" aria-labelledby="csv-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Export</p>
+              <h2 id="csv-title">CSV Preview</h2>
+            </div>
+            <span>{csvExport ? `${csvExport.split('\n').length - 1} lines` : 'No export'}</span>
+          </div>
+          <textarea className="csv-output" readOnly value={csvExport} />
         </section>
       </section>
     </main>

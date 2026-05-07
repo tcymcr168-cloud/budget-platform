@@ -58,6 +58,7 @@ button:disabled {
 .submission-form button,
 .value-form button,
 .return-form button,
+.query-form button,
 .model-actions button {
   min-height: 38px;
   border: 0;
@@ -123,7 +124,8 @@ h2 {
 
 .model-layout,
 .template-layout,
-.submission-layout {
+.submission-layout,
+.query-layout {
   max-width: 1440px;
   display: grid;
   grid-template-columns: minmax(320px, 0.95fr) minmax(520px, 1.55fr);
@@ -165,7 +167,8 @@ h2 {
 .axis-form,
 .submission-form,
 .value-form,
-.return-form {
+.return-form,
+.query-form {
   display: grid;
   gap: 12px;
   padding: 16px 18px;
@@ -178,7 +181,8 @@ h2 {
 .axis-form,
 .submission-form,
 .value-form,
-.return-form {
+.return-form,
+.query-form {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: end;
 }
@@ -208,6 +212,29 @@ h2 {
   border-top: 1px solid #e4eaed;
 }
 
+.query-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.query-actions {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+}
+
+.query-actions button {
+  flex: 1;
+}
+
+.query-actions button:nth-child(2) {
+  background: #285a7c;
+}
+
+.query-actions button:nth-child(3) {
+  color: #172026;
+  background: #d9e1e4;
+}
+
 .model-actions {
   display: flex;
   gap: 10px;
@@ -230,7 +257,8 @@ label {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   min-height: 38px;
   border: 1px solid #cfd8dc;
@@ -238,6 +266,21 @@ select {
   padding: 0 10px;
   color: #172026;
   background: #fbfcfc;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.csv-output {
+  min-height: 320px;
+  border: 0;
+  border-radius: 0;
+  padding: 16px 18px;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  white-space: pre;
 }
 
 .check-row {
@@ -331,7 +374,8 @@ td {
   .metadata-layout,
 .model-layout,
 .template-layout,
-.submission-layout {
+.submission-layout,
+.query-layout {
     grid-template-columns: 1fr;
   }
 
@@ -341,7 +385,8 @@ td {
   .axis-form,
   .submission-form,
   .value-form,
-  .return-form {
+  .return-form,
+  .query-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -363,7 +408,13 @@ td {
   .axis-form,
   .submission-form,
   .value-form,
-  .return-form {
+  .return-form,
+  .query-form {
     grid-template-columns: 1fr;
+  }
+
+  .query-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
