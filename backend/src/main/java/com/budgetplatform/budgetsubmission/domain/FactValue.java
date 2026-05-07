@@ -1,5 +1,6 @@
 package com.budgetplatform.budgetsubmission.domain;
 
+import com.budgetplatform.budgetactual.domain.ActualImportBatch;
 import com.budgetplatform.budgetmodel.domain.BudgetModel;
 import com.budgetplatform.budgettemplate.domain.BudgetTemplate;
 import com.budgetplatform.metadata.domain.DimensionMember;
@@ -34,13 +35,17 @@ public class FactValue {
     @JoinColumn(name = "budget_model_id", nullable = false)
     private BudgetModel budgetModel;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "budget_template_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "budget_template_id")
     private BudgetTemplate budgetTemplate;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "submission_task_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "submission_task_id")
     private SubmissionTask submissionTask;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "import_batch_id")
+    private ActualImportBatch importBatch;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "account_member_id", nullable = false)
@@ -101,6 +106,31 @@ public class FactValue {
         this.note = normalizeNote(note);
     }
 
+    public FactValue(
+            BudgetModel budgetModel,
+            ActualImportBatch importBatch,
+            DimensionMember accountMember,
+            DimensionMember entityMember,
+            DimensionMember timeMember,
+            DimensionMember categoryMember,
+            DimensionMember versionMember,
+            BigDecimal amount,
+            String note
+    ) {
+        this.id = UUID.randomUUID();
+        this.budgetModel = budgetModel;
+        this.importBatch = importBatch;
+        this.accountMember = accountMember;
+        this.entityMember = entityMember;
+        this.timeMember = timeMember;
+        this.categoryMember = categoryMember;
+        this.versionMember = versionMember;
+        this.amount = amount;
+        this.valueStatus = FactValueStatus.APPROVED;
+        this.sourceType = FactSourceType.ACTUAL_IMPORT;
+        this.note = normalizeNote(note);
+    }
+
     @PrePersist
     void beforeCreate() {
         Instant now = Instant.now();
@@ -119,6 +149,10 @@ public class FactValue {
 
     public SubmissionTask getSubmissionTask() {
         return submissionTask;
+    }
+
+    public ActualImportBatch getImportBatch() {
+        return importBatch;
     }
 
     public BudgetModel getBudgetModel() {

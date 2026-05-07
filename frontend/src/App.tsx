@@ -1,6 +1,14 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 import {
+  ActualImportBatch,
+  ActualImportRow,
+  commitActualImport,
+  listActualImportBatches,
+  listActualImportRows,
+  validateActualImport,
+} from './features/actualImports/actualImportApi';
+import {
   activateBudgetModel,
   bindBudgetModelDimension,
   BudgetModel,
@@ -92,11 +100,14 @@ function App() {
   const [queryRows, setQueryRows] = useState<FactQueryRow[]>([]);
   const [summaryRows, setSummaryRows] = useState<FactSummaryRow[]>([]);
   const [csvExport, setCsvExport] = useState('');
+  const [actualImportBatches, setActualImportBatches] = useState<ActualImportBatch[]>([]);
+  const [actualImportRows, setActualImportRows] = useState<ActualImportRow[]>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('');
   const [selectedDimensionId, setSelectedDimensionId] = useState('');
   const [selectedBudgetModelId, setSelectedBudgetModelId] = useState('');
   const [selectedBudgetTemplateId, setSelectedBudgetTemplateId] = useState('');
   const [selectedSubmissionTaskId, setSelectedSubmissionTaskId] = useState('');
+  const [selectedImportBatchId, setSelectedImportBatchId] = useState('');
   const [workspaceDraft, setWorkspaceDraft] = useState({ code: '', name: '' });
   const [dimensionDraft, setDimensionDraft] = useState({
     code: '',
@@ -151,6 +162,11 @@ function App() {
     versionMemberId: '',
     status: 'APPROVED' as '' | FactValueStatus,
     groupBy: 'ACCOUNT' as QueryGroupBy,
+  });
+  const [actualImportDraft, setActualImportDraft] = useState({
+    fileName: 'actual-expense.csv',
+    operatorUser: 'importer@example.com',
+    csvContent: 'account,entity,time,category,version,amount\nTRAVEL,OPS,2026M03,ACTUAL,FINAL,1200.00',
   });
   const [returnReason, setReturnReason] = useState('');
   const [loading, setLoading] = useState(false);
@@ -210,6 +226,9 @@ function App() {
       setQueryRows([]);
       setSummaryRows([]);
       setCsvExport('');
+      setActualImportBatches([]);
+      setActualImportRows([]);
+      setSelectedImportBatchId('');
       return;
     }
     void refreshDimensions(selectedWorkspaceId);
@@ -236,10 +255,14 @@ function App() {
       setQueryRows([]);
       setSummaryRows([]);
       setCsvExport('');
+      setActualImportBatches([]);
+      setActualImportRows([]);
+      setSelectedImportBatchId('');
       return;
     }
     void refreshModelBindings(selectedBudgetModelId);
     void refreshBudgetTemplates(selectedBudgetModelId);
+    void refreshActualImportBatches(selectedBudgetModelId);
   }, [selectedBudgetModelId]);
 
   useEffect(() => {
@@ -260,6 +283,14 @@ function App() {
     }
     void refreshFactValues(selectedSubmissionTaskId);
   }, [selectedSubmissionTaskId]);
+
+  useEffect(() => {
+    if (!selectedImportBatchId) {
+      setActualImportRows([]);
+      return;
+    }
+    void refreshActualImportRows(selectedImportBatchId);
+  }, [selectedImportBatchId]);
 
   async function runAction(action: () => Promise<void>) {
     setLoading(true);
@@ -392,6 +423,24 @@ function App() {
     await runAction(async () => {
       setFactValues(await listFactValues(taskId));
       setNotice('Submission values loaded.');
+    });
+  }
+
+  async function refreshActualImportBatches(budgetModelId: string) {
+    await runAction(async () => {
+      const nextBatches = await listActualImportBatches(budgetModelId);
+      setActualImportBatches(nextBatches);
+      setSelectedImportBatchId((current) =>
+        nextBatches.some((batch) => batch.id === current) ? current : nextBatches[0]?.id ?? '',
+      );
+      setNotice('Actual import batches loaded.');
+    });
+  }
+
+  async function refreshActualImportRows(batchId: string) {
+    await runAction(async () => {
+      setActualImportRows(await listActualImportRows(batchId));
+      setNotice('Actual import rows loaded.');
     });
   }
 
@@ -748,6 +797,47 @@ function App() {
       const content = await exportFactsCsv(buildFactQueryFilters());
       setCsvExport(content);
       setNotice('CSV export generated.');
+    });
+  }
+
+  async function handleValidateActualImport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedBudgetModelId) {
+      setError('Select an active budget model first.');
+      return;
+    }
+
+    await runAction(async () => {
+      const batch = await validateActualImport({
+        budgetModelId: selectedBudgetModelId,
+        fileName: actualImportDraft.fileName,
+        operatorUser: actualImportDraft.operatorUser,
+        csvContent: actualImportDraft.csvContent,
+      });
+      if (batch) {
+        await refreshActualImportBatches(selectedBudgetModelId);
+        setSelectedImportBatchId(batch.id);
+        setActualImportRows(batch.rows);
+        setNotice(`Actual import ${batch.status}: ${batch.validRows} valid, ${batch.errorRows} errors.`);
+      }
+    });
+  }
+
+  async function handleCommitActualImport() {
+    if (!selectedImportBatchId || !selectedBudgetModelId) {
+      setError('Select a validated import batch first.');
+      return;
+    }
+
+    await runAction(async () => {
+      const batch = await commitActualImport(selectedImportBatchId);
+      if (batch) {
+        await refreshActualImportBatches(selectedBudgetModelId);
+        setSelectedImportBatchId(batch.id);
+        await handleRunQuery();
+        await handleRunSummary();
+        setNotice(`Actual import ${batch.fileName} committed.`);
+      }
     });
   }
 
@@ -1828,6 +1918,125 @@ function App() {
             <span>{csvExport ? `${csvExport.split('\n').length - 1} lines` : 'No export'}</span>
           </div>
           <textarea className="csv-output" readOnly value={csvExport} />
+        </section>
+      </section>
+
+      <section className="import-layout" aria-label="Actual import management">
+        <section className="panel" aria-labelledby="actual-import-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Step 11</p>
+              <h2 id="actual-import-title">Actual CSV Import</h2>
+            </div>
+            <span>{selectedBudgetModel?.code ?? 'No model'}</span>
+          </div>
+
+          <form className="import-form" onSubmit={(event) => void handleValidateActualImport(event)}>
+            <label>
+              File name
+              <input
+                required
+                value={actualImportDraft.fileName}
+                onChange={(event) =>
+                  setActualImportDraft({ ...actualImportDraft, fileName: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Operator
+              <input
+                required
+                value={actualImportDraft.operatorUser}
+                onChange={(event) =>
+                  setActualImportDraft({ ...actualImportDraft, operatorUser: event.target.value })
+                }
+              />
+            </label>
+            <label className="import-csv-field">
+              CSV content
+              <textarea
+                required
+                value={actualImportDraft.csvContent}
+                onChange={(event) =>
+                  setActualImportDraft({ ...actualImportDraft, csvContent: event.target.value })
+                }
+              />
+            </label>
+            <div className="import-actions">
+              <button type="submit" disabled={loading || !selectedBudgetModelId}>
+                Validate
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCommitActualImport()}
+                disabled={loading || !selectedImportBatchId}
+              >
+                Commit
+              </button>
+            </div>
+          </form>
+
+          <div className="list" role="list">
+            {actualImportBatches.map((batch) => (
+              <button
+                className="list-row"
+                data-selected={batch.id === selectedImportBatchId}
+                key={batch.id}
+                onClick={() => setSelectedImportBatchId(batch.id)}
+                role="listitem"
+                type="button"
+              >
+                <span>
+                  <strong>{batch.fileName}</strong>
+                  {batch.validRows} valid / {batch.errorRows} errors / {batch.totalAmount}
+                </span>
+                <em>{batch.status}</em>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel" aria-labelledby="actual-import-rows-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Validation</p>
+              <h2 id="actual-import-rows-title">Import Rows</h2>
+            </div>
+            <span>{actualImportRows.length} rows</span>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Row</th>
+                  <th>Account</th>
+                  <th>Entity</th>
+                  <th>Time</th>
+                  <th>Category</th>
+                  <th>Version</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                {actualImportRows.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.rowNumber}</td>
+                    <td>{row.accountCode}</td>
+                    <td>{row.entityCode}</td>
+                    <td>{row.timeCode}</td>
+                    <td>{row.categoryCode}</td>
+                    <td>{row.versionCode}</td>
+                    <td>{row.amount ?? ''}</td>
+                    <td>{row.rowStatus}</td>
+                    <td>{row.errorMessage ?? ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       </section>
     </main>

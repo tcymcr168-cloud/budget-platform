@@ -22,7 +22,7 @@ public record FactValueResponse(
     public static FactValueResponse from(FactValue value) {
         return new FactValueResponse(
                 value.getId(),
-                value.getSubmissionTask().getId(),
+                value.getSubmissionTask() == null ? null : value.getSubmissionTask().getId(),
                 value.getAccountMember().getId(),
                 value.getAccountMember().getCode(),
                 value.getAccountMember().getName(),

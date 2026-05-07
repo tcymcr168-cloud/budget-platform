@@ -25,7 +25,7 @@ export interface FactQueryRow {
   versionCode: string;
   amount: number;
   valueStatus: FactValueStatus;
-  sourceType: 'BUDGET_SUBMISSION';
+  sourceType: 'BUDGET_SUBMISSION' | 'ACTUAL_IMPORT';
 }
 
 export interface FactSummaryRow {

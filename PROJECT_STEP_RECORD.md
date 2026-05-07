@@ -2318,3 +2318,109 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BUD-009：实际数导入。
 
 该阶段应在统一事实表思想上引入 Actual 来源的手工 CSV 导入或轻量文件导入基线，保持导入透明、可校验、可回溯；仍不得进入 ERP 直连、复杂 Data Manager 黑盒或预算执行差异分析。
+
+## BUD-009
+
+阶段名称：实际数导入
+
+记录日期：2026-05-07
+
+### 阶段目标
+
+实现 Actual CSV 导入最小闭环：固定表头 CSV 校验、批次记录、行级错误、显式提交和写入同源 `fact_value`。本阶段不进入 ERP 直连、复杂 Data Manager 黑盒、预算执行差异分析、BI 图表或合并报表。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/bpc-kb-006-data-manager-actual-import.md`、`docs/product/product-001-mvp-scope.md`、`docs/architecture/bud-008-budget-query-baseline.md` |
+| 允许修改 | `backend/src/main/java/com/budgetplatform/budgetactual`、`backend/src/test/java/com/budgetplatform/budgetactual`、`backend/src/main/resources/db/migration/V5__actual_import_baseline.sql`、必要的 `FactValue`/查询响应扩展、`frontend/src/features/actualImports`、`frontend/src/App.tsx`、`frontend/src/styles.css`、`docs/architecture/bud-009-actual-import-baseline.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | ERP 直连、预算执行差异分析、BI 图表、合并报表、PDF 原文、OCR 全文、删除接口 |
+| 验证命令 | `mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build`、`git status --short`、`git check-ignore` |
+| 授权状态 | 全自动模式；本阶段新增 migration 和实际数导入模块已按授权记录风险，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/resources/db/migration/V5__actual_import_baseline.sql` | 新增实际数导入批次、行级结果表，并扩展 `fact_value` 支持 `import_batch_id` |
+| `backend/src/main/java/com/budgetplatform/budgetactual/domain/*` | 新增导入批次、导入行、批次状态和行状态 |
+| `backend/src/main/java/com/budgetplatform/budgetactual/repository/*` | 新增导入批次和行级结果仓储 |
+| `backend/src/main/java/com/budgetplatform/budgetactual/api/*` | 新增导入校验、提交、批次查询和行查询 API |
+| `backend/src/main/java/com/budgetplatform/budgetactual/service/ActualImportService.java` | 新增 CSV 解析、成员校验、重复坐标校验、提交写入事实表 |
+| `backend/src/main/java/com/budgetplatform/budgetsubmission/domain/FactValue.java` | 支持 Actual 导入事实来源和可空填报任务/模板 |
+| `backend/src/main/java/com/budgetplatform/budgetsubmission/domain/FactSourceType.java` | 新增 `ACTUAL_IMPORT` |
+| `backend/src/main/java/com/budgetplatform/budgetquery/api/FactQueryResponse.java` | 查询响应新增 `importBatchId` 并兼容 Actual 来源 |
+| `backend/src/test/java/com/budgetplatform/budgetactual/api/ActualImportControllerIntegrationTests.java` | 新增实际数导入集成测试 |
+| `frontend/src/features/actualImports/actualImportApi.ts` | 新增实际数导入前端 API client |
+| `frontend/src/features/budgetQuery/budgetQueryApi.ts` | 查询行 source type 兼容 `ACTUAL_IMPORT` |
+| `frontend/src/App.tsx` | 新增 Actual CSV Import UI 和提交后查询刷新 |
+| `frontend/src/styles.css` | 新增导入区域样式 |
+| `docs/architecture/bud-009-actual-import-baseline.md` | 新增本阶段架构说明 |
+| `PROJECT_STEP_RECORD.md` | 追加 BUD-009 阶段记录 |
+
+### 关键产出
+
+1. Actual 导入以 Budget Model 为入口，要求模型已激活。
+2. CSV 固定表头为 `account,entity,time,category,version,amount`。
+3. 导入先生成批次和行级校验结果，错误行不会写入事实表。
+4. 无错误批次提交后写入 `fact_value`，`source_type=ACTUAL_IMPORT`，`value_status=APPROVED`。
+5. 查询模块可读取 Actual 来源事实，但不做预算与实际差异计算。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 22, Failures: 0, Errors: 0, Skipped: 0 |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过 |
+
+### 失败项与修复记录
+
+1. 首轮 `mvn test` 失败：`ActualImportControllerIntegrationTests` 使用贪婪正则提取校验响应中的 `id`，误取到行级结果 id，导致 commit 请求使用 row id 并返回 404。
+2. 真实错误：`Actual import batch was not found: <rowId>`。
+3. 修复方式：测试中改为非贪婪匹配，确保提取响应首个 batch id。
+4. 修复后再次执行 `mvn test` 通过。
+
+### 风险与记录
+
+1. 本阶段新增 migration `V5__actual_import_baseline.sql`，属于 BUD-009 范围内的导入批次、行级结果和事实表同源扩展。
+2. 固定表头 CSV 暂不支持可视化字段映射和外部编码转换表。
+3. Actual 分类强制要求 Category 成员编码为 `ACTUAL`。
+4. 提交后暂不支持撤销、冲销、覆盖或重复批次治理。
+5. 权限、期间锁定、导入审批和持久化审计增强后置。
+6. `README.md` 仍是历史本地修改，未纳入本阶段提交范围。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| ERP 直连 | 未新增 |
+| 预算执行分析 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| 复杂 Data Manager 包 | 未新增 |
+| 删除接口 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| README | 仍为历史本地修改，未纳入本阶段提交范围 |
+
+### 未解决问题
+
+1. 导入暂不支持映射模板、转换规则维护、错误下载和文件上传存储。
+2. 暂不支持撤销/冲销策略。
+3. 暂不支持权限、锁定期间和组织范围校验。
+4. 预算与实际差异分析仍未进入，需用户明确批准 BUD-010 才能开发。
+
+### 是否建议关闭本阶段
+
+建议关闭 BUD-009。
+
+关闭理由：Actual CSV 校验、批次与行级结果、错误阻断、提交写入同源事实表、前端导入工作台和集成测试均已完成，且未越界进入 ERP、BI 或差异分析。
+
+### 下一阶段建议
+
+下一阶段：BUD-010：预算与实际差异分析。
+
+根据项目规则，BUD-010 只有在用户明确批准后才能进入。当前应暂停在 BUD-009 收口状态，不自动开发差异分析。
