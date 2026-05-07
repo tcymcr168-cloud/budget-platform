@@ -1922,3 +1922,103 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BUD-005：预算模型管理。
 
 该阶段应基于元数据能力实现预算模型创建、维度绑定和启停，不进入模板、填报、查询或导入。
+
+## BUD-005
+
+阶段名称：预算模型管理
+
+记录日期：2026-05-07
+
+### 阶段目标
+
+基于元数据能力实现预算模型管理 MVP，支持模型创建、查询、维度绑定、激活和停用。本阶段只做预算模型管理，不进入模板、填报、查询、实际数导入、BI、ERP 直连或预算执行差异分析。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/architecture/bud-002-metadata-model-design.md`、`docs/architecture/bud-003-metadata-backend.md`、`docs/architecture/bud-004-metadata-frontend.md`、`docs/product/product-001-mvp-scope.md` |
+| 允许修改 | `backend/src/main/java/com/budgetplatform/budgetmodel`、`backend/src/test/java/com/budgetplatform/budgetmodel`、`backend/src/main/resources/db/migration/V2__budget_model_baseline.sql`、`frontend/src`、`docs/architecture/bud-005-budget-model-management.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 模板、填报、查询、导入、预算执行分析、BI、ERP、合并报表、PDF 原文、OCR 全文、删除接口 |
+| 验证命令 | `mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build`、`git status --short`、`git check-ignore` |
+| 授权状态 | 全自动模式；本阶段新增 migration 和业务模块已按授权记录风险，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/resources/db/migration/V2__budget_model_baseline.sql` | 新增预算模型和模型维度绑定表 |
+| `backend/src/main/java/com/budgetplatform/budgetmodel/domain/*` | 新增预算模型实体、绑定实体和模型状态枚举 |
+| `backend/src/main/java/com/budgetplatform/budgetmodel/repository/*` | 新增预算模型仓储和绑定仓储 |
+| `backend/src/main/java/com/budgetplatform/budgetmodel/api/*` | 新增预算模型 API DTO 和 Controller |
+| `backend/src/main/java/com/budgetplatform/budgetmodel/service/BudgetModelService.java` | 新增预算模型业务规则 |
+| `backend/src/test/java/com/budgetplatform/budgetmodel/api/BudgetModelControllerIntegrationTests.java` | 新增预算模型集成测试 |
+| `frontend/src/features/budgetModels/budgetModelApi.ts` | 新增预算模型前端 API client |
+| `frontend/src/App.tsx` | 新增预算模型创建、选择、绑定、激活和停用 UI |
+| `frontend/src/styles.css` | 新增预算模型管理区样式 |
+| `docs/architecture/bud-005-budget-model-management.md` | 新增本阶段架构说明 |
+| `PROJECT_STEP_RECORD.md` | 追加 BUD-005 阶段记录 |
+
+### 关键产出
+
+1. 预算模型以 workspace 为边界，code 在 workspace 内唯一。
+2. 模型可绑定已有 Dimension，且维度必须来自同一 workspace。
+3. 激活模型前校验 Account、Entity、Time、Category、Version 五类必需维度。
+4. 前端支持预算模型创建、选择、维度绑定、激活和停用。
+5. 不提供删除和解绑，先保持治理安全边界。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 10, Failures: 0, Errors: 0, Skipped: 0 |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过 |
+
+### 失败项与修复记录
+
+1. 本阶段首轮后端和前端验证均通过，未出现需要修复的编译或测试失败。
+
+### 风险与记录
+
+1. 本阶段新增了 migration `V2__budget_model_baseline.sql`，属于 BUD-005 范围内的预算模型基础表变更，已按全自动授权记录。
+2. 本阶段新增预算模型业务模块，但只包含模型治理最小闭环，未进入模板、填报、查询或导入。
+3. 激活规则目前采用五类必需维度固定校验，后续如支持更多模型类型，需要在 BUD-005 后续增强或独立阶段扩展。
+4. 当前仍不支持维度解绑、模型编辑、模型删除和复杂权限。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 模板模块 | 未新增 |
+| 填报模块 | 未新增 |
+| 查询模块 | 未新增 |
+| 实际数导入 | 未新增 |
+| 预算执行分析 | 未新增 |
+| BI 图表 | 未新增 |
+| ERP 直连 | 未新增 |
+| 合并报表 | 未新增 |
+| 删除接口 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| README | 仍为历史本地修改，未纳入本阶段提交范围 |
+
+### 未解决问题
+
+1. Budget Model 暂不支持编辑、删除、复制和维度解绑。
+2. 模型激活后尚未锁定结构，后续模板阶段前需要明确变更策略。
+3. 本地后端 `spring-boot:run` 预览仍依赖 PostgreSQL 凭据或后续 local profile。
+4. 认证与授权上下文尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 BUD-005。
+
+关闭理由：预算模型创建、维度绑定、激活校验、停用、前端基础管理和集成测试已完成，且未越界进入模板、填报、查询或导入。
+
+### 下一阶段建议
+
+下一阶段：BUD-006：预算模板管理。
+
+该阶段应基于已绑定维度的预算模型，设计模板基础结构和模板字段布局，不进入填报执行、查询汇总或实际数导入。
