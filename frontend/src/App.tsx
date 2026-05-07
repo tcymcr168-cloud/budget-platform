@@ -11,6 +11,17 @@ import {
   listBudgetModels,
 } from './features/budgetModels/budgetModelApi';
 import {
+  activateBudgetTemplate,
+  BudgetTemplate,
+  createBudgetTemplate,
+  createTemplateAxis,
+  deactivateBudgetTemplate,
+  listBudgetTemplates,
+  listTemplateAxes,
+  TemplateAxis,
+  TemplateAxisType,
+} from './features/budgetTemplates/budgetTemplateApi';
+import {
   createDimension,
   createMember,
   createWorkspace,
@@ -32,15 +43,20 @@ const dimensionTypes: DimensionType[] = [
   'CUSTOM',
 ];
 
+const axisTypes: TemplateAxisType[] = ['ROW', 'COLUMN', 'FILTER'];
+
 function App() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [dimensions, setDimensions] = useState<Dimension[]>([]);
   const [members, setMembers] = useState<DimensionMember[]>([]);
   const [budgetModels, setBudgetModels] = useState<BudgetModel[]>([]);
   const [modelBindings, setModelBindings] = useState<BudgetModelDimensionBinding[]>([]);
+  const [budgetTemplates, setBudgetTemplates] = useState<BudgetTemplate[]>([]);
+  const [templateAxes, setTemplateAxes] = useState<TemplateAxis[]>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('');
   const [selectedDimensionId, setSelectedDimensionId] = useState('');
   const [selectedBudgetModelId, setSelectedBudgetModelId] = useState('');
+  const [selectedBudgetTemplateId, setSelectedBudgetTemplateId] = useState('');
   const [workspaceDraft, setWorkspaceDraft] = useState({ code: '', name: '' });
   const [dimensionDraft, setDimensionDraft] = useState({
     code: '',
@@ -64,6 +80,17 @@ function App() {
     requiredForEntry: true,
     displayOrder: '',
   });
+  const [templateDraft, setTemplateDraft] = useState({
+    code: '',
+    name: '',
+    description: '',
+  });
+  const [axisDraft, setAxisDraft] = useState({
+    modelDimensionId: '',
+    axisType: 'ROW' as TemplateAxisType,
+    memberSelector: 'ALL_LEAF',
+    displayOrder: '',
+  });
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('Connect the backend on port 8080 to manage metadata.');
   const [error, setError] = useState('');
@@ -83,10 +110,20 @@ function App() {
     [budgetModels, selectedBudgetModelId],
   );
 
+  const selectedBudgetTemplate = useMemo(
+    () => budgetTemplates.find((template) => template.id === selectedBudgetTemplateId),
+    [budgetTemplates, selectedBudgetTemplateId],
+  );
+
   const unboundDimensions = useMemo(() => {
     const boundIds = new Set(modelBindings.map((binding) => binding.dimensionId));
     return dimensions.filter((dimension) => !boundIds.has(dimension.id));
   }, [dimensions, modelBindings]);
+
+  const unusedTemplateBindings = useMemo(() => {
+    const usedBindingIds = new Set(templateAxes.map((axis) => axis.modelDimensionId));
+    return modelBindings.filter((binding) => !usedBindingIds.has(binding.id));
+  }, [modelBindings, templateAxes]);
 
   useEffect(() => {
     void refreshWorkspaces();
@@ -98,6 +135,8 @@ function App() {
       setSelectedDimensionId('');
       setBudgetModels([]);
       setSelectedBudgetModelId('');
+      setBudgetTemplates([]);
+      setSelectedBudgetTemplateId('');
       return;
     }
     void refreshDimensions(selectedWorkspaceId);
@@ -115,10 +154,21 @@ function App() {
   useEffect(() => {
     if (!selectedBudgetModelId) {
       setModelBindings([]);
+      setBudgetTemplates([]);
+      setSelectedBudgetTemplateId('');
       return;
     }
     void refreshModelBindings(selectedBudgetModelId);
+    void refreshBudgetTemplates(selectedBudgetModelId);
   }, [selectedBudgetModelId]);
+
+  useEffect(() => {
+    if (!selectedBudgetTemplateId) {
+      setTemplateAxes([]);
+      return;
+    }
+    void refreshTemplateAxes(selectedBudgetTemplateId);
+  }, [selectedBudgetTemplateId]);
 
   async function runAction(action: () => Promise<void>) {
     setLoading(true);
@@ -184,6 +234,26 @@ function App() {
     await runAction(async () => {
       setModelBindings(await listBudgetModelDimensions(budgetModelId));
       setNotice('Budget model dimensions loaded.');
+    });
+  }
+
+  async function refreshBudgetTemplates(budgetModelId: string) {
+    await runAction(async () => {
+      const nextTemplates = await listBudgetTemplates(budgetModelId);
+      setBudgetTemplates(nextTemplates);
+      setSelectedBudgetTemplateId((current) =>
+        nextTemplates.some((template) => template.id === current)
+          ? current
+          : nextTemplates[0]?.id ?? '',
+      );
+      setNotice('Budget templates loaded.');
+    });
+  }
+
+  async function refreshTemplateAxes(budgetTemplateId: string) {
+    await runAction(async () => {
+      setTemplateAxes(await listTemplateAxes(budgetTemplateId));
+      setNotice('Template axes loaded.');
     });
   }
 
@@ -327,6 +397,91 @@ function App() {
         await refreshBudgetModels(selectedWorkspaceId);
         setSelectedBudgetModelId(budgetModel.id);
         setNotice(`Budget model ${budgetModel.code} deactivated.`);
+      }
+    });
+  }
+
+  async function handleCreateBudgetTemplate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedBudgetModelId) {
+      setError('Select an active budget model first.');
+      return;
+    }
+
+    await runAction(async () => {
+      const template = await createBudgetTemplate({
+        budgetModelId: selectedBudgetModelId,
+        code: templateDraft.code,
+        name: templateDraft.name,
+        description: templateDraft.description || undefined,
+      });
+      if (template) {
+        setTemplateDraft({ code: '', name: '', description: '' });
+        await refreshBudgetTemplates(selectedBudgetModelId);
+        setSelectedBudgetTemplateId(template.id);
+        setNotice(`Template ${template.code} created.`);
+      }
+    });
+  }
+
+  async function handleCreateTemplateAxis(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedBudgetTemplateId) {
+      setError('Select a budget template first.');
+      return;
+    }
+    if (!axisDraft.modelDimensionId) {
+      setError('Select a model dimension for the axis.');
+      return;
+    }
+
+    await runAction(async () => {
+      const displayOrder = axisDraft.displayOrder.trim()
+        ? Number(axisDraft.displayOrder)
+        : undefined;
+      const axis = await createTemplateAxis(selectedBudgetTemplateId, {
+        modelDimensionId: axisDraft.modelDimensionId,
+        axisType: axisDraft.axisType,
+        memberSelector: axisDraft.memberSelector || undefined,
+        displayOrder,
+      });
+      if (axis) {
+        setAxisDraft({
+          modelDimensionId: '',
+          axisType: 'ROW',
+          memberSelector: 'ALL_LEAF',
+          displayOrder: '',
+        });
+        await refreshTemplateAxes(selectedBudgetTemplateId);
+        setNotice(`${axis.axisType} axis added for ${axis.dimensionCode}.`);
+      }
+    });
+  }
+
+  async function handleActivateBudgetTemplate() {
+    if (!selectedBudgetTemplateId || !selectedBudgetModelId) {
+      return;
+    }
+    await runAction(async () => {
+      const template = await activateBudgetTemplate(selectedBudgetTemplateId);
+      if (template) {
+        await refreshBudgetTemplates(selectedBudgetModelId);
+        setSelectedBudgetTemplateId(template.id);
+        setNotice(`Template ${template.code} activated.`);
+      }
+    });
+  }
+
+  async function handleDeactivateBudgetTemplate() {
+    if (!selectedBudgetTemplateId || !selectedBudgetModelId) {
+      return;
+    }
+    await runAction(async () => {
+      const template = await deactivateBudgetTemplate(selectedBudgetTemplateId);
+      if (template) {
+        await refreshBudgetTemplates(selectedBudgetModelId);
+        setSelectedBudgetTemplateId(template.id);
+        setNotice(`Template ${template.code} deactivated.`);
       }
     });
   }
@@ -735,6 +890,186 @@ function App() {
                     <td>{binding.dimensionRole}</td>
                     <td>{binding.requiredForEntry ? 'Yes' : 'No'}</td>
                     <td>{binding.displayOrder}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section className="template-layout" aria-label="Budget template management">
+        <section className="panel" aria-labelledby="template-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Step 6</p>
+              <h2 id="template-title">Templates</h2>
+            </div>
+            <span>{selectedBudgetModel?.code ?? 'No model'}</span>
+          </div>
+
+          <form className="model-form" onSubmit={(event) => void handleCreateBudgetTemplate(event)}>
+            <label>
+              Code
+              <input
+                required
+                value={templateDraft.code}
+                onChange={(event) =>
+                  setTemplateDraft({ ...templateDraft, code: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Name
+              <input
+                required
+                value={templateDraft.name}
+                onChange={(event) =>
+                  setTemplateDraft({ ...templateDraft, name: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Description
+              <input
+                value={templateDraft.description}
+                onChange={(event) =>
+                  setTemplateDraft({ ...templateDraft, description: event.target.value })
+                }
+              />
+            </label>
+            <button type="submit" disabled={loading || !selectedBudgetModelId}>
+              Create
+            </button>
+          </form>
+
+          <div className="list" role="list">
+            {budgetTemplates.map((template) => (
+              <button
+                className="list-row"
+                data-selected={template.id === selectedBudgetTemplateId}
+                key={template.id}
+                onClick={() => setSelectedBudgetTemplateId(template.id)}
+                role="listitem"
+                type="button"
+              >
+                <span>
+                  <strong>{template.code}</strong>
+                  {template.name}
+                </span>
+                <em>{template.status}</em>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel" aria-labelledby="axis-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Step 7</p>
+              <h2 id="axis-title">Template Axes</h2>
+            </div>
+            <span>{selectedBudgetTemplate?.code ?? 'No template'}</span>
+          </div>
+
+          <form className="axis-form" onSubmit={(event) => void handleCreateTemplateAxis(event)}>
+            <label>
+              Model dimension
+              <select
+                value={axisDraft.modelDimensionId}
+                onChange={(event) =>
+                  setAxisDraft({ ...axisDraft, modelDimensionId: event.target.value })
+                }
+              >
+                <option value="">Select binding</option>
+                {unusedTemplateBindings.map((binding) => (
+                  <option key={binding.id} value={binding.id}>
+                    {binding.dimensionCode} - {binding.dimensionRole}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Axis
+              <select
+                value={axisDraft.axisType}
+                onChange={(event) =>
+                  setAxisDraft({
+                    ...axisDraft,
+                    axisType: event.target.value as TemplateAxisType,
+                  })
+                }
+              >
+                {axisTypes.map((type) => (
+                  <option key={type}>{type}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Members
+              <select
+                value={axisDraft.memberSelector}
+                onChange={(event) =>
+                  setAxisDraft({ ...axisDraft, memberSelector: event.target.value })
+                }
+              >
+                <option value="ALL_LEAF">All leaf</option>
+                <option value="ALL_MEMBERS">All members</option>
+                <option value="ROOT_ONLY">Root only</option>
+              </select>
+            </label>
+            <label>
+              Order
+              <input
+                min="0"
+                type="number"
+                value={axisDraft.displayOrder}
+                onChange={(event) =>
+                  setAxisDraft({ ...axisDraft, displayOrder: event.target.value })
+                }
+              />
+            </label>
+            <button type="submit" disabled={loading || !selectedBudgetTemplateId}>
+              Add
+            </button>
+          </form>
+
+          <div className="model-actions">
+            <button
+              type="button"
+              onClick={() => void handleActivateBudgetTemplate()}
+              disabled={loading || !selectedBudgetTemplateId}
+            >
+              Activate
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDeactivateBudgetTemplate()}
+              disabled={loading || !selectedBudgetTemplateId}
+            >
+              Deactivate
+            </button>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Dimension</th>
+                  <th>Axis</th>
+                  <th>Members</th>
+                  <th>Order</th>
+                </tr>
+              </thead>
+              <tbody>
+                {templateAxes.map((axis) => (
+                  <tr key={axis.id}>
+                    <td>
+                      {axis.dimensionCode} - {axis.dimensionName}
+                    </td>
+                    <td>{axis.axisType}</td>
+                    <td>{axis.memberSelector}</td>
+                    <td>{axis.displayOrder}</td>
                   </tr>
                 ))}
               </tbody>

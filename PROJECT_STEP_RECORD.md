@@ -2022,3 +2022,103 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BUD-006：预算模板管理。
 
 该阶段应基于已绑定维度的预算模型，设计模板基础结构和模板字段布局，不进入填报执行、查询汇总或实际数导入。
+
+## BUD-006
+
+阶段名称：预算模板管理
+
+记录日期：2026-05-07
+
+### 阶段目标
+
+实现预算模板管理 MVP，支持为已激活预算模型创建单页 Web 模板、配置 ROW/COLUMN/FILTER 轴、激活和停用模板。本阶段只做模板定义，不写填报数据、不新增事实数据写入、不进入查询汇总或实际数导入。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/bpc-kb-003-input-schedule.md`、`docs/product/product-001-mvp-scope.md`、`docs/architecture/bud-005-budget-model-management.md` |
+| 允许修改 | `backend/src/main/java/com/budgetplatform/budgettemplate`、`backend/src/test/java/com/budgetplatform/budgettemplate`、`backend/src/main/resources/db/migration/V3__budget_template_baseline.sql`、`frontend/src`、`docs/architecture/bud-006-budget-template-management.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 填报执行、事实数据写入、查询、导入、预算执行分析、BI、ERP、合并报表、PDF 原文、OCR 全文、删除接口 |
+| 验证命令 | `mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build`、`git status --short`、`git check-ignore` |
+| 授权状态 | 全自动模式；本阶段新增 migration 和模板模块已按授权记录风险，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/resources/db/migration/V3__budget_template_baseline.sql` | 新增预算模板和模板轴表 |
+| `backend/src/main/java/com/budgetplatform/budgettemplate/domain/*` | 新增模板实体、模板轴实体、模板状态和轴类型枚举 |
+| `backend/src/main/java/com/budgetplatform/budgettemplate/repository/*` | 新增模板仓储和模板轴仓储 |
+| `backend/src/main/java/com/budgetplatform/budgettemplate/api/*` | 新增模板 API DTO 和 Controller |
+| `backend/src/main/java/com/budgetplatform/budgettemplate/service/BudgetTemplateService.java` | 新增模板业务规则 |
+| `backend/src/test/java/com/budgetplatform/budgettemplate/api/BudgetTemplateControllerIntegrationTests.java` | 新增模板集成测试 |
+| `frontend/src/features/budgetTemplates/budgetTemplateApi.ts` | 新增模板前端 API client |
+| `frontend/src/App.tsx` | 新增模板创建、选择、轴配置、激活和停用 UI |
+| `frontend/src/styles.css` | 新增模板管理区样式 |
+| `docs/architecture/bud-006-budget-template-management.md` | 新增本阶段架构说明 |
+| `PROJECT_STEP_RECORD.md` | 追加 BUD-006 阶段记录 |
+
+### 关键产出
+
+1. 模板只能绑定 `ACTIVE` 预算模型。
+2. 模板轴只能引用当前模型已绑定维度。
+3. 同一模板不能重复使用同一模型维度绑定。
+4. 模板激活前必须至少配置一个 ROW 轴和一个 COLUMN 轴。
+5. 模板只保存布局配置，不保存事实数据或填报值。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 14, Failures: 0, Errors: 0, Skipped: 0 |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过 |
+
+### 失败项与修复记录
+
+1. 本阶段首轮后端和前端验证均通过，未出现需要修复的编译或测试失败。
+
+### 风险与记录
+
+1. 本阶段新增了 migration `V3__budget_template_baseline.sql`，属于 BUD-006 范围内的模板基础表变更，已按全自动授权记录。
+2. 本阶段新增预算模板业务模块，但只包含模板定义和轴配置，不写事实数据。
+3. `member_selector` 当前是轻量集合语义，尚未展开到具体成员集合或成员选择器。
+4. 激活规则只校验 ROW/COLUMN 轴存在，后续填报阶段需校验坐标唯一性和可编辑规则。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 填报任务 | 未新增 |
+| 事实数据写入 | 未新增 |
+| 查询模块 | 未新增 |
+| 实际数导入 | 未新增 |
+| 预算执行分析 | 未新增 |
+| BI 图表 | 未新增 |
+| ERP 直连 | 未新增 |
+| 合并报表 | 未新增 |
+| 删除接口 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| README | 仍为历史本地修改，未纳入本阶段提交范围 |
+
+### 未解决问题
+
+1. 模板暂不支持编辑、删除、复制、多 sheet 和复杂公式。
+2. 模板暂不支持具体成员选择，只支持集合选择器。
+3. 模板激活后尚未锁定结构，填报阶段需明确模板变更策略。
+4. 认证与授权上下文尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 BUD-006。
+
+关闭理由：预算模板创建、轴配置、激活校验、停用、前端基础管理和集成测试已完成，且未越界进入填报、事实数据、查询或导入。
+
+### 下一阶段建议
+
+下一阶段：BUD-007：预算填报基础版。
+
+该阶段应基于已激活模板实现填报任务、草稿、提交、退回、通过和锁定，并首次引入统一事实数据写入；仍不得进入预算执行差异分析、BI、ERP 或实际数导入。
