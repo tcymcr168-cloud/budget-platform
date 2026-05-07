@@ -103,13 +103,50 @@ class ActualImportControllerIntegrationTests {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void validatesActualCsvWhenModelHasMultipleCustomDimensions() throws Exception {
+        Fixture fixture = createModelFixture("BUD009_CUSTOM", true);
+
+        mockMvc.perform(post("/api/actual-imports/validate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "budgetModelId": "%s",
+                                  "fileName": "actual-custom.csv",
+                                  "operatorUser": "importer@example.com",
+                                  "csvContent": "account,entity,time,category,version,amount\\n%s,%s,%s,%s,%s,77.00"
+                                }
+                                """.formatted(
+                                fixture.modelId(),
+                                fixture.accountCode(),
+                                fixture.entityCode(),
+                                fixture.timeCode(),
+                                fixture.categoryCode(),
+                                fixture.versionCode()
+                        )))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("VALIDATED"))
+                .andExpect(jsonPath("$.data.validRows").value(1))
+                .andExpect(jsonPath("$.data.errorRows").value(0));
+    }
+
     private Fixture createModelFixture(String prefix) throws Exception {
+        return createModelFixture(prefix, false);
+    }
+
+    private Fixture createModelFixture(String prefix, boolean withCustomDimensions) throws Exception {
         String workspaceId = createWorkspace(prefix + "_WS", prefix + " Workspace");
         String accountDimensionId = createDimension(workspaceId, prefix + "_ACCOUNT", "Account", "ACCOUNT");
         String entityDimensionId = createDimension(workspaceId, prefix + "_ENTITY", "Entity", "ENTITY");
         String timeDimensionId = createDimension(workspaceId, prefix + "_TIME", "Time", "TIME");
         String categoryDimensionId = createDimension(workspaceId, prefix + "_CATEGORY", "Category", "CATEGORY");
         String versionDimensionId = createDimension(workspaceId, prefix + "_VERSION", "Version", "VERSION");
+        String customOneDimensionId = withCustomDimensions
+                ? createDimension(workspaceId, prefix + "_PRODUCT", "Product", "CUSTOM")
+                : null;
+        String customTwoDimensionId = withCustomDimensions
+                ? createDimension(workspaceId, prefix + "_PROJECT", "Project", "CUSTOM")
+                : null;
 
         String accountCode = prefix + "_TRAVEL";
         createMember(accountDimensionId, accountCode, "Travel Expense");
@@ -128,6 +165,10 @@ class ActualImportControllerIntegrationTests {
         bindDimension(modelId, timeDimensionId, 30);
         bindDimension(modelId, categoryDimensionId, 40);
         bindDimension(modelId, versionDimensionId, 50);
+        if (withCustomDimensions) {
+            bindDimension(modelId, customOneDimensionId, 60);
+            bindDimension(modelId, customTwoDimensionId, 70);
+        }
         mockMvc.perform(post("/api/budget-models/{budgetModelId}/activate", modelId))
                 .andExpect(status().isOk());
 

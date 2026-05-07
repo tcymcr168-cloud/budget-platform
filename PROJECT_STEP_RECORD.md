@@ -2424,3 +2424,93 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BUD-010：预算与实际差异分析。
 
 根据项目规则，BUD-010 只有在用户明确批准后才能进入。当前应暂停在 BUD-009 收口状态，不自动开发差异分析。
+
+## REVIEW-001
+
+阶段名称：MVP 已实现模块源码审查与治理收口
+
+记录日期：2026-05-07
+
+### 阶段目标
+
+对 BUD-001 至 BUD-009 已实现的 MVP 主线进行源码审查、边界扫描、测试复核和治理收口。本阶段不进入 BUD-010 预算与实际差异分析，不新增业务模块，不删除文件。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、BUD-001 至 BUD-009 架构文档、当前源码、当前 Git 状态 |
+| 允许修改 | 当前已实现模块的小范围缺陷修复、对应测试、`docs/architecture/review-001-mvp-source-review.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | BUD-010 差异分析、ERP 直连、BI 图表、合并报表、删除文件、PDF 原文、OCR 全文 |
+| 验证命令 | `mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build`、`git status --short`、`git check-ignore`、边界关键词扫描 |
+| 授权状态 | 全自动模式；本阶段不涉及删除文件；未进入 BUD-010 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/budgetactual/service/ActualImportService.java` | 修复多个 CUSTOM 维度导致 Actual 导入维度映射重复 key 的风险 |
+| `backend/src/test/java/com/budgetplatform/budgetactual/api/ActualImportControllerIntegrationTests.java` | 新增多个 CUSTOM 维度下 Actual CSV 校验测试 |
+| `backend/src/main/java/com/budgetplatform/budgetsubmission/service/SubmissionService.java` | 修复填报退回后事实值状态未同步退回的问题 |
+| `backend/src/test/java/com/budgetplatform/budgetsubmission/api/SubmissionControllerIntegrationTests.java` | 增强退回后事实值状态验证 |
+| `docs/architecture/review-001-mvp-source-review.md` | 新增 MVP 源码审查与治理收口报告 |
+| `PROJECT_STEP_RECORD.md` | 追加 REVIEW-001 阶段记录 |
+
+### 关键产出
+
+1. Actual 导入现在可兼容模型中存在多个 `CUSTOM` 维度的情况。
+2. 填报任务退回后，关联事实值状态同步回到 `DRAFT`，避免污染按 `SUBMITTED` 状态的查询结果。
+3. 完成删除接口、ERP、BI、合并报表、差异分析、临时入口、PDF/OCR 和构建产物边界扫描。
+4. 已沉淀源码审查报告。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 23, Failures: 0, Errors: 0, Skipped: 0 |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过 |
+
+### 失败项与修复记录
+
+1. 本阶段未出现测试失败。
+2. 主动修复审查发现 1：Actual 导入维度映射忽略本阶段不消费的 `CUSTOM` 维度，并新增测试。
+3. 主动修复审查发现 2：填报退回同步事实值为 `DRAFT`，并新增测试断言。
+
+### 风险与记录
+
+1. 本阶段未新增 migration。
+2. 本阶段未新增业务模块，只对既有模块做一致性硬化。
+3. `README.md` 仍是历史本地修改，未纳入本阶段提交范围。
+4. BUD-010 差异分析仍需用户明确批准后才能进入。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| BUD-010 差异分析 | 未进入 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| 删除文件 | 未执行 |
+| 删除接口 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. 认证、授权、数据范围和持久化审计仍未实现。
+2. 查询分页、数据库条件下推、模板版本锁定、Actual 撤销/冲销仍需后续阶段规划。
+3. BUD-010 预算与实际差异分析仍未获明确批准。
+
+### 是否建议关闭本阶段
+
+建议关闭 REVIEW-001。
+
+关闭理由：源码审查、两处小缺陷修复、后端测试、边界扫描和审查报告均已完成，未进入 BUD-010 或越界功能。
+
+### 下一阶段建议
+
+下一阶段仍是 BUD-010：预算与实际差异分析，但必须用户明确批准后才能进入。

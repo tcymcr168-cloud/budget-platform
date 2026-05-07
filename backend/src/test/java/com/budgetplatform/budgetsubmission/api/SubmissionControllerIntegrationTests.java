@@ -43,6 +43,11 @@ class SubmissionControllerIntegrationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("RETURNED"));
 
+        mockMvc.perform(get("/api/submissions/tasks/{taskId}/values", taskId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].valueStatus").value("DRAFT"));
+
         saveValue(taskId, fixture.accountMemberId(), "1250.00");
 
         mockMvc.perform(post("/api/submissions/tasks/{taskId}/submit", taskId))

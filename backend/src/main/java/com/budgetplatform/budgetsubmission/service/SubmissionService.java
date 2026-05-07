@@ -154,6 +154,7 @@ public class SubmissionService {
         SubmissionTask task = loadTask(taskId);
         requireStatus(task, SubmissionStatus.SUBMITTED);
         task.returnForRevision(request.reason());
+        factValueRepository.updateStatuses(taskId, FactValueStatus.DRAFT);
         record(task, AuditAction.STATUS_CHANGE, "Task returned");
         return SubmissionTaskResponse.from(task);
     }

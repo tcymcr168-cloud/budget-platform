@@ -38,12 +38,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class ActualImportService {
 
     private static final List<String> REQUIRED_HEADERS = List.of("account", "entity", "time", "category", "version", "amount");
+    private static final List<DimensionType> REQUIRED_DIMENSION_TYPES = List.of(
+            DimensionType.ACCOUNT,
+            DimensionType.ENTITY,
+            DimensionType.TIME,
+            DimensionType.CATEGORY,
+            DimensionType.VERSION
+    );
 
     private final BudgetModelRepository budgetModelRepository;
     private final BudgetModelDimensionBindingRepository bindingRepository;
@@ -200,19 +206,13 @@ public class ActualImportService {
     }
 
     private Map<DimensionType, UUID> loadRequiredDimensionIds(UUID budgetModelId) {
-        Map<DimensionType, UUID> dimensionIds = bindingRepository.findByBudgetModel_IdOrderByDisplayOrderAscDimension_CodeAsc(budgetModelId)
-                .stream()
-                .collect(Collectors.toMap(
-                        BudgetModelDimensionBinding::getDimensionRole,
-                        binding -> binding.getDimension().getId()
-                ));
-        for (DimensionType requiredType : List.of(
-                DimensionType.ACCOUNT,
-                DimensionType.ENTITY,
-                DimensionType.TIME,
-                DimensionType.CATEGORY,
-                DimensionType.VERSION
-        )) {
+        Map<DimensionType, UUID> dimensionIds = new EnumMap<>(DimensionType.class);
+        for (BudgetModelDimensionBinding binding : bindingRepository.findByBudgetModel_IdOrderByDisplayOrderAscDimension_CodeAsc(budgetModelId)) {
+            if (REQUIRED_DIMENSION_TYPES.contains(binding.getDimensionRole())) {
+                dimensionIds.putIfAbsent(binding.getDimensionRole(), binding.getDimension().getId());
+            }
+        }
+        for (DimensionType requiredType : REQUIRED_DIMENSION_TYPES) {
             if (!dimensionIds.containsKey(requiredType)) {
                 throw badRequest("Budget model is missing required dimension: " + requiredType);
             }
