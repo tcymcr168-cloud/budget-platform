@@ -2514,3 +2514,86 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段仍是 BUD-010：预算与实际差异分析，但必须用户明确批准后才能进入。
+
+## DOCS-README-001
+
+阶段名称：README 项目入口文档收口
+
+记录日期：2026-05-07
+
+### 阶段目标
+
+将当前空白的 `README.md` 更新为正式项目入口文档，说明项目定位、已实现 MVP 能力、技术栈、目录结构、验证命令、PDF/OCR 资料保护规则和当前下一步边界。本阶段不进入 BUD-010，不修改业务代码，不删除文件。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/architecture/*`、当前 `README.md` 与 Git 状态 |
+| 允许修改 | `README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 后端业务代码、前端业务代码、migration、BUD-010 差异分析、PDF 原文、OCR 全文、删除文件 |
+| 验证命令 | `git status --short`、`git check-ignore`、必要时运行 `mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build` |
+| 授权状态 | 全自动模式；本阶段不涉及删除文件，不进入受控业务阶段 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `README.md` | 新增项目定位、MVP 能力、技术栈、目录结构、验证命令、PDF/OCR 保护和下一步边界 |
+| `PROJECT_STEP_RECORD.md` | 追加 DOCS-README-001 阶段记录 |
+
+### 关键产出
+
+1. README 从空白状态恢复为正式项目入口文档。
+2. README 明确 BUD-001 至 BUD-009 与 REVIEW-001 的已完成能力。
+3. README 明确 BUD-010 仍需明确批准后才能进入。
+4. README 明确 PDF/OCR 原文保护规则。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `git status --short` | 通过；仅 `README.md`、`PROJECT_STEP_RECORD.md` 为本阶段修改 |
+| `git check-ignore` | 通过；PDF、OCR 缓存、前端构建产物、依赖目录和后端 `target` 均被忽略 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| `mvn test` | 通过；Tests run: 23, Failures: 0, Errors: 0, Skipped: 0 |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过 |
+
+### 失败项与修复记录
+
+1. 本阶段尚未出现失败项。
+
+### 风险与记录
+
+1. 本阶段只更新文档，不新增业务能力。
+2. README 包含正式验证命令，不写入临时沙箱路径、临时预览 URL 或一次性调试入口。
+3. 未提交 PDF 原文、OCR 全文或构建产物。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 后端业务代码 | 未修改 |
+| 前端业务代码 | 未修改 |
+| migration | 未修改 |
+| BUD-010 差异分析 | 未进入 |
+| 删除文件 | 未执行 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. README 仍可在后续阶段补充部署配置、环境变量和正式启动说明。
+2. BUD-010 仍需用户明确批准后才能进入。
+
+### 是否建议关闭本阶段
+
+建议关闭 DOCS-README-001。
+
+关闭理由：README 项目入口文档已收口，阶段记录已更新，后端与前端验证命令均通过，未修改业务代码、migration、PDF 原文、OCR 全文或 BUD-010 差异分析内容。
+
+### 下一阶段建议
+
+下一业务阶段仍是 BUD-010：预算与实际差异分析。该阶段在项目规则中属于明确受控范围，需用户明确批准“进入 BUD-010”后再开始业务实现。
