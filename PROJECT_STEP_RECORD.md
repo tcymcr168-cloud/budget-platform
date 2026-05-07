@@ -2122,3 +2122,101 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BUD-007：预算填报基础版。
 
 该阶段应基于已激活模板实现填报任务、草稿、提交、退回、通过和锁定，并首次引入统一事实数据写入；仍不得进入预算执行差异分析、BI、ERP 或实际数导入。
+
+## BUD-007
+
+阶段名称：预算填报基础版
+
+记录日期：2026-05-07
+
+### 阶段目标
+
+基于已激活模板实现填报任务、草稿保存、提交、退回、通过和锁定，并首次引入统一事实数据写入。本阶段不进入查询汇总、实际数导入、BI、ERP、合并报表或预算执行差异分析。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/product/bpc-kb-004-input-work-status.md`、`docs/product/product-001-mvp-scope.md`、`docs/architecture/bud-006-budget-template-management.md` |
+| 允许修改 | `backend/src/main/java/com/budgetplatform/budgetsubmission`、`backend/src/test/java/com/budgetplatform/budgetsubmission`、`backend/src/main/resources/db/migration/V4__budget_submission_baseline.sql`、`frontend/src`、`docs/architecture/bud-007-budget-submission-baseline.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 查询汇总、实际数导入、预算执行分析、BI、ERP、合并报表、PDF 原文、OCR 全文、删除接口 |
+| 验证命令 | `mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build`、`git status --short`、`git check-ignore` |
+| 授权状态 | 全自动模式；本阶段新增 migration、填报模块和事实数据写入已按授权记录风险，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/resources/db/migration/V4__budget_submission_baseline.sql` | 新增填报任务和事实值表 |
+| `backend/src/main/java/com/budgetplatform/budgetsubmission/domain/*` | 新增填报任务、事实值、状态和来源枚举 |
+| `backend/src/main/java/com/budgetplatform/budgetsubmission/repository/*` | 新增填报任务和事实值仓储 |
+| `backend/src/main/java/com/budgetplatform/budgetsubmission/api/*` | 新增填报 API DTO 和 Controller |
+| `backend/src/main/java/com/budgetplatform/budgetsubmission/service/SubmissionService.java` | 新增填报状态机和事实值写入规则 |
+| `backend/src/test/java/com/budgetplatform/budgetsubmission/api/SubmissionControllerIntegrationTests.java` | 新增填报集成测试 |
+| `frontend/src/features/submissions/submissionApi.ts` | 新增填报前端 API client |
+| `frontend/src/App.tsx` | 新增填报任务、草稿值、提交、退回、通过、锁定 UI |
+| `frontend/src/styles.css` | 新增填报管理区样式 |
+| `docs/architecture/bud-007-budget-submission-baseline.md` | 新增本阶段架构说明 |
+| `PROJECT_STEP_RECORD.md` | 追加 BUD-007 阶段记录 |
+
+### 关键产出
+
+1. 填报任务范围固定为 Template + Entity + Time + Category + Version。
+2. 事实值坐标固定为 Account + Entity + Time + Category + Version。
+3. 支持 NOT_STARTED、DRAFT、SUBMITTED、RETURNED、APPROVED、LOCKED 状态流。
+4. 保存值时写入统一 `fact_value`，后续 Actual 导入可复用事实表思想。
+5. 已提交、已通过、已锁定状态不可继续保存填报值。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 18, Failures: 0, Errors: 0, Skipped: 0 |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过 |
+
+### 失败项与修复记录
+
+1. 本阶段首轮后端和前端验证均通过，未出现需要修复的编译或测试失败。
+
+### 风险与记录
+
+1. 本阶段新增了 migration `V4__budget_submission_baseline.sql`，属于 BUD-007 范围内的填报和事实值基础表变更，已按全自动授权记录。
+2. 本阶段首次新增事实数据写入，但仅用于预算填报草稿和状态推进，不实现查询、导入或差异分析。
+3. 事实值当前仅覆盖费用预算核心五维：Account、Entity、Time、Category、Version；自定义维度事实坐标后置。
+4. 审计仍接入 NoopAuditService，持久化审计存储后续独立阶段增强。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 查询模块 | 未新增 |
+| 实际数导入 | 未新增 |
+| 预算执行分析 | 未新增 |
+| BI 图表 | 未新增 |
+| ERP 直连 | 未新增 |
+| 合并报表 | 未新增 |
+| 删除接口 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| README | 仍为历史本地修改，未纳入本阶段提交范围 |
+
+### 未解决问题
+
+1. 填报 UI 暂不根据模板轴自动生成完整表格，只提供任务和 Account 金额录入基础闭环。
+2. 暂不支持解锁、重开、复杂审批、多用户鉴权和持久化审计日志。
+3. 暂不支持自定义维度事实坐标。
+4. 查询与基础汇总尚未实现，需进入 BUD-008。
+
+### 是否建议关闭本阶段
+
+建议关闭 BUD-007。
+
+关闭理由：填报任务、草稿值、提交、退回、通过、锁定和事实值写入已形成最小闭环，并通过后端和前端验证，未越界进入查询、导入或差异分析。
+
+### 下一阶段建议
+
+下一阶段：BUD-008：预算查询与基础汇总。
+
+该阶段应基于 `fact_value` 实现表格查询、基础明细和轻量汇总，不做 BI 图表、不做预算执行差异分析。

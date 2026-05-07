@@ -33,6 +33,18 @@ import {
   listWorkspaces,
   Workspace,
 } from './features/metadata/metadataApi';
+import {
+  approveSubmissionTask,
+  createSubmissionTask,
+  FactValue,
+  listFactValues,
+  listSubmissionTasks,
+  lockSubmissionTask,
+  returnSubmissionTask,
+  saveFactValue,
+  SubmissionTask,
+  submitSubmissionTask,
+} from './features/submissions/submissionApi';
 
 const dimensionTypes: DimensionType[] = [
   'ACCOUNT',
@@ -45,6 +57,15 @@ const dimensionTypes: DimensionType[] = [
 
 const axisTypes: TemplateAxisType[] = ['ROW', 'COLUMN', 'FILTER'];
 
+const initialScopeMembers: Record<DimensionType, DimensionMember[]> = {
+  ACCOUNT: [],
+  ENTITY: [],
+  TIME: [],
+  CATEGORY: [],
+  VERSION: [],
+  CUSTOM: [],
+};
+
 function App() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [dimensions, setDimensions] = useState<Dimension[]>([]);
@@ -53,10 +74,15 @@ function App() {
   const [modelBindings, setModelBindings] = useState<BudgetModelDimensionBinding[]>([]);
   const [budgetTemplates, setBudgetTemplates] = useState<BudgetTemplate[]>([]);
   const [templateAxes, setTemplateAxes] = useState<TemplateAxis[]>([]);
+  const [scopeMembers, setScopeMembers] =
+    useState<Record<DimensionType, DimensionMember[]>>(initialScopeMembers);
+  const [submissionTasks, setSubmissionTasks] = useState<SubmissionTask[]>([]);
+  const [factValues, setFactValues] = useState<FactValue[]>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('');
   const [selectedDimensionId, setSelectedDimensionId] = useState('');
   const [selectedBudgetModelId, setSelectedBudgetModelId] = useState('');
   const [selectedBudgetTemplateId, setSelectedBudgetTemplateId] = useState('');
+  const [selectedSubmissionTaskId, setSelectedSubmissionTaskId] = useState('');
   const [workspaceDraft, setWorkspaceDraft] = useState({ code: '', name: '' });
   const [dimensionDraft, setDimensionDraft] = useState({
     code: '',
@@ -91,6 +117,20 @@ function App() {
     memberSelector: 'ALL_LEAF',
     displayOrder: '',
   });
+  const [submissionDraft, setSubmissionDraft] = useState({
+    entityMemberId: '',
+    timeMemberId: '',
+    categoryMemberId: '',
+    versionMemberId: '',
+    ownerUser: 'owner@example.com',
+    reviewerUser: 'reviewer@example.com',
+  });
+  const [factValueDraft, setFactValueDraft] = useState({
+    accountMemberId: '',
+    amount: '',
+    note: '',
+  });
+  const [returnReason, setReturnReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('Connect the backend on port 8080 to manage metadata.');
   const [error, setError] = useState('');
@@ -115,6 +155,11 @@ function App() {
     [budgetTemplates, selectedBudgetTemplateId],
   );
 
+  const selectedSubmissionTask = useMemo(
+    () => submissionTasks.find((task) => task.id === selectedSubmissionTaskId),
+    [selectedSubmissionTaskId, submissionTasks],
+  );
+
   const unboundDimensions = useMemo(() => {
     const boundIds = new Set(modelBindings.map((binding) => binding.dimensionId));
     return dimensions.filter((dimension) => !boundIds.has(dimension.id));
@@ -137,6 +182,9 @@ function App() {
       setSelectedBudgetModelId('');
       setBudgetTemplates([]);
       setSelectedBudgetTemplateId('');
+      setScopeMembers(initialScopeMembers);
+      setSubmissionTasks([]);
+      setSelectedSubmissionTaskId('');
       return;
     }
     void refreshDimensions(selectedWorkspaceId);
@@ -152,6 +200,10 @@ function App() {
   }, [selectedDimensionId]);
 
   useEffect(() => {
+    void refreshScopeMembers(dimensions);
+  }, [dimensions]);
+
+  useEffect(() => {
     if (!selectedBudgetModelId) {
       setModelBindings([]);
       setBudgetTemplates([]);
@@ -165,10 +217,21 @@ function App() {
   useEffect(() => {
     if (!selectedBudgetTemplateId) {
       setTemplateAxes([]);
+      setSubmissionTasks([]);
+      setSelectedSubmissionTaskId('');
       return;
     }
     void refreshTemplateAxes(selectedBudgetTemplateId);
+    void refreshSubmissionTasks(selectedBudgetTemplateId);
   }, [selectedBudgetTemplateId]);
+
+  useEffect(() => {
+    if (!selectedSubmissionTaskId) {
+      setFactValues([]);
+      return;
+    }
+    void refreshFactValues(selectedSubmissionTaskId);
+  }, [selectedSubmissionTaskId]);
 
   async function runAction(action: () => Promise<void>) {
     setLoading(true);
@@ -217,6 +280,35 @@ function App() {
     });
   }
 
+  async function refreshScopeMembers(nextDimensions: Dimension[]) {
+    if (nextDimensions.length === 0) {
+      setScopeMembers(initialScopeMembers);
+      return;
+    }
+
+    await runAction(async () => {
+      const nextScopeMembers: Record<DimensionType, DimensionMember[]> = {
+        ACCOUNT: [],
+        ENTITY: [],
+        TIME: [],
+        CATEGORY: [],
+        VERSION: [],
+        CUSTOM: [],
+      };
+      for (const dimension of nextDimensions) {
+        if (dimension.dimensionType === 'CUSTOM') {
+          continue;
+        }
+        nextScopeMembers[dimension.dimensionType] = [
+          ...nextScopeMembers[dimension.dimensionType],
+          ...(await listMembers(dimension.id)),
+        ];
+      }
+      setScopeMembers(nextScopeMembers);
+      setNotice('Submission scope members loaded.');
+    });
+  }
+
   async function refreshBudgetModels(workspaceId: string) {
     await runAction(async () => {
       const nextBudgetModels = await listBudgetModels(workspaceId);
@@ -254,6 +346,24 @@ function App() {
     await runAction(async () => {
       setTemplateAxes(await listTemplateAxes(budgetTemplateId));
       setNotice('Template axes loaded.');
+    });
+  }
+
+  async function refreshSubmissionTasks(budgetTemplateId: string) {
+    await runAction(async () => {
+      const nextTasks = await listSubmissionTasks(budgetTemplateId);
+      setSubmissionTasks(nextTasks);
+      setSelectedSubmissionTaskId((current) =>
+        nextTasks.some((task) => task.id === current) ? current : nextTasks[0]?.id ?? '',
+      );
+      setNotice('Submission tasks loaded.');
+    });
+  }
+
+  async function refreshFactValues(taskId: string) {
+    await runAction(async () => {
+      setFactValues(await listFactValues(taskId));
+      setNotice('Submission values loaded.');
     });
   }
 
@@ -483,6 +593,80 @@ function App() {
         setSelectedBudgetTemplateId(template.id);
         setNotice(`Template ${template.code} deactivated.`);
       }
+    });
+  }
+
+  async function handleCreateSubmissionTask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedBudgetTemplateId) {
+      setError('Select an active budget template first.');
+      return;
+    }
+
+    await runAction(async () => {
+      const task = await createSubmissionTask({
+        budgetTemplateId: selectedBudgetTemplateId,
+        entityMemberId: submissionDraft.entityMemberId,
+        timeMemberId: submissionDraft.timeMemberId,
+        categoryMemberId: submissionDraft.categoryMemberId,
+        versionMemberId: submissionDraft.versionMemberId,
+        ownerUser: submissionDraft.ownerUser,
+        reviewerUser: submissionDraft.reviewerUser,
+      });
+      if (task) {
+        await refreshSubmissionTasks(selectedBudgetTemplateId);
+        setSelectedSubmissionTaskId(task.id);
+        setNotice('Submission task created.');
+      }
+    });
+  }
+
+  async function handleSaveFactValue(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedSubmissionTaskId) {
+      setError('Select a submission task first.');
+      return;
+    }
+
+    await runAction(async () => {
+      const value = await saveFactValue(selectedSubmissionTaskId, {
+        accountMemberId: factValueDraft.accountMemberId,
+        amount: Number(factValueDraft.amount),
+        note: factValueDraft.note || undefined,
+      });
+      if (value) {
+        setFactValueDraft({ accountMemberId: '', amount: '', note: '' });
+        await refreshSubmissionTasks(selectedBudgetTemplateId);
+        await refreshFactValues(selectedSubmissionTaskId);
+        setNotice(`Draft value saved for ${value.accountMemberCode}.`);
+      }
+    });
+  }
+
+  async function transitionSubmissionTask(
+    action: 'submit' | 'return' | 'approve' | 'lock',
+  ) {
+    if (!selectedSubmissionTaskId || !selectedBudgetTemplateId) {
+      return;
+    }
+
+    await runAction(async () => {
+      if (action === 'submit') {
+        await submitSubmissionTask(selectedSubmissionTaskId);
+      }
+      if (action === 'return') {
+        await returnSubmissionTask(selectedSubmissionTaskId, returnReason);
+        setReturnReason('');
+      }
+      if (action === 'approve') {
+        await approveSubmissionTask(selectedSubmissionTaskId);
+      }
+      if (action === 'lock') {
+        await lockSubmissionTask(selectedSubmissionTaskId);
+      }
+      await refreshSubmissionTasks(selectedBudgetTemplateId);
+      await refreshFactValues(selectedSubmissionTaskId);
+      setNotice(`Submission task ${action} completed.`);
     });
   }
 
@@ -1070,6 +1254,267 @@ function App() {
                     <td>{axis.axisType}</td>
                     <td>{axis.memberSelector}</td>
                     <td>{axis.displayOrder}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section className="submission-layout" aria-label="Budget submission management">
+        <section className="panel" aria-labelledby="submission-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Step 8</p>
+              <h2 id="submission-title">Submission Tasks</h2>
+            </div>
+            <span>{selectedBudgetTemplate?.code ?? 'No template'}</span>
+          </div>
+
+          <form
+            className="submission-form"
+            onSubmit={(event) => void handleCreateSubmissionTask(event)}
+          >
+            <label>
+              Entity
+              <select
+                required
+                value={submissionDraft.entityMemberId}
+                onChange={(event) =>
+                  setSubmissionDraft({
+                    ...submissionDraft,
+                    entityMemberId: event.target.value,
+                  })
+                }
+              >
+                <option value="">Select entity</option>
+                {scopeMembers.ENTITY.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Time
+              <select
+                required
+                value={submissionDraft.timeMemberId}
+                onChange={(event) =>
+                  setSubmissionDraft({ ...submissionDraft, timeMemberId: event.target.value })
+                }
+              >
+                <option value="">Select time</option>
+                {scopeMembers.TIME.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Category
+              <select
+                required
+                value={submissionDraft.categoryMemberId}
+                onChange={(event) =>
+                  setSubmissionDraft({
+                    ...submissionDraft,
+                    categoryMemberId: event.target.value,
+                  })
+                }
+              >
+                <option value="">Select category</option>
+                {scopeMembers.CATEGORY.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Version
+              <select
+                required
+                value={submissionDraft.versionMemberId}
+                onChange={(event) =>
+                  setSubmissionDraft({
+                    ...submissionDraft,
+                    versionMemberId: event.target.value,
+                  })
+                }
+              >
+                <option value="">Select version</option>
+                {scopeMembers.VERSION.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Owner
+              <input
+                required
+                value={submissionDraft.ownerUser}
+                onChange={(event) =>
+                  setSubmissionDraft({ ...submissionDraft, ownerUser: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Reviewer
+              <input
+                required
+                value={submissionDraft.reviewerUser}
+                onChange={(event) =>
+                  setSubmissionDraft({ ...submissionDraft, reviewerUser: event.target.value })
+                }
+              />
+            </label>
+            <button type="submit" disabled={loading || !selectedBudgetTemplateId}>
+              Create
+            </button>
+          </form>
+
+          <div className="list" role="list">
+            {submissionTasks.map((task) => (
+              <button
+                className="list-row"
+                data-selected={task.id === selectedSubmissionTaskId}
+                key={task.id}
+                onClick={() => setSelectedSubmissionTaskId(task.id)}
+                role="listitem"
+                type="button"
+              >
+                <span>
+                  <strong>
+                    {task.entityMemberCode} / {task.timeMemberCode}
+                  </strong>
+                  {task.categoryMemberCode} - {task.versionMemberCode}
+                </span>
+                <em>{task.status}</em>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel" aria-labelledby="value-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Step 9</p>
+              <h2 id="value-title">Draft Values</h2>
+            </div>
+            <span>{selectedSubmissionTask?.status ?? 'No task'}</span>
+          </div>
+
+          <form className="value-form" onSubmit={(event) => void handleSaveFactValue(event)}>
+            <label>
+              Account
+              <select
+                required
+                value={factValueDraft.accountMemberId}
+                onChange={(event) =>
+                  setFactValueDraft({
+                    ...factValueDraft,
+                    accountMemberId: event.target.value,
+                  })
+                }
+              >
+                <option value="">Select account</option>
+                {scopeMembers.ACCOUNT.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Amount
+              <input
+                required
+                step="0.01"
+                type="number"
+                value={factValueDraft.amount}
+                onChange={(event) =>
+                  setFactValueDraft({ ...factValueDraft, amount: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Note
+              <input
+                value={factValueDraft.note}
+                onChange={(event) =>
+                  setFactValueDraft({ ...factValueDraft, note: event.target.value })
+                }
+              />
+            </label>
+            <button type="submit" disabled={loading || !selectedSubmissionTaskId}>
+              Save Draft
+            </button>
+          </form>
+
+          <div className="model-actions">
+            <button
+              type="button"
+              onClick={() => void transitionSubmissionTask('submit')}
+              disabled={loading || !selectedSubmissionTaskId}
+            >
+              Submit
+            </button>
+            <button
+              type="button"
+              onClick={() => void transitionSubmissionTask('approve')}
+              disabled={loading || !selectedSubmissionTaskId}
+            >
+              Approve
+            </button>
+            <button
+              type="button"
+              onClick={() => void transitionSubmissionTask('lock')}
+              disabled={loading || !selectedSubmissionTaskId}
+            >
+              Lock
+            </button>
+          </div>
+
+          <form className="return-form" onSubmit={(event) => {
+            event.preventDefault();
+            void transitionSubmissionTask('return');
+          }}>
+            <label>
+              Return reason
+              <input
+                value={returnReason}
+                onChange={(event) => setReturnReason(event.target.value)}
+              />
+            </label>
+            <button type="submit" disabled={loading || !selectedSubmissionTaskId}>
+              Return
+            </button>
+          </form>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Account</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {factValues.map((value) => (
+                  <tr key={value.id}>
+                    <td>
+                      {value.accountMemberCode} - {value.accountMemberName}
+                    </td>
+                    <td>{value.amount}</td>
+                    <td>{value.valueStatus}</td>
+                    <td>{value.note ?? ''}</td>
                   </tr>
                 ))}
               </tbody>
