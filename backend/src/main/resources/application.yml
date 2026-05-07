@@ -1,6 +1,16 @@
 spring:
   application:
     name: budget-platform-backend
+  datasource:
+    url: ${BUDGET_PLATFORM_DB_URL:jdbc:postgresql://localhost:5432/budget_platform}
+    username: ${BUDGET_PLATFORM_DB_USERNAME:budget_platform}
+    password: ${BUDGET_PLATFORM_DB_PASSWORD:budget_platform}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
 
 server:
   port: 8080

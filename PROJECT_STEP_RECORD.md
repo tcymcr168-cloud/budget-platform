@@ -1738,3 +1738,97 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BUD-003：元数据后端。
 
 该阶段将首次进入元数据业务后端实现。根据当前全自动授权，除删除文件外无需额外授权；但必须在阶段计划中明确 migration 范围、测试命令和不进入前端/模板/填报/查询/导入模块。
+
+## BUD-003
+
+阶段名称：元数据后端
+
+记录日期：2026-05-07
+
+### 阶段目标
+
+按 BUD-002 设计实现元数据后端最小闭环，包括预算空间、维度、成员和单主层级 API，新增 JPA/Flyway 数据访问基础和集成测试。本阶段明确允许新增 migration，但不实现预算模型、模板、填报、查询、导入或前端元数据页面。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/architecture/bud-002-metadata-model-design.md`、`docs/product/product-001-mvp-scope.md` |
+| 允许修改 | `backend/pom.xml`、`backend/src/main/java/com/budgetplatform/metadata`、`backend/src/main/resources/db/migration`、`backend/src/test`、`docs/architecture/bud-003-metadata-backend.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 前端元数据页面、预算模型、模板、填报、查询、导入、PDF 原文、OCR 全文、删除接口 |
+| 验证命令 | `mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build`、`git status --short`、`git check-ignore` |
+| 授权状态 | 全自动模式，不涉及删除文件；本阶段明确允许新增 migration |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/pom.xml` | 新增 Spring Data JPA、Flyway、PostgreSQL runtime driver、H2 test dependency |
+| `backend/src/main/resources/application.yml` | 新增 datasource、JPA validate、Flyway 配置 |
+| `backend/src/test/resources/application-test.yml` | 新增 H2 PostgreSQL 模式测试配置 |
+| `backend/src/main/resources/db/migration/V1__metadata_baseline.sql` | 新增 workspace、dimension、dimension_member 表和索引 |
+| `backend/src/main/java/com/budgetplatform/metadata/domain/*` | 新增元数据实体和枚举 |
+| `backend/src/main/java/com/budgetplatform/metadata/repository/*` | 新增 JPA Repository |
+| `backend/src/main/java/com/budgetplatform/metadata/service/MetadataService.java` | 新增元数据应用服务和校验 |
+| `backend/src/main/java/com/budgetplatform/metadata/api/*` | 新增元数据 REST API DTO 和 Controller |
+| `backend/src/test/java/com/budgetplatform/metadata/api/MetadataControllerIntegrationTests.java` | 新增元数据 API 集成测试 |
+| `backend/src/test/java/com/budgetplatform/BudgetPlatformApplicationTests.java` | 加入 `test` profile |
+| `docs/architecture/bud-003-metadata-backend.md` | 新增本阶段实现说明 |
+| `PROJECT_STEP_RECORD.md` | 追加 BUD-003 阶段记录 |
+
+### 关键产出
+
+1. 元数据后端 API 最小闭环：Workspace、Dimension、Dimension Member。
+2. Flyway V1 migration：`budget_workspace`、`dimension`、`dimension_member`。
+3. 单主层级基础规则：同维 parent、循环校验、leaf 状态维护。
+4. 统一错误响应接入：重复编码返回 `CONFLICT`，跨维 parent 返回 `BAD_REQUEST`。
+5. H2 PostgreSQL 模式集成测试验证 migration 和 API。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 修复后通过；Tests run: 6, Failures: 0, Errors: 0, Skipped: 0 |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过 |
+| `git check-ignore` | PDF、OCR、`backend/target`、`frontend/node_modules`、`frontend/dist` 仍被忽略 |
+
+### 失败项与修复记录
+
+1. 第一次 `mvn test` 编译失败，真实错误为 `from(...)` 方法在 `WorkspaceResponse`、`DimensionResponse`、`DimensionMemberResponse` 中不是 public，`MetadataService` 无法从不同包访问。修复：将三个 DTO 工厂方法改为 `public static`。
+2. 源码审查发现成员移动父节点时旧父节点 `leaf` 状态可能不刷新。修复：新增 `refreshLeafState`，移动后重算旧父节点 leaf 状态。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 前端元数据页面 | 未新增 |
+| 预算模型模块 | 未新增 |
+| 模板模块 | 未新增 |
+| 填报模块 | 未新增 |
+| 查询模块 | 未新增 |
+| 导入模块 | 未新增 |
+| 删除接口 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| README | 仍为历史本地修改，未纳入本阶段提交范围 |
+
+### 未解决问题
+
+1. Actual / Budget / Forecast 同源事实表尚未实现，按路线后置。
+2. Budget Model 绑定维度后端尚未实现，按路线进入 BUD-005。
+3. 元数据前端页面尚未实现，建议 BUD-004 进入。
+4. 认证与授权上下文尚未实现，仍为后续权限基础阶段事项。
+
+### 是否建议关闭本阶段
+
+建议关闭 BUD-003。
+
+关闭理由：元数据后端最小闭环、migration、集成测试和错误校验已完成，且未越界进入其他业务模块。
+
+### 下一阶段建议
+
+下一阶段：BUD-004：元数据前端。
+
+该阶段应只实现元数据管理基础 UI，调用 BUD-003 API，支持 Workspace/Dimension/Member 的基础查看与创建，不进入预算模型、模板、填报、查询或导入。
