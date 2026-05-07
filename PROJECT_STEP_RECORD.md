@@ -1832,3 +1832,93 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 下一阶段：BUD-004：元数据前端。
 
 该阶段应只实现元数据管理基础 UI，调用 BUD-003 API，支持 Workspace/Dimension/Member 的基础查看与创建，不进入预算模型、模板、填报、查询或导入。
+
+## BUD-004
+
+阶段名称：元数据前端
+
+记录日期：2026-05-07
+
+### 阶段目标
+
+实现元数据管理基础前端，支持 Workspace、Dimension、Dimension Member 的查看、创建和选择，调用 BUD-003 后端 API。本阶段不进入预算模型、模板、填报、查询或导入，不新增 migration。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`docs/architecture/bud-003-metadata-backend.md` |
+| 允许修改 | `frontend/src`、`frontend/vite.config.ts`、`docs/architecture/bud-004-metadata-frontend.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 后端业务扩展、migration、预算模型、模板、填报、查询、导入、PDF 原文、OCR 全文 |
+| 验证命令 | `pnpm type-check`、`pnpm lint`、`pnpm build`、`mvn test`、`git status --short`、`git check-ignore` |
+| 授权状态 | 全自动模式，不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `frontend/vite.config.ts` | 增加 `/api` 到 `localhost:8080` 的开发代理 |
+| `frontend/src/features/metadata/metadataApi.ts` | 新增元数据 API 类型和调用函数 |
+| `frontend/src/App.tsx` | 将工程占位页替换为元数据管理工作台 |
+| `frontend/src/styles.css` | 新增工作台、表单、列表和表格样式 |
+| `docs/architecture/bud-004-metadata-frontend.md` | 新增本阶段实现说明 |
+| `PROJECT_STEP_RECORD.md` | 追加 BUD-004 阶段记录 |
+
+### 关键产出
+
+1. Workspace 创建、列表和选择。
+2. Dimension 创建、列表、类型选择和 workspace 关联。
+3. Dimension Member 创建、列表和 parent 选择。
+4. 统一元数据 API client。
+5. Vite proxy 连接后端 API。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `pnpm type-check` | 修复后通过 |
+| `pnpm lint` | 修复后通过 |
+| `pnpm build` | 修复后通过 |
+| `mvn test` | 通过；Tests run: 6, Failures: 0, Errors: 0, Skipped: 0 |
+| `pnpm dev --host 127.0.0.1` | 前端可启动，`127.0.0.1:5173` 返回 200 |
+| `mvn spring-boot:run -Dspring-boot.run.profiles=test` | 本地后端预览失败；仍连接 PostgreSQL，报 `SQL State 28P01`，用户 `budget_platform` 密码认证失败 |
+| `mvn spring-boot:run -Dspring-boot.run.profiles=test -Dspring-boot.run.useTestClasspath=true` | 本地后端预览仍失败；同样落到 PostgreSQL 密码认证失败 |
+
+### 失败项与修复记录
+
+1. 第一次前端验证失败，真实错误为 `src/App.tsx` 末尾残留旧占位页 JSX，导致 `TS1128 Declaration or statement expected` 和 ESLint parsing error。修复：清除残留 JSX 和重复 `export default App`。
+2. 修复后前端 type-check、lint、build 全部通过。
+3. 本地后端预览启动失败，真实错误为 Flyway 获取 PostgreSQL 连接失败：`SQL State 28P01`，本机用户 `budget_platform` 密码认证失败。`mvn test` 仍通过，说明测试 profile 下的 H2 集成验证有效；后续应补充正式的 local profile 或配置本机 PostgreSQL 凭据。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 后端业务扩展 | 未新增 |
+| migration | 未新增 |
+| 预算模型页面 | 未新增 |
+| 模板页面 | 未新增 |
+| 填报页面 | 未新增 |
+| 查询页面 | 未新增 |
+| 导入页面 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交，仅本地 ignored 缓存 |
+| README | 仍为历史本地修改，未纳入本阶段提交范围 |
+
+### 未解决问题
+
+1. UI 当前只支持创建和查看，不支持编辑、停用和删除。
+2. 本地前端预览可启动；本地后端 `spring-boot:run` 预览当前因 PostgreSQL 凭据失败未启动，需后续补充 local profile 或配置本机 PostgreSQL。
+3. 认证与授权上下文尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 BUD-004。
+
+关闭理由：元数据前端基础工作台已完成并通过构建验证，能够调用 BUD-003 API 完成元数据基础维护。
+
+### 下一阶段建议
+
+下一阶段：BUD-005：预算模型管理。
+
+该阶段应基于元数据能力实现预算模型创建、维度绑定和启停，不进入模板、填报、查询或导入。
