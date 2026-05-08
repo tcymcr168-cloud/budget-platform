@@ -30,6 +30,8 @@ class SecurityControllerIntegrationTests {
 
         String userId = mockMvc.perform(post("/api/security/users")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
                         .content("""
                                 {
                                   "username": "Budget.Owner@Example.com",
@@ -47,6 +49,8 @@ class SecurityControllerIntegrationTests {
 
         mockMvc.perform(post("/api/security/users/{userId}/roles", userId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
                         .content("""
                                 {
                                   "workspaceId": "%s",
@@ -59,6 +63,8 @@ class SecurityControllerIntegrationTests {
 
         mockMvc.perform(post("/api/security/users/{userId}/entity-scopes", userId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
                         .content("""
                                 {
                                   "workspaceId": "%s",
@@ -71,12 +77,16 @@ class SecurityControllerIntegrationTests {
                 .andExpect(jsonPath("$.data.includeDescendants").value(true));
 
         mockMvc.perform(get("/api/security/users/{userId}/roles", userId)
-                        .param("workspaceId", workspaceId))
+                        .param("workspaceId", workspaceId)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)));
 
         mockMvc.perform(get("/api/security/users/{userId}/entity-scopes", userId)
-                        .param("workspaceId", workspaceId))
+                        .param("workspaceId", workspaceId)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)));
     }
@@ -90,6 +100,8 @@ class SecurityControllerIntegrationTests {
 
         mockMvc.perform(post("/api/security/users/{userId}/roles", userId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
                         .content("""
                                 {
                                   "workspaceId": "%s",
@@ -100,6 +112,8 @@ class SecurityControllerIntegrationTests {
 
         mockMvc.perform(post("/api/security/users/{userId}/roles", userId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
                         .content("""
                                 {
                                   "workspaceId": "%s",
@@ -111,6 +125,8 @@ class SecurityControllerIntegrationTests {
 
         mockMvc.perform(post("/api/security/users/{userId}/entity-scopes", userId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
                         .content("""
                                 {
                                   "workspaceId": "%s",
@@ -133,9 +149,20 @@ class SecurityControllerIntegrationTests {
                 .andExpect(jsonPath("$.data.roles", hasSize(2)));
     }
 
+    @Test
+    void rejectsSecurityManagementWithoutAdminRole() throws Exception {
+        mockMvc.perform(get("/api/security/users")
+                        .header("X-User-Id", "reader@example.com")
+                        .header("X-User-Roles", "READ_ONLY"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+    }
+
     private String createSecurityUser(String username) throws Exception {
         return mockMvc.perform(post("/api/security/users")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
                         .content("""
                                 {
                                   "username": "%s",

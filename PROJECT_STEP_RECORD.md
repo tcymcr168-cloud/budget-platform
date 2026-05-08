@@ -2976,3 +2976,100 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段进入 `SEC-003`：后端授权接入，将角色与 Entity 数据范围逐步接入元数据、模型、模板、填报、查询、Actual 导入和差异分析接口。
+
+## SEC-003
+
+阶段名称：后端授权入口接入
+
+记录日期：2026-05-08
+
+### 阶段目标
+
+在 SEC-001 安全模型和 SEC-002 后端安全基础之上，建立统一授权服务，并先将授权接入安全管理 API 与预算查询读取 API。本阶段重点保护用户、角色、Entity 范围管理入口，以及事实明细、汇总、CSV 导出和预算与实际差异分析查询入口。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `docs/architecture/sec-001-security-scope-design.md`、`docs/architecture/sec-002-security-backend-baseline.md`、现有 `SecurityController`、`BudgetQueryController`、`FactValueRepository` |
+| 允许修改 | `backend/src/main/java/com/budgetplatform/security/*`、`backend/src/main/java/com/budgetplatform/budgetquery/*`、相关后端集成测试、SEC-003 架构文档、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 前端 UI、PDF 原文、OCR 全文、删除文件、migration、ERP 直连、BI 图表、合并报表、全模块一次性授权重写 |
+| 验证命令 | `mvn test`、`git check-ignore`、`git status --short`、`git diff --check`、后端边界关键词扫描 |
+| 授权状态 | 用户已授权全自动推进；本阶段无删除文件，无 migration |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/security/service/AuthorizationService.java` | 新增统一授权服务，支持管理员校验、角色校验和 Entity 范围读取 |
+| `backend/src/main/java/com/budgetplatform/security/api/SecurityController.java` | 为安全管理 API 接入管理员授权 |
+| `backend/src/main/java/com/budgetplatform/budgetquery/api/BudgetQueryController.java` | 为查询接口解析请求头身份上下文 |
+| `backend/src/main/java/com/budgetplatform/budgetquery/service/BudgetQueryService.java` | 为事实明细、汇总、CSV 和差异分析接入读取授权与 Entity 范围过滤 |
+| `backend/src/main/java/com/budgetplatform/common/api/ErrorCode.java` | 新增 `UNAUTHORIZED` 与 `FORBIDDEN` 错误码 |
+| `backend/src/main/java/com/budgetplatform/security/repository/AppUserRoleRepository.java` | 补充角色查询能力 |
+| `backend/src/test/java/com/budgetplatform/security/api/SecurityControllerIntegrationTests.java` | 增加安全管理管理员校验测试 |
+| `backend/src/test/java/com/budgetplatform/budgetquery/api/BudgetQueryControllerIntegrationTests.java` | 增加查询授权头和 Entity 范围过滤测试 |
+| `backend/src/test/java/com/budgetplatform/budgetactual/api/ActualImportControllerIntegrationTests.java` | 为实际数导入后的查询验证增加管理员上下文 |
+| `docs/architecture/sec-003-backend-authorization-entry-points.md` | 新增 SEC-003 架构与关闭建议文档 |
+| `README.md` | 更新当前安全治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-003 阶段记录 |
+
+### 关键产出
+
+1. 新增 `AuthorizationService` 统一承载后端授权判断。
+2. 安全管理 API 已要求 `BUDGET_ADMIN`。
+3. 预算查询读取 API 已要求读取角色，并应用 Entity 数据范围过滤。
+4. 预算与实际差异分析已复用读取授权和 Entity 范围过滤。
+5. 新增 401/403 错误码，为后续接口授权提供统一错误语义。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 29, Failures: 0, Errors: 0, Skipped: 0 |
+| `git check-ignore` | 通过；PDF、OCR、构建产物、依赖目录和后端 `target` 均被忽略 |
+| `git status --short` | 通过；仅 SEC-003 后端授权、测试、文档和阶段记录修改 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| 后端边界关键词扫描 | 通过；`backend/src/main/java` 未发现 `@DeleteMapping`、ERP、Chart 或合并报表实现 |
+
+### 失败项与修复记录
+
+1. 本阶段后端测试通过，未出现编译或测试失败。
+
+### 风险与限制
+
+1. 请求头身份上下文仍是内部技术验证机制，不代表生产登录完成。
+2. 前端尚未统一注入身份请求头，部分受保护接口在前端直接调用时可能返回 401 或 403。
+3. 本阶段只保护安全管理和预算查询读取面，元数据、模型、模板、填报、实际数导入等写接口授权仍需后续阶段继续接入。
+4. Entity 范围只按事实数据 Entity 成员过滤，不引入 Account、Time、Category、Version 多维组合权限矩阵。
+5. 持久化审计仍未实现。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| migration | 未新增 |
+| 前端 UI | 未修改 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 元数据、模型、模板、填报和实际数导入写接口尚未统一接入授权。
+2. 前端安全请求头注入、用户切换和错误提示尚未实现。
+3. 生产级认证、JWT/SSO、密码策略和会话管理尚未实现。
+4. 持久化审计仍待 `AUDIT-001`。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-003。
+
+关闭理由：统一授权服务、安全管理 API 管理员保护、预算查询读取授权、Entity 数据范围过滤、集成测试和架构文档均已完成；后端测试通过，未删除文件，未新增 migration，未提交 PDF/OCR 全文或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `SEC-003B`：后端业务写接口授权接入，逐步保护元数据、预算模型、预算模板、预算填报和实际数导入接口。

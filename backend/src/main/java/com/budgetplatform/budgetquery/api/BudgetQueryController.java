@@ -3,8 +3,11 @@ package com.budgetplatform.budgetquery.api;
 import com.budgetplatform.budgetquery.service.BudgetQueryService;
 import com.budgetplatform.budgetsubmission.domain.FactValueStatus;
 import com.budgetplatform.common.api.ApiResponse;
+import com.budgetplatform.security.context.CurrentUserContext;
+import com.budgetplatform.security.context.CurrentUserContextResolver;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -16,9 +19,11 @@ import java.util.UUID;
 public class BudgetQueryController {
 
     private final BudgetQueryService budgetQueryService;
+    private final CurrentUserContextResolver contextResolver;
 
-    public BudgetQueryController(BudgetQueryService budgetQueryService) {
+    public BudgetQueryController(BudgetQueryService budgetQueryService, CurrentUserContextResolver contextResolver) {
         this.budgetQueryService = budgetQueryService;
+        this.contextResolver = contextResolver;
     }
 
     @GetMapping("/facts")
@@ -28,9 +33,13 @@ public class BudgetQueryController {
             @RequestParam(required = false) UUID timeMemberId,
             @RequestParam(required = false) UUID categoryMemberId,
             @RequestParam(required = false) UUID versionMemberId,
-            @RequestParam(required = false) FactValueStatus status
+            @RequestParam(required = false) FactValueStatus status,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles
     ) {
+        CurrentUserContext context = contextResolver.resolve(userId, roles);
         return ApiResponse.success(budgetQueryService.queryFacts(
+                context,
                 budgetModelId,
                 entityMemberId,
                 timeMemberId,
@@ -48,9 +57,13 @@ public class BudgetQueryController {
             @RequestParam(required = false) UUID timeMemberId,
             @RequestParam(required = false) UUID categoryMemberId,
             @RequestParam(required = false) UUID versionMemberId,
-            @RequestParam(required = false) FactValueStatus status
+            @RequestParam(required = false) FactValueStatus status,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles
     ) {
+        CurrentUserContext context = contextResolver.resolve(userId, roles);
         return ApiResponse.success(budgetQueryService.summarizeFacts(
+                context,
                 budgetModelId,
                 groupBy,
                 entityMemberId,
@@ -68,9 +81,13 @@ public class BudgetQueryController {
             @RequestParam(required = false) UUID timeMemberId,
             @RequestParam(required = false) UUID categoryMemberId,
             @RequestParam(required = false) UUID versionMemberId,
-            @RequestParam(required = false) FactValueStatus status
+            @RequestParam(required = false) FactValueStatus status,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles
     ) {
+        CurrentUserContext context = contextResolver.resolve(userId, roles);
         return budgetQueryService.exportFactsCsv(
+                context,
                 budgetModelId,
                 entityMemberId,
                 timeMemberId,
@@ -89,9 +106,13 @@ public class BudgetQueryController {
             @RequestParam(required = false) UUID actualVersionMemberId,
             @RequestParam(required = false) UUID entityMemberId,
             @RequestParam(required = false) UUID timeMemberId,
-            @RequestParam(required = false) FactValueStatus status
+            @RequestParam(required = false) FactValueStatus status,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles
     ) {
+        CurrentUserContext context = contextResolver.resolve(userId, roles);
         return ApiResponse.success(budgetQueryService.analyzeBudgetActualVariance(
+                context,
                 budgetModelId,
                 budgetCategoryMemberId,
                 actualCategoryMemberId,

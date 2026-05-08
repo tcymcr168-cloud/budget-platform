@@ -4,10 +4,18 @@ import com.budgetplatform.budgetquery.api.BudgetActualVarianceResponse;
 import com.budgetplatform.budgetquery.api.FactQueryResponse;
 import com.budgetplatform.budgetquery.api.FactSummaryResponse;
 import com.budgetplatform.budgetquery.api.QueryGroupBy;
+import com.budgetplatform.budgetmodel.domain.BudgetModel;
+import com.budgetplatform.budgetmodel.repository.BudgetModelRepository;
 import com.budgetplatform.budgetsubmission.domain.FactValue;
 import com.budgetplatform.budgetsubmission.domain.FactValueStatus;
 import com.budgetplatform.budgetsubmission.repository.FactValueRepository;
+import com.budgetplatform.common.api.ApplicationException;
+import com.budgetplatform.common.api.ErrorCode;
 import com.budgetplatform.metadata.domain.DimensionMember;
+import com.budgetplatform.security.context.CurrentUserContext;
+import com.budgetplatform.security.domain.SecurityRoleCode;
+import com.budgetplatform.security.service.AuthorizationService;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,19 +25,29 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class BudgetQueryService {
 
     private final FactValueRepository factValueRepository;
+    private final BudgetModelRepository budgetModelRepository;
+    private final AuthorizationService authorizationService;
 
-    public BudgetQueryService(FactValueRepository factValueRepository) {
+    public BudgetQueryService(
+            FactValueRepository factValueRepository,
+            BudgetModelRepository budgetModelRepository,
+            AuthorizationService authorizationService
+    ) {
         this.factValueRepository = factValueRepository;
+        this.budgetModelRepository = budgetModelRepository;
+        this.authorizationService = authorizationService;
     }
 
     @Transactional(readOnly = true)
     public List<FactQueryResponse> queryFacts(
+            CurrentUserContext context,
             UUID budgetModelId,
             UUID entityMemberId,
             UUID timeMemberId,
@@ -37,7 +55,9 @@ public class BudgetQueryService {
             UUID versionMemberId,
             FactValueStatus status
     ) {
-        return filterFacts(budgetModelId, entityMemberId, timeMemberId, categoryMemberId, versionMemberId, status)
+        BudgetModel model = loadModel(budgetModelId);
+        authorizeRead(context, model.getWorkspace().getId());
+        return filterFacts(context, model, entityMemberId, timeMemberId, categoryMemberId, versionMemberId, status)
                 .stream()
                 .map(FactQueryResponse::from)
                 .toList();
@@ -45,6 +65,7 @@ public class BudgetQueryService {
 
     @Transactional(readOnly = true)
     public List<FactSummaryResponse> summarizeFacts(
+            CurrentUserContext context,
             UUID budgetModelId,
             QueryGroupBy groupBy,
             UUID entityMemberId,
@@ -53,8 +74,10 @@ public class BudgetQueryService {
             UUID versionMemberId,
             FactValueStatus status
     ) {
+        BudgetModel model = loadModel(budgetModelId);
+        authorizeRead(context, model.getWorkspace().getId());
         Map<UUID, SummaryAccumulator> summaries = new LinkedHashMap<>();
-        for (FactValue value : filterFacts(budgetModelId, entityMemberId, timeMemberId, categoryMemberId, versionMemberId, status)) {
+        for (FactValue value : filterFacts(context, model, entityMemberId, timeMemberId, categoryMemberId, versionMemberId, status)) {
             DimensionMember member = groupMember(value, groupBy);
             summaries.computeIfAbsent(member.getId(), ignored -> new SummaryAccumulator(member))
                     .add(value.getAmount());
@@ -69,6 +92,7 @@ public class BudgetQueryService {
 
     @Transactional(readOnly = true)
     public String exportFactsCsv(
+            CurrentUserContext context,
             UUID budgetModelId,
             UUID entityMemberId,
             UUID timeMemberId,
@@ -77,7 +101,7 @@ public class BudgetQueryService {
             FactValueStatus status
     ) {
         StringBuilder builder = new StringBuilder("account,entity,time,category,version,amount,status,source\n");
-        queryFacts(budgetModelId, entityMemberId, timeMemberId, categoryMemberId, versionMemberId, status)
+        queryFacts(context, budgetModelId, entityMemberId, timeMemberId, categoryMemberId, versionMemberId, status)
                 .forEach(row -> builder.append(csv(row.accountCode())).append(',')
                         .append(csv(row.entityCode())).append(',')
                         .append(csv(row.timeCode())).append(',')
@@ -91,6 +115,7 @@ public class BudgetQueryService {
 
     @Transactional(readOnly = true)
     public List<BudgetActualVarianceResponse> analyzeBudgetActualVariance(
+            CurrentUserContext context,
             UUID budgetModelId,
             UUID budgetCategoryMemberId,
             UUID actualCategoryMemberId,
@@ -100,9 +125,14 @@ public class BudgetQueryService {
             UUID timeMemberId,
             FactValueStatus status
     ) {
+        BudgetModel model = loadModel(budgetModelId);
+        UUID workspaceId = model.getWorkspace().getId();
+        authorizeRead(context, workspaceId);
+        DataScope dataScope = dataScope(context, workspaceId);
         Map<VarianceKey, VarianceAccumulator> variances = new LinkedHashMap<>();
         for (FactValue value : factValueRepository.findByBudgetModel_IdOrderByUpdatedAtDesc(budgetModelId)) {
-            if (!matchesVarianceScope(value, entityMemberId, timeMemberId, status)) {
+            if (!matchesEntityScope(value, entityMemberId, dataScope)
+                    || !matchesVarianceScope(value, entityMemberId, timeMemberId, status)) {
                 continue;
             }
 
@@ -142,21 +172,60 @@ public class BudgetQueryService {
     }
 
     private List<FactValue> filterFacts(
-            UUID budgetModelId,
+            CurrentUserContext context,
+            BudgetModel model,
             UUID entityMemberId,
             UUID timeMemberId,
             UUID categoryMemberId,
             UUID versionMemberId,
             FactValueStatus status
     ) {
-        return factValueRepository.findByBudgetModel_IdOrderByUpdatedAtDesc(budgetModelId)
+        DataScope dataScope = dataScope(context, model.getWorkspace().getId());
+        return factValueRepository.findByBudgetModel_IdOrderByUpdatedAtDesc(model.getId())
                 .stream()
-                .filter(value -> entityMemberId == null || value.getEntityMember().getId().equals(entityMemberId))
+                .filter(value -> matchesEntityScope(value, entityMemberId, dataScope))
                 .filter(value -> timeMemberId == null || value.getTimeMember().getId().equals(timeMemberId))
                 .filter(value -> categoryMemberId == null || value.getCategoryMember().getId().equals(categoryMemberId))
                 .filter(value -> versionMemberId == null || value.getVersionMember().getId().equals(versionMemberId))
                 .filter(value -> status == null || value.getValueStatus() == status)
                 .toList();
+    }
+
+    private void authorizeRead(CurrentUserContext context, UUID workspaceId) {
+        authorizationService.requireAnyRole(
+                context,
+                workspaceId,
+                SecurityRoleCode.BUDGET_ADMIN,
+                SecurityRoleCode.BUDGET_OWNER,
+                SecurityRoleCode.BUDGET_REVIEWER,
+                SecurityRoleCode.IMPORT_OPERATOR,
+                SecurityRoleCode.READ_ONLY
+        );
+    }
+
+    private DataScope dataScope(CurrentUserContext context, UUID workspaceId) {
+        boolean admin = authorizationService.rolesForWorkspace(context, workspaceId).contains(SecurityRoleCode.BUDGET_ADMIN);
+        Set<UUID> entityMemberIds = admin
+                ? Set.of()
+                : authorizationService.readableEntityMemberIds(context, workspaceId);
+        return new DataScope(admin, entityMemberIds);
+    }
+
+    private boolean matchesEntityScope(FactValue value, UUID requestedEntityMemberId, DataScope scope) {
+        UUID factEntityMemberId = value.getEntityMember().getId();
+        if (requestedEntityMemberId != null && !factEntityMemberId.equals(requestedEntityMemberId)) {
+            return false;
+        }
+        return scope.admin() || scope.entityMemberIds().contains(factEntityMemberId);
+    }
+
+    private BudgetModel loadModel(UUID budgetModelId) {
+        return budgetModelRepository.findById(budgetModelId)
+                .orElseThrow(() -> new ApplicationException(
+                        ErrorCode.NOT_FOUND,
+                        HttpStatus.NOT_FOUND,
+                        "Budget model was not found: " + budgetModelId
+                ));
     }
 
     private boolean matchesVarianceScope(
@@ -223,6 +292,9 @@ public class BudgetQueryService {
     }
 
     private record VarianceKey(UUID accountMemberId, UUID entityMemberId, UUID timeMemberId) {
+    }
+
+    private record DataScope(boolean admin, Set<UUID> entityMemberIds) {
     }
 
     private static class VarianceAccumulator {

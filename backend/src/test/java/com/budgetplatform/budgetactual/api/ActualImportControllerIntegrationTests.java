@@ -61,7 +61,9 @@ class ActualImportControllerIntegrationTests {
 
         mockMvc.perform(get("/api/budget-query/facts")
                         .param("budgetModelId", fixture.modelId())
-                        .param("status", "APPROVED"))
+                        .param("status", "APPROVED")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
                 .andExpect(jsonPath("$.data[0].sourceType").value("ACTUAL_IMPORT"))

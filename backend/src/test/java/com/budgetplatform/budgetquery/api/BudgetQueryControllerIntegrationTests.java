@@ -30,7 +30,9 @@ class BudgetQueryControllerIntegrationTests {
 
         mockMvc.perform(get("/api/budget-query/facts")
                         .param("budgetModelId", fixture.modelId())
-                        .param("status", "APPROVED"))
+                        .param("status", "APPROVED")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
                 .andExpect(jsonPath("$.data[0].accountCode").value(fixture.accountCode()))
@@ -39,7 +41,9 @@ class BudgetQueryControllerIntegrationTests {
         mockMvc.perform(get("/api/budget-query/summary")
                         .param("budgetModelId", fixture.modelId())
                         .param("groupBy", "ACCOUNT")
-                        .param("status", "APPROVED"))
+                        .param("status", "APPROVED")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
                 .andExpect(jsonPath("$.data[0].memberCode").value(fixture.accountCode()))
@@ -53,7 +57,9 @@ class BudgetQueryControllerIntegrationTests {
 
         mockMvc.perform(get("/api/budget-query/facts.csv")
                         .param("budgetModelId", fixture.modelId())
-                        .param("status", "APPROVED"))
+                        .param("status", "APPROVED")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("text/csv"))
                 .andExpect(content().string(containsString("account,entity,time,category,version,amount,status,source")))
@@ -69,7 +75,9 @@ class BudgetQueryControllerIntegrationTests {
                         .param("budgetCategoryMemberId", fixture.budgetCategoryMemberId())
                         .param("actualCategoryMemberId", fixture.actualCategoryMemberId())
                         .param("budgetVersionMemberId", fixture.budgetVersionMemberId())
-                        .param("actualVersionMemberId", fixture.actualVersionMemberId()))
+                        .param("actualVersionMemberId", fixture.actualVersionMemberId())
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
                 .andExpect(jsonPath("$.data[0].accountCode").value(fixture.accountCode()))
@@ -81,6 +89,28 @@ class BudgetQueryControllerIntegrationTests {
                 .andExpect(jsonPath("$.data[0].variancePercent").value(20.0000))
                 .andExpect(jsonPath("$.data[0].budgetLineCount").value(1))
                 .andExpect(jsonPath("$.data[0].actualLineCount").value(1));
+    }
+
+    @Test
+    void filtersFactsByReadOnlyEntityScope() throws Exception {
+        Fixture allowed = createApprovedFactFixture("SEC003_ALLOWED");
+        Fixture blocked = createApprovedFactFixture("SEC003_BLOCKED");
+        String userId = createSecurityUser("scope.reader@example.com");
+        grantRole(userId, allowed.workspaceId(), "READ_ONLY");
+        grantEntityScope(userId, allowed.workspaceId(), allowed.entityMemberId());
+
+        mockMvc.perform(get("/api/budget-query/facts")
+                        .param("budgetModelId", allowed.modelId())
+                        .header("X-User-Id", "scope.reader@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].entityCode").value(allowed.entityCode()));
+
+        mockMvc.perform(get("/api/budget-query/facts")
+                        .param("budgetModelId", blocked.modelId())
+                        .header("X-User-Id", "scope.reader@example.com"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
     }
 
     private Fixture createApprovedFactFixture(String prefix) throws Exception {
@@ -120,7 +150,7 @@ class BudgetQueryControllerIntegrationTests {
         mockMvc.perform(post("/api/submissions/tasks/{taskId}/approve", taskId))
                 .andExpect(status().isOk());
 
-        return new Fixture(modelId, accountCode);
+        return new Fixture(modelId, workspaceId, accountCode, entityMemberId, prefix + "_OPS");
     }
 
     private VarianceFixture createVarianceFixture(String prefix) throws Exception {
@@ -350,7 +380,54 @@ class BudgetQueryControllerIntegrationTests {
                 .andExpect(status().isOk());
     }
 
-    private record Fixture(String modelId, String accountCode) {
+    private String createSecurityUser(String username) throws Exception {
+        return mockMvc.perform(post("/api/security/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
+                        .content("""
+                                {
+                                  "username": "%s",
+                                  "displayName": "%s"
+                                }
+                                """.formatted(username, username)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString()
+                .replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
+    }
+
+    private void grantRole(String userId, String workspaceId, String roleCode) throws Exception {
+        mockMvc.perform(post("/api/security/users/{userId}/roles", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
+                        .content("""
+                                {
+                                  "workspaceId": "%s",
+                                  "roleCode": "%s"
+                                }
+                                """.formatted(workspaceId, roleCode)))
+                .andExpect(status().isOk());
+    }
+
+    private void grantEntityScope(String userId, String workspaceId, String entityMemberId) throws Exception {
+        mockMvc.perform(post("/api/security/users/{userId}/entity-scopes", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
+                        .content("""
+                                {
+                                  "workspaceId": "%s",
+                                  "entityMemberId": "%s",
+                                  "includeDescendants": false
+                                }
+                                """.formatted(workspaceId, entityMemberId)))
+                .andExpect(status().isOk());
+    }
+
+    private record Fixture(String modelId, String workspaceId, String accountCode, String entityMemberId, String entityCode) {
     }
 
     private record VarianceFixture(
