@@ -25,6 +25,9 @@ import com.budgetplatform.metadata.domain.Dimension;
 import com.budgetplatform.metadata.domain.DimensionMember;
 import com.budgetplatform.metadata.domain.DimensionType;
 import com.budgetplatform.metadata.repository.DimensionMemberRepository;
+import com.budgetplatform.security.context.CurrentUserContext;
+import com.budgetplatform.security.domain.SecurityRoleCode;
+import com.budgetplatform.security.service.AuthorizationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,6 +61,7 @@ public class ActualImportService {
     private final ActualImportRowRepository rowRepository;
     private final FactValueRepository factValueRepository;
     private final AuditService auditService;
+    private final AuthorizationService authorizationService;
 
     public ActualImportService(
             BudgetModelRepository budgetModelRepository,
@@ -66,7 +70,8 @@ public class ActualImportService {
             ActualImportBatchRepository batchRepository,
             ActualImportRowRepository rowRepository,
             FactValueRepository factValueRepository,
-            AuditService auditService
+            AuditService auditService,
+            AuthorizationService authorizationService
     ) {
         this.budgetModelRepository = budgetModelRepository;
         this.bindingRepository = bindingRepository;
@@ -75,11 +80,13 @@ public class ActualImportService {
         this.rowRepository = rowRepository;
         this.factValueRepository = factValueRepository;
         this.auditService = auditService;
+        this.authorizationService = authorizationService;
     }
 
     @Transactional
-    public ActualImportBatchResponse validateCsv(ValidateActualImportRequest request) {
+    public ActualImportBatchResponse validateCsv(CurrentUserContext context, ValidateActualImportRequest request) {
         BudgetModel model = loadActiveModel(request.budgetModelId());
+        requireImportWrite(context, model.getWorkspace().getId());
         ActualImportBatch batch = batchRepository.save(new ActualImportBatch(model, request.fileName(), request.operatorUser()));
         Map<DimensionType, UUID> dimensionIds = loadRequiredDimensionIds(model.getId());
 
@@ -132,8 +139,9 @@ public class ActualImportService {
     }
 
     @Transactional
-    public ActualImportBatchResponse commit(UUID batchId) {
+    public ActualImportBatchResponse commit(CurrentUserContext context, UUID batchId) {
         ActualImportBatch batch = loadBatch(batchId);
+        requireImportWrite(context, batch.getBudgetModel().getWorkspace().getId());
         if (batch.getStatus() == ActualImportStatus.COMMITTED) {
             throw conflict("Actual import batch has already been committed.");
         }
@@ -168,8 +176,9 @@ public class ActualImportService {
     }
 
     @Transactional(readOnly = true)
-    public List<ActualImportBatchResponse> listBatches(UUID budgetModelId) {
-        ensureModelExists(budgetModelId);
+    public List<ActualImportBatchResponse> listBatches(CurrentUserContext context, UUID budgetModelId) {
+        BudgetModel model = loadModel(budgetModelId);
+        requireImportRead(context, model.getWorkspace().getId());
         return batchRepository.findByBudgetModel_IdOrderByUpdatedAtDesc(budgetModelId)
                 .stream()
                 .map(batch -> ActualImportBatchResponse.from(batch, List.of()))
@@ -177,8 +186,34 @@ public class ActualImportService {
     }
 
     @Transactional(readOnly = true)
-    public List<ActualImportRowResponse> listRows(UUID batchId) {
-        loadBatch(batchId);
+    public List<ActualImportRowResponse> listRows(CurrentUserContext context, UUID batchId) {
+        ActualImportBatch batch = loadBatch(batchId);
+        requireImportRead(context, batch.getBudgetModel().getWorkspace().getId());
+        return listRowsInternal(batchId);
+    }
+
+    private void requireImportWrite(CurrentUserContext context, UUID workspaceId) {
+        authorizationService.requireAnyRole(
+                context,
+                workspaceId,
+                SecurityRoleCode.BUDGET_ADMIN,
+                SecurityRoleCode.IMPORT_OPERATOR
+        );
+    }
+
+    private void requireImportRead(CurrentUserContext context, UUID workspaceId) {
+        authorizationService.requireAnyRole(
+                context,
+                workspaceId,
+                SecurityRoleCode.BUDGET_ADMIN,
+                SecurityRoleCode.IMPORT_OPERATOR,
+                SecurityRoleCode.BUDGET_OWNER,
+                SecurityRoleCode.BUDGET_REVIEWER,
+                SecurityRoleCode.READ_ONLY
+        );
+    }
+
+    private List<ActualImportRowResponse> listRowsInternal(UUID batchId) {
         return rowRepository.findByBatch_IdOrderByRowNumberAsc(batchId)
                 .stream()
                 .map(ActualImportRowResponse::from)
@@ -186,18 +221,16 @@ public class ActualImportService {
     }
 
     private BudgetModel loadActiveModel(UUID budgetModelId) {
-        BudgetModel model = budgetModelRepository.findById(budgetModelId)
-                .orElseThrow(() -> notFound("Budget model was not found: " + budgetModelId));
+        BudgetModel model = loadModel(budgetModelId);
         if (model.getStatus() != BudgetModelStatus.ACTIVE) {
             throw badRequest("Actual import requires an active budget model.");
         }
         return model;
     }
 
-    private void ensureModelExists(UUID budgetModelId) {
-        if (!budgetModelRepository.existsById(budgetModelId)) {
-            throw notFound("Budget model was not found: " + budgetModelId);
-        }
+    private BudgetModel loadModel(UUID budgetModelId) {
+        return budgetModelRepository.findById(budgetModelId)
+                .orElseThrow(() -> notFound("Budget model was not found: " + budgetModelId));
     }
 
     private ActualImportBatch loadBatch(UUID batchId) {
@@ -328,7 +361,7 @@ public class ActualImportService {
     }
 
     private ActualImportBatchResponse toResponse(ActualImportBatch batch) {
-        return ActualImportBatchResponse.from(batch, listRows(batch.getId()));
+        return ActualImportBatchResponse.from(batch, listRowsInternal(batch.getId()));
     }
 
     private void record(ActualImportBatch batch, AuditAction action, String message) {

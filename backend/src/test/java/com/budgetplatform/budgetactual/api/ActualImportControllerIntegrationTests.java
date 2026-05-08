@@ -32,6 +32,8 @@ class ActualImportControllerIntegrationTests {
 
         String batchId = mockMvc.perform(post("/api/actual-imports/validate")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "budgetModelId": "%s",
@@ -58,7 +60,9 @@ class ActualImportControllerIntegrationTests {
                 .getContentAsString()
                 .replaceFirst(".*?\"id\":\"([^\"]+)\".*", "$1");
 
-        mockMvc.perform(post("/api/actual-imports/{batchId}/commit", batchId))
+        mockMvc.perform(post("/api/actual-imports/{batchId}/commit", batchId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("COMMITTED"));
 
@@ -80,6 +84,8 @@ class ActualImportControllerIntegrationTests {
 
         String batchId = mockMvc.perform(post("/api/actual-imports/validate")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "budgetModelId": "%s",
@@ -104,7 +110,9 @@ class ActualImportControllerIntegrationTests {
                 .getContentAsString()
                 .replaceFirst(".*?\"id\":\"([^\"]+)\".*", "$1");
 
-        mockMvc.perform(post("/api/actual-imports/{batchId}/commit", batchId))
+        mockMvc.perform(post("/api/actual-imports/{batchId}/commit", batchId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isBadRequest());
     }
 
@@ -114,6 +122,8 @@ class ActualImportControllerIntegrationTests {
 
         mockMvc.perform(post("/api/actual-imports/validate")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "budgetModelId": "%s",
@@ -133,6 +143,33 @@ class ActualImportControllerIntegrationTests {
                 .andExpect(jsonPath("$.data.status").value("VALIDATED"))
                 .andExpect(jsonPath("$.data.validRows").value(1))
                 .andExpect(jsonPath("$.data.errorRows").value(0));
+    }
+
+    @Test
+    void rejectsActualImportWithoutImportRole() throws Exception {
+        Fixture fixture = createModelFixture("SEC003F_REJECT");
+
+        mockMvc.perform(post("/api/actual-imports/validate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "reader@example.com")
+                        .header("X-User-Roles", "READ_ONLY")
+                        .content("""
+                                {
+                                  "budgetModelId": "%s",
+                                  "fileName": "actual-readonly.csv",
+                                  "operatorUser": "reader@example.com",
+                                  "csvContent": "account,entity,time,category,version,amount\\n%s,%s,%s,%s,%s,10.00"
+                                }
+                                """.formatted(
+                                fixture.modelId(),
+                                fixture.accountCode(),
+                                fixture.entityCode(),
+                                fixture.timeCode(),
+                                fixture.categoryCode(),
+                                fixture.versionCode()
+                        )))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
     }
 
     private Fixture createModelFixture(String prefix) throws Exception {

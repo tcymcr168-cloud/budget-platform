@@ -215,6 +215,8 @@ class BudgetQueryControllerIntegrationTests {
 
         String batchId = mockMvc.perform(post("/api/actual-imports/validate")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "budgetModelId": "%s",
@@ -229,7 +231,9 @@ class BudgetQueryControllerIntegrationTests {
                 .getContentAsString()
                 .replaceFirst(".*?\"id\":\"([^\"]+)\".*", "$1");
 
-        mockMvc.perform(post("/api/actual-imports/{batchId}/commit", batchId))
+        mockMvc.perform(post("/api/actual-imports/{batchId}/commit", batchId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk());
 
         return new VarianceFixture(
