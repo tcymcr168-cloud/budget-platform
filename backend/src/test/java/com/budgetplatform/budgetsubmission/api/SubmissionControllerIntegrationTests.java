@@ -97,7 +97,9 @@ class SubmissionControllerIntegrationTests {
     void rejectsTaskForInactiveTemplate() throws Exception {
         Fixture fixture = createFixture("BUD007_INACTIVE");
 
-        mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/deactivate", fixture.templateId()))
+        mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/deactivate", fixture.templateId())
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/submissions/tasks")
@@ -164,7 +166,9 @@ class SubmissionControllerIntegrationTests {
         addAxis(templateId, accountBindingId, "ROW", 10);
         addAxis(templateId, timeBindingId, "COLUMN", 20);
 
-        mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/activate", templateId))
+        mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/activate", templateId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk());
 
         return new Fixture(templateId, accountMemberId, entityMemberId, timeMemberId, categoryMemberId, versionMemberId);
@@ -314,6 +318,8 @@ class SubmissionControllerIntegrationTests {
     private String createTemplate(String modelId, String code, String name) throws Exception {
         return mockMvc.perform(post("/api/budget-templates")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "budgetModelId": "%s",
@@ -331,6 +337,8 @@ class SubmissionControllerIntegrationTests {
     private void addAxis(String templateId, String modelDimensionId, String axisType, int displayOrder) throws Exception {
         mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/axes", templateId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "modelDimensionId": "%s",

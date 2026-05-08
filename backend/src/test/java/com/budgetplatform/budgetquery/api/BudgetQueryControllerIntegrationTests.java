@@ -145,7 +145,9 @@ class BudgetQueryControllerIntegrationTests {
         String templateId = createTemplate(modelId, prefix + "_TEMPLATE", prefix + " Template");
         addAxis(templateId, accountBindingId, "ROW", 10);
         addAxis(templateId, timeBindingId, "COLUMN", 20);
-        mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/activate", templateId))
+        mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/activate", templateId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk());
 
         String taskId = createTask(templateId, entityMemberId, timeMemberId, categoryMemberId, versionMemberId);
@@ -191,7 +193,9 @@ class BudgetQueryControllerIntegrationTests {
         String templateId = createTemplate(modelId, prefix + "_TEMPLATE", prefix + " Template");
         addAxis(templateId, accountBindingId, "ROW", 10);
         addAxis(templateId, timeBindingId, "COLUMN", 20);
-        mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/activate", templateId))
+        mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/activate", templateId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk());
 
         String taskId = createTask(templateId, entityMemberId, timeMemberId, budgetCategoryMemberId, budgetVersionMemberId);
@@ -330,6 +334,8 @@ class BudgetQueryControllerIntegrationTests {
     private String createTemplate(String modelId, String code, String name) throws Exception {
         return mockMvc.perform(post("/api/budget-templates")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "budgetModelId": "%s",
@@ -347,6 +353,8 @@ class BudgetQueryControllerIntegrationTests {
     private void addAxis(String templateId, String modelDimensionId, String axisType, int displayOrder) throws Exception {
         mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/axes", templateId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "modelDimensionId": "%s",

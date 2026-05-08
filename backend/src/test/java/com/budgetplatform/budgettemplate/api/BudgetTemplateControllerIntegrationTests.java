@@ -21,6 +21,8 @@ class BudgetTemplateControllerIntegrationTests {
 
     private static final String ADMIN_USER = "admin@example.com";
     private static final String ADMIN_ROLES = "BUDGET_ADMIN";
+    private static final String READ_ONLY_USER = "reader@example.com";
+    private static final String READ_ONLY_ROLES = "READ_ONLY";
 
     @Autowired
     private MockMvc mockMvc;
@@ -34,11 +36,18 @@ class BudgetTemplateControllerIntegrationTests {
         addAxis(templateId, fixture.timeBindingId(), "COLUMN", 20);
 
         mockMvc.perform(get("/api/budget-templates/{budgetTemplateId}/axes", templateId))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/budget-templates/{budgetTemplateId}/axes", templateId)
+                        .header("X-User-Id", READ_ONLY_USER)
+                        .header("X-User-Roles", READ_ONLY_ROLES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data", hasSize(2)));
 
-        mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/activate", templateId))
+        mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/activate", templateId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"));
     }
@@ -50,6 +59,8 @@ class BudgetTemplateControllerIntegrationTests {
 
         mockMvc.perform(post("/api/budget-templates")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "budgetModelId": "%s",
@@ -69,6 +80,8 @@ class BudgetTemplateControllerIntegrationTests {
 
         mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/axes", templateId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "modelDimensionId": "%s",
@@ -87,9 +100,30 @@ class BudgetTemplateControllerIntegrationTests {
         String templateId = createTemplate(fixture.modelId(), "MISSING_AXIS", "Missing Axis Template");
         addAxis(templateId, fixture.accountBindingId(), "ROW", 10);
 
-        mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/activate", templateId))
+        mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/activate", templateId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void rejectsTemplateWriteWithoutTemplateRole() throws Exception {
+        Fixture fixture = createActiveModelFixture("SEC003D_REJECT");
+
+        mockMvc.perform(post("/api/budget-templates")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", READ_ONLY_USER)
+                        .header("X-User-Roles", READ_ONLY_ROLES)
+                        .content("""
+                                {
+                                  "budgetModelId": "%s",
+                                  "code": "READ_ONLY_TEMPLATE",
+                                  "name": "Read Only Template"
+                                }
+                                """.formatted(fixture.modelId())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
     }
 
     private Fixture createActiveModelFixture(String prefix) throws Exception {
@@ -195,6 +229,8 @@ class BudgetTemplateControllerIntegrationTests {
     private String createTemplate(String modelId, String code, String name) throws Exception {
         return mockMvc.perform(post("/api/budget-templates")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "budgetModelId": "%s",
@@ -212,6 +248,8 @@ class BudgetTemplateControllerIntegrationTests {
     private void addAxis(String templateId, String modelDimensionId, String axisType, int displayOrder) throws Exception {
         mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/axes", templateId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "modelDimensionId": "%s",
