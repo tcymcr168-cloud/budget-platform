@@ -32,12 +32,16 @@ class SubmissionControllerIntegrationTests {
 
         saveValue(taskId, fixture.accountMemberId(), "1200.50");
 
-        mockMvc.perform(post("/api/submissions/tasks/{taskId}/submit", taskId))
+        mockMvc.perform(post("/api/submissions/tasks/{taskId}/submit", taskId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("SUBMITTED"));
 
         mockMvc.perform(post("/api/submissions/tasks/{taskId}/return", taskId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "reason": "Please revise marketing amount."
@@ -46,26 +50,36 @@ class SubmissionControllerIntegrationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("RETURNED"));
 
-        mockMvc.perform(get("/api/submissions/tasks/{taskId}/values", taskId))
+        mockMvc.perform(get("/api/submissions/tasks/{taskId}/values", taskId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
                 .andExpect(jsonPath("$.data[0].valueStatus").value("DRAFT"));
 
         saveValue(taskId, fixture.accountMemberId(), "1250.00");
 
-        mockMvc.perform(post("/api/submissions/tasks/{taskId}/submit", taskId))
+        mockMvc.perform(post("/api/submissions/tasks/{taskId}/submit", taskId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("SUBMITTED"));
 
-        mockMvc.perform(post("/api/submissions/tasks/{taskId}/approve", taskId))
+        mockMvc.perform(post("/api/submissions/tasks/{taskId}/approve", taskId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("APPROVED"));
 
-        mockMvc.perform(post("/api/submissions/tasks/{taskId}/lock", taskId))
+        mockMvc.perform(post("/api/submissions/tasks/{taskId}/lock", taskId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("LOCKED"));
 
-        mockMvc.perform(get("/api/submissions/tasks/{taskId}/values", taskId))
+        mockMvc.perform(get("/api/submissions/tasks/{taskId}/values", taskId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
                 .andExpect(jsonPath("$.data[0].valueStatus").value("LOCKED"))
@@ -78,11 +92,15 @@ class SubmissionControllerIntegrationTests {
         String taskId = createTask(fixture);
         saveValue(taskId, fixture.accountMemberId(), "500.00");
 
-        mockMvc.perform(post("/api/submissions/tasks/{taskId}/submit", taskId))
+        mockMvc.perform(post("/api/submissions/tasks/{taskId}/submit", taskId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/submissions/tasks/{taskId}/values", taskId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "accountMemberId": "%s",
@@ -104,6 +122,8 @@ class SubmissionControllerIntegrationTests {
 
         mockMvc.perform(post("/api/submissions/tasks")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content(taskJson(fixture)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"));
@@ -115,6 +135,8 @@ class SubmissionControllerIntegrationTests {
 
         mockMvc.perform(post("/api/submissions/tasks")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "budgetTemplateId": "%s",
@@ -134,6 +156,25 @@ class SubmissionControllerIntegrationTests {
                         )))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void rejectsSubmissionOwnerActionWithoutAssignedUserOrRole() throws Exception {
+        Fixture fixture = createFixture("SEC003E_REJECT");
+        String taskId = createTask(fixture);
+
+        mockMvc.perform(post("/api/submissions/tasks/{taskId}/values", taskId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "outsider@example.com")
+                        .header("X-User-Roles", "READ_ONLY")
+                        .content("""
+                                {
+                                  "accountMemberId": "%s",
+                                  "amount": 99.00
+                                }
+                                """.formatted(fixture.accountMemberId())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
     }
 
     private Fixture createFixture(String prefix) throws Exception {
@@ -177,6 +218,8 @@ class SubmissionControllerIntegrationTests {
     private String createTask(Fixture fixture) throws Exception {
         return mockMvc.perform(post("/api/submissions/tasks")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content(taskJson(fixture)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("NOT_STARTED"))
@@ -209,6 +252,8 @@ class SubmissionControllerIntegrationTests {
     private void saveValue(String taskId, String accountMemberId, String amount) throws Exception {
         mockMvc.perform(post("/api/submissions/tasks/{taskId}/values", taskId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "accountMemberId": "%s",

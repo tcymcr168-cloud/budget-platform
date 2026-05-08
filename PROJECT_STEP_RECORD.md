@@ -3357,3 +3357,94 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `SEC-003E`：预算填报 API 授权接入，只处理填报模块。
+
+## SEC-003E
+
+阶段名称：预算填报 API 授权接入
+
+记录日期：2026-05-08
+
+### 阶段目标
+
+在 SEC-003D 授权模式基础上，只针对预算填报模块接入授权，保护 Submission Task 创建、查询、填报值保存、提交、退回、审批和锁定接口。本阶段不扩展到实际数导入或生产认证。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `docs/architecture/bud-007-budget-submission-baseline.md`、`docs/architecture/sec-003d-budget-template-authorization.md`、现有 `SubmissionController` 与 `SubmissionService` |
+| 允许修改 | `backend/src/main/java/com/budgetplatform/budgetsubmission/*`、相关后端集成测试、SEC-003E 架构文档、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 前端 UI、PDF 原文、OCR 全文、删除文件、migration、实际数导入授权、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `mvn test`、`git check-ignore`、`git status --short`、`git diff --check`、后端边界关键词扫描 |
+| 授权状态 | 用户已授权全自动推进；本阶段无删除文件，无 migration |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/budgetsubmission/api/SubmissionController.java` | 解析请求头身份上下文并传入服务层 |
+| `backend/src/main/java/com/budgetplatform/budgetsubmission/service/SubmissionService.java` | 接入填报任务读写、Owner/Reviewer 和 Entity 范围授权 |
+| `backend/src/test/java/com/budgetplatform/budgetsubmission/api/SubmissionControllerIntegrationTests.java` | 新增填报授权测试，并为填报流程增加管理员请求头 |
+| `backend/src/test/java/com/budgetplatform/budgetquery/api/BudgetQueryControllerIntegrationTests.java` | 为查询夹具中的填报步骤增加管理员请求头 |
+| `docs/architecture/sec-003e-budget-submission-authorization.md` | 新增 SEC-003E 架构与关闭建议文档 |
+| `README.md` | 更新当前安全治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-003E 阶段记录 |
+
+### 关键产出
+
+1. 填报任务创建、保存和提交支持 `BUDGET_ADMIN`、owner 本人或 `BUDGET_OWNER` + Entity 范围。
+2. 退回、审批和锁定支持 `BUDGET_ADMIN`、reviewer 本人或 `BUDGET_REVIEWER` + Entity 范围。
+3. 任务详情和值读取支持管理员、owner/reviewer 或读取角色 + Entity 范围。
+4. 填报控制器与服务层已统一接入 `CurrentUserContext`。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 33, Failures: 0, Errors: 0, Skipped: 0 |
+| `git check-ignore` | 通过；PDF、OCR、构建产物、依赖目录和后端 `target` 均被忽略 |
+| `git status --short` | 通过；仅 SEC-003E 预算填报授权、测试、文档和阶段记录修改 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| 后端边界关键词扫描 | 通过；`backend/src/main/java` 未发现 `@DeleteMapping`、ERP、Chart 或合并报表实现 |
+
+### 失败项与修复记录
+
+1. 后端测试首轮通过，未出现编译或测试失败。
+
+### 风险与限制
+
+1. 请求头身份上下文仍是内部技术验证机制，不代表生产登录完成。
+2. 任务清单接口当前只做 Workspace 读取角色校验，尚未按 Entity 范围裁剪列表；任务详情和值读取已接入 Entity 范围。
+3. 前端尚未统一注入身份请求头，预算填报页面直接调用受保护 API 时可能返回 401 或 403。
+4. 持久化审计仍待 `AUDIT-001`。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| migration | 未新增 |
+| 前端 UI | 未修改 |
+| 实际数导入授权 | 未进入 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 实际数导入写接口尚未接入授权。
+2. 前端安全请求头注入、用户切换和错误提示尚未实现。
+3. 生产级认证、JWT/SSO、密码策略和会话管理尚未实现。
+4. 持久化审计仍待 `AUDIT-001`。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-003E。
+
+关闭理由：预算填报 API 主要读写授权、Owner/Reviewer 授权、Entity 范围检查、集成测试、阶段文档和阶段记录均已完成；后端测试通过，未删除文件，未新增 migration，未提交 PDF/OCR 全文或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `SEC-003F`：实际数导入 API 授权接入，只处理导入模块。

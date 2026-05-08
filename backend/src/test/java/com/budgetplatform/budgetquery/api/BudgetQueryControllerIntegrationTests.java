@@ -152,9 +152,13 @@ class BudgetQueryControllerIntegrationTests {
 
         String taskId = createTask(templateId, entityMemberId, timeMemberId, categoryMemberId, versionMemberId);
         saveValue(taskId, accountMemberId, "930.25");
-        mockMvc.perform(post("/api/submissions/tasks/{taskId}/submit", taskId))
+        mockMvc.perform(post("/api/submissions/tasks/{taskId}/submit", taskId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/submissions/tasks/{taskId}/approve", taskId))
+        mockMvc.perform(post("/api/submissions/tasks/{taskId}/approve", taskId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk());
 
         return new Fixture(modelId, workspaceId, accountCode, entityMemberId, prefix + "_OPS");
@@ -200,9 +204,13 @@ class BudgetQueryControllerIntegrationTests {
 
         String taskId = createTask(templateId, entityMemberId, timeMemberId, budgetCategoryMemberId, budgetVersionMemberId);
         saveValue(taskId, accountMemberId, "1000.00");
-        mockMvc.perform(post("/api/submissions/tasks/{taskId}/submit", taskId))
+        mockMvc.perform(post("/api/submissions/tasks/{taskId}/submit", taskId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/submissions/tasks/{taskId}/approve", taskId))
+        mockMvc.perform(post("/api/submissions/tasks/{taskId}/approve", taskId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk());
 
         String batchId = mockMvc.perform(post("/api/actual-imports/validate")
@@ -375,6 +383,8 @@ class BudgetQueryControllerIntegrationTests {
     ) throws Exception {
         return mockMvc.perform(post("/api/submissions/tasks")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "budgetTemplateId": "%s",
@@ -396,6 +406,8 @@ class BudgetQueryControllerIntegrationTests {
     private void saveValue(String taskId, String accountMemberId, String amount) throws Exception {
         mockMvc.perform(post("/api/submissions/tasks/{taskId}/values", taskId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "accountMemberId": "%s",
