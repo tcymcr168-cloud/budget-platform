@@ -2,6 +2,9 @@ package com.budgetplatform.security.service;
 
 import com.budgetplatform.common.api.ApplicationException;
 import com.budgetplatform.common.api.ErrorCode;
+import com.budgetplatform.common.audit.AuditAction;
+import com.budgetplatform.common.audit.AuditEvent;
+import com.budgetplatform.common.audit.AuditService;
 import com.budgetplatform.metadata.domain.BudgetWorkspace;
 import com.budgetplatform.metadata.domain.DimensionMember;
 import com.budgetplatform.metadata.domain.DimensionType;
@@ -26,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -36,28 +40,32 @@ public class SecurityService {
     private final AppUserEntityScopeRepository scopeRepository;
     private final BudgetWorkspaceRepository workspaceRepository;
     private final DimensionMemberRepository memberRepository;
+    private final AuditService auditService;
 
     public SecurityService(
             AppUserRepository userRepository,
             AppUserRoleRepository roleRepository,
             AppUserEntityScopeRepository scopeRepository,
             BudgetWorkspaceRepository workspaceRepository,
-            DimensionMemberRepository memberRepository
+            DimensionMemberRepository memberRepository,
+            AuditService auditService
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.scopeRepository = scopeRepository;
         this.workspaceRepository = workspaceRepository;
         this.memberRepository = memberRepository;
+        this.auditService = auditService;
     }
 
     @Transactional
-    public SecurityUserResponse createUser(CreateSecurityUserRequest request) {
+    public SecurityUserResponse createUser(CurrentUserContext context, CreateSecurityUserRequest request) {
         String username = AppUser.normalizeUsername(request.username());
         if (userRepository.existsByUsername(username)) {
             throw conflict("Security user already exists: " + username);
         }
         AppUser user = userRepository.save(new AppUser(username, request.displayName(), request.email()));
+        record(context, "app_user", user.getId().toString(), AuditAction.CREATE, Map.of("username", user.getUsername()));
         return SecurityUserResponse.from(user);
     }
 
@@ -70,13 +78,18 @@ public class SecurityService {
     }
 
     @Transactional
-    public UserRoleResponse grantRole(UUID userId, GrantUserRoleRequest request) {
+    public UserRoleResponse grantRole(CurrentUserContext context, UUID userId, GrantUserRoleRequest request) {
         AppUser user = loadUser(userId);
         BudgetWorkspace workspace = loadWorkspace(request.workspaceId());
         if (roleRepository.existsByUser_IdAndWorkspace_IdAndRoleCode(userId, workspace.getId(), request.roleCode())) {
             throw conflict("Role already granted to user in workspace.");
         }
         AppUserRole role = roleRepository.save(new AppUserRole(user, workspace, request.roleCode()));
+        record(context, "app_user_role", role.getId().toString(), AuditAction.ACCESS_CHANGE, Map.of(
+                "username", user.getUsername(),
+                "workspaceId", workspace.getId().toString(),
+                "roleCode", role.getRoleCode().name()
+        ));
         return UserRoleResponse.from(role);
     }
 
@@ -97,7 +110,7 @@ public class SecurityService {
     }
 
     @Transactional
-    public EntityScopeResponse grantEntityScope(UUID userId, GrantEntityScopeRequest request) {
+    public EntityScopeResponse grantEntityScope(CurrentUserContext context, UUID userId, GrantEntityScopeRequest request) {
         AppUser user = loadUser(userId);
         BudgetWorkspace workspace = loadWorkspace(request.workspaceId());
         DimensionMember entityMember = loadEntityMemberInWorkspace(request.entityMemberId(), workspace.getId());
@@ -109,6 +122,12 @@ public class SecurityService {
                 workspace,
                 entityMember,
                 request.includeDescendants()
+        ));
+        record(context, "app_user_entity_scope", scope.getId().toString(), AuditAction.ACCESS_CHANGE, Map.of(
+                "username", user.getUsername(),
+                "workspaceId", workspace.getId().toString(),
+                "entityMemberId", entityMember.getId().toString(),
+                "includeDescendants", scope.isIncludeDescendants()
         ));
         return EntityScopeResponse.from(scope);
     }
@@ -131,6 +150,23 @@ public class SecurityService {
 
     public CurrentUserResponse currentUser(CurrentUserContext context) {
         return new CurrentUserResponse(context.userId(), context.roles(), context.authenticated());
+    }
+
+    private void record(
+            CurrentUserContext context,
+            String subjectType,
+            String subjectId,
+            AuditAction action,
+            Map<String, Object> details
+    ) {
+        auditService.record(new AuditEvent(
+                context == null ? null : context.userId(),
+                subjectType,
+                subjectId,
+                action,
+                null,
+                details
+        ));
     }
 
     private AppUser loadUser(UUID userId) {

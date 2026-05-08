@@ -96,7 +96,7 @@ public class ActualImportService {
                 .toList();
         if (lines.isEmpty()) {
             batch.markFailed("CSV content is empty.");
-            record(batch, AuditAction.CREATE, "CSV validation failed");
+            record(context, batch, AuditAction.CREATE, "CSV validation failed");
             return toResponse(batch);
         }
 
@@ -106,7 +106,7 @@ public class ActualImportService {
                 .toList();
         if (!missingHeaders.isEmpty()) {
             batch.markFailed("Missing required CSV headers: " + String.join(", ", missingHeaders));
-            record(batch, AuditAction.CREATE, "CSV validation failed");
+            record(context, batch, AuditAction.CREATE, "CSV validation failed");
             return toResponse(batch);
         }
 
@@ -134,7 +134,7 @@ public class ActualImportService {
 
         batch.updateValidationSummary(rows.size(), validRows, errorRows, totalAmount, String.join("\n", errors));
         rowRepository.saveAll(rows);
-        record(batch, AuditAction.CREATE, "CSV validation completed");
+        record(context, batch, AuditAction.CREATE, "CSV validation completed");
         return toResponse(batch);
     }
 
@@ -171,7 +171,7 @@ public class ActualImportService {
                 .toList();
         factValueRepository.saveAll(facts);
         batch.commit();
-        record(batch, AuditAction.STATUS_CHANGE, "CSV batch committed");
+        record(context, batch, AuditAction.STATUS_CHANGE, "CSV batch committed");
         return toResponse(batch);
     }
 
@@ -364,9 +364,9 @@ public class ActualImportService {
         return ActualImportBatchResponse.from(batch, listRowsInternal(batch.getId()));
     }
 
-    private void record(ActualImportBatch batch, AuditAction action, String message) {
+    private void record(CurrentUserContext context, ActualImportBatch batch, AuditAction action, String message) {
         auditService.record(new AuditEvent(
-                batch.getOperatorUser(),
+                context == null ? batch.getOperatorUser() : context.userId(),
                 "actual_import_batch",
                 batch.getId().toString(),
                 action,

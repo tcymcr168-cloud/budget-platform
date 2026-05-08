@@ -42,8 +42,9 @@ public class SecurityController {
             @RequestHeader(value = "X-User-Roles", required = false) String roles,
             @Valid @RequestBody CreateSecurityUserRequest request
     ) {
-        authorizationService.requireHeaderAdmin(contextResolver.resolve(userId, roles));
-        return ApiResponse.success(securityService.createUser(request));
+        CurrentUserContext context = contextResolver.resolve(userId, roles);
+        authorizationService.requireHeaderAdmin(context);
+        return ApiResponse.success(securityService.createUser(context, request));
     }
 
     @GetMapping("/users")
@@ -62,8 +63,9 @@ public class SecurityController {
             @RequestHeader(value = "X-User-Roles", required = false) String roles,
             @Valid @RequestBody GrantUserRoleRequest request
     ) {
-        authorizationService.requireAdmin(contextResolver.resolve(actorId, roles), request.workspaceId());
-        return ApiResponse.success(securityService.grantRole(userId, request));
+        CurrentUserContext context = contextResolver.resolve(actorId, roles);
+        authorizationService.requireAdmin(context, request.workspaceId());
+        return ApiResponse.success(securityService.grantRole(context, userId, request));
     }
 
     @GetMapping("/users/{userId}/roles")
@@ -89,8 +91,9 @@ public class SecurityController {
             @RequestHeader(value = "X-User-Roles", required = false) String roles,
             @Valid @RequestBody GrantEntityScopeRequest request
     ) {
-        authorizationService.requireAdmin(contextResolver.resolve(actorId, roles), request.workspaceId());
-        return ApiResponse.success(securityService.grantEntityScope(userId, request));
+        CurrentUserContext context = contextResolver.resolve(actorId, roles);
+        authorizationService.requireAdmin(context, request.workspaceId());
+        return ApiResponse.success(securityService.grantEntityScope(context, userId, request));
     }
 
     @GetMapping("/users/{userId}/entity-scopes")

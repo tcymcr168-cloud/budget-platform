@@ -1,5 +1,6 @@
 package com.budgetplatform.security.api;
 
+import com.budgetplatform.common.audit.AuditEventRecordRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -8,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -24,6 +26,9 @@ class SecurityControllerIntegrationTests {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private AuditEventRecordRepository auditRepository;
 
     @Test
     void createsUserAndGrantsRoleAndEntityScope() throws Exception {
@@ -50,7 +55,7 @@ class SecurityControllerIntegrationTests {
                 .getContentAsString()
                 .replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
 
-        mockMvc.perform(post("/api/security/users/{userId}/roles", userId)
+        String roleId = mockMvc.perform(post("/api/security/users/{userId}/roles", userId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-User-Id", "admin@example.com")
                         .header("X-User-Roles", "BUDGET_ADMIN")
@@ -62,9 +67,13 @@ class SecurityControllerIntegrationTests {
                                 """.formatted(workspaceId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.roleCode").value("BUDGET_OWNER"))
-                .andExpect(jsonPath("$.data.workspaceId").value(workspaceId));
+                .andExpect(jsonPath("$.data.workspaceId").value(workspaceId))
+                .andReturn()
+                .getResponse()
+                .getContentAsString()
+                .replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
 
-        mockMvc.perform(post("/api/security/users/{userId}/entity-scopes", userId)
+        String scopeId = mockMvc.perform(post("/api/security/users/{userId}/entity-scopes", userId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-User-Id", "admin@example.com")
                         .header("X-User-Roles", "BUDGET_ADMIN")
@@ -77,7 +86,11 @@ class SecurityControllerIntegrationTests {
                                 """.formatted(workspaceId, entityMemberId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.entityMemberCode").value("SEC002_OPS"))
-                .andExpect(jsonPath("$.data.includeDescendants").value(true));
+                .andExpect(jsonPath("$.data.includeDescendants").value(true))
+                .andReturn()
+                .getResponse()
+                .getContentAsString()
+                .replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
 
         mockMvc.perform(get("/api/security/users/{userId}/roles", userId)
                         .param("workspaceId", workspaceId)
@@ -92,6 +105,13 @@ class SecurityControllerIntegrationTests {
                         .header("X-User-Roles", "BUDGET_ADMIN"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)));
+
+        assertThat(auditRepository.findBySubjectTypeAndSubjectIdOrderByOccurredAtAsc("app_user", userId))
+                .hasSize(1);
+        assertThat(auditRepository.findBySubjectTypeAndSubjectIdOrderByOccurredAtAsc("app_user_role", roleId))
+                .hasSize(1);
+        assertThat(auditRepository.findBySubjectTypeAndSubjectIdOrderByOccurredAtAsc("app_user_entity_scope", scopeId))
+                .hasSize(1);
     }
 
     @Test

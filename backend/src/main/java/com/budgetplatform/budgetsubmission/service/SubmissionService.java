@@ -97,7 +97,7 @@ public class SubmissionService {
                 request.ownerUser(),
                 request.reviewerUser()
         ));
-        record(task, AuditAction.CREATE, "Task created");
+        record(context, task, AuditAction.CREATE, "Task created");
         return SubmissionTaskResponse.from(task);
     }
 
@@ -136,7 +136,7 @@ public class SubmissionService {
                 .orElseGet(() -> factValueRepository.save(new FactValue(task, accountMember, request.amount(), request.note())));
 
         task.markDraft();
-        record(task, AuditAction.UPDATE, "Draft value saved");
+        record(context, task, AuditAction.UPDATE, "Draft value saved");
         return FactValueResponse.from(factValue);
     }
 
@@ -160,7 +160,7 @@ public class SubmissionService {
         }
         task.submit();
         factValueRepository.updateStatuses(taskId, FactValueStatus.SUBMITTED);
-        record(task, AuditAction.STATUS_CHANGE, "Task submitted");
+        record(context, task, AuditAction.STATUS_CHANGE, "Task submitted");
         return SubmissionTaskResponse.from(task);
     }
 
@@ -175,7 +175,7 @@ public class SubmissionService {
         requireStatus(task, SubmissionStatus.SUBMITTED);
         task.returnForRevision(request.reason());
         factValueRepository.updateStatuses(taskId, FactValueStatus.DRAFT);
-        record(task, AuditAction.STATUS_CHANGE, "Task returned");
+        record(context, task, AuditAction.STATUS_CHANGE, "Task returned");
         return SubmissionTaskResponse.from(task);
     }
 
@@ -186,7 +186,7 @@ public class SubmissionService {
         requireStatus(task, SubmissionStatus.SUBMITTED);
         task.approve();
         factValueRepository.updateStatuses(taskId, FactValueStatus.APPROVED);
-        record(task, AuditAction.STATUS_CHANGE, "Task approved");
+        record(context, task, AuditAction.STATUS_CHANGE, "Task approved");
         return SubmissionTaskResponse.from(task);
     }
 
@@ -197,7 +197,7 @@ public class SubmissionService {
         requireStatus(task, SubmissionStatus.APPROVED);
         task.lock();
         factValueRepository.updateStatuses(taskId, FactValueStatus.LOCKED);
-        record(task, AuditAction.STATUS_CHANGE, "Task locked");
+        record(context, task, AuditAction.STATUS_CHANGE, "Task locked");
         return SubmissionTaskResponse.from(task);
     }
 
@@ -363,9 +363,9 @@ public class SubmissionService {
                 .orElseThrow(() -> notFound("Budget template was not found: " + budgetTemplateId));
     }
 
-    private void record(SubmissionTask task, AuditAction action, String message) {
+    private void record(CurrentUserContext context, SubmissionTask task, AuditAction action, String message) {
         auditService.record(new AuditEvent(
-                "system",
+                context == null ? null : context.userId(),
                 "submission_task",
                 task.getId().toString(),
                 action,

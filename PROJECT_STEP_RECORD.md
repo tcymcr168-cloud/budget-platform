@@ -3629,3 +3629,103 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUDIT-001`：持久化审计基线设计与最小实现，优先覆盖安全管理与受保护业务写操作。
+
+## AUDIT-001
+
+阶段名称：持久化审计基线设计与最小实现
+
+记录日期：2026-05-08
+
+### 阶段目标
+
+将既有 `AuditService` 从空实现升级为最小 JPA 持久化审计，实现 `audit_event` 表、审计实体、仓库和服务，覆盖安全用户管理、角色/Entity 范围授予，以及已有预算填报和实际数导入审计调用点。本阶段不建设审计查询 UI、告警、外部日志服务或复杂流程引擎。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | 现有 `common/audit` 包、SEC-003/SEC-004 安全治理结果、Flyway migration 目录、Security/Submission/Actual 服务 |
+| 允许修改 | 后端审计包、必要写操作调用点、`V7__audit_event_baseline.sql`、后端测试、AUDIT-001 架构文档、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 删除文件、PDF 原文、OCR 全文、ERP 直连、BI 图表、合并报表、前端新功能 |
+| 验证命令 | `mvn -q -DskipTests compile`、`mvn test`、`git check-ignore`、`git diff --check`、`git status --short`、后端边界关键词扫描 |
+| 授权状态 | 用户已授权全自动推进；本阶段新增 migration，未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/resources/db/migration/V7__audit_event_baseline.sql` | 新增 `audit_event` 表和审计查询索引 |
+| `backend/src/main/java/com/budgetplatform/common/audit/AuditEventRecord.java` | 新增审计事件 JPA 实体 |
+| `backend/src/main/java/com/budgetplatform/common/audit/AuditEventRecordRepository.java` | 新增审计事件仓库 |
+| `backend/src/main/java/com/budgetplatform/common/audit/JpaAuditService.java` | 新增持久化审计服务 |
+| `backend/src/main/java/com/budgetplatform/common/audit/NoopAuditService.java` | 保留空实现但不再作为 Spring Bean |
+| `backend/src/main/java/com/budgetplatform/security/api/SecurityController.java` | 将当前用户上下文传给安全写操作服务 |
+| `backend/src/main/java/com/budgetplatform/security/service/SecurityService.java` | 安全用户创建、角色授予、Entity 范围授予写入审计 |
+| `backend/src/main/java/com/budgetplatform/budgetsubmission/service/SubmissionService.java` | 填报审计 actor 改为当前用户上下文 |
+| `backend/src/main/java/com/budgetplatform/budgetactual/service/ActualImportService.java` | 实际数导入审计 actor 改为当前用户上下文 |
+| `backend/src/test/java/com/budgetplatform/common/audit/AuditServiceIntegrationTests.java` | 新增审计持久化测试 |
+| `backend/src/test/java/com/budgetplatform/security/api/SecurityControllerIntegrationTests.java` | 增加安全管理审计落库断言 |
+| `docs/architecture/audit-001-persistent-audit-baseline.md` | 新增 AUDIT-001 架构与关闭建议文档 |
+| `README.md` | 更新当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUDIT-001 阶段记录 |
+
+### 关键产出
+
+1. `audit_event` 表保存 actor、subject、action、occurred_at 和 JSON 详情。
+2. Flyway 已验证 7 个 migration，并可在 H2 测试库完整迁移。
+3. 安全用户创建、角色授予、Entity 范围授予写入 `ACCESS_CHANGE` 或 `CREATE` 审计事件。
+4. 预算填报和实际数导入保留原有审计点，并记录当前请求用户作为 actor。
+5. 审计持久化测试和安全管理审计断言已加入后端测试集。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn -q -DskipTests compile` | 通过；后端主代码编译成功 |
+| `mvn test` | 通过；Tests run: 35, Failures: 0, Errors: 0, Skipped: 0 |
+| Flyway migration | 通过；成功验证并应用 7 个 migrations，当前版本 v7 |
+| `git check-ignore` | 通过；PDF、OCR、构建产物、依赖目录和后端 `target` 均被忽略 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| `git status --short` | 通过；仅 AUDIT-001 后端审计、测试、migration、文档和阶段记录修改 |
+| 后端边界关键词扫描 | 通过；`backend/src/main/java` 未发现 `@DeleteMapping`、ERP、Chart 或合并报表实现 |
+
+### 失败项与修复记录
+
+1. 后端编译和测试首轮通过，未出现需要修复的编译或测试失败。
+
+### 风险与限制
+
+1. 审计写入失败当前会导致业务事务失败，这是 MVP 治理阶段的保守选择。
+2. `details_json` 当前是 JSON 文本，后续如需要 PostgreSQL JSONB 索引需单独进入性能治理阶段。
+3. 暂未提供审计查询 API 和前端审计视图。
+4. 元数据、预算模型、预算模板写操作尚未全部补充审计调用点；本阶段仅覆盖安全管理和已有审计调用点。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| migration | 新增 `V7__audit_event_baseline.sql`，阶段内允许 |
+| 前端 UI | 未修改 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 审计查询 API、审计筛选、导出和前端视图尚未实现。
+2. 审计保留策略、归档策略和敏感字段脱敏策略尚未制定。
+3. 元数据、预算模型和预算模板写操作审计仍需后续阶段覆盖。
+4. 生产登录和服务端可信身份链路尚未完成。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUDIT-001。
+
+关闭理由：持久化审计表、JPA 实体/仓库/服务、安全管理审计、既有业务审计 actor 修正、测试、架构文档和阶段记录均已完成；后端测试通过，未删除文件，未提交 PDF/OCR 全文或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUDIT-002`：审计查询 API 与基础分页，只提供治理排查所需的只读接口，不建设 BI 图表或复杂审计报表。
