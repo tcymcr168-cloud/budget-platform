@@ -16,6 +16,9 @@ import com.budgetplatform.metadata.domain.DimensionType;
 import com.budgetplatform.metadata.repository.BudgetWorkspaceRepository;
 import com.budgetplatform.metadata.repository.DimensionMemberRepository;
 import com.budgetplatform.metadata.repository.DimensionRepository;
+import com.budgetplatform.security.context.CurrentUserContext;
+import com.budgetplatform.security.domain.SecurityRoleCode;
+import com.budgetplatform.security.service.AuthorizationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,19 +32,23 @@ public class MetadataService {
     private final BudgetWorkspaceRepository workspaceRepository;
     private final DimensionRepository dimensionRepository;
     private final DimensionMemberRepository memberRepository;
+    private final AuthorizationService authorizationService;
 
     public MetadataService(
             BudgetWorkspaceRepository workspaceRepository,
             DimensionRepository dimensionRepository,
-            DimensionMemberRepository memberRepository
+            DimensionMemberRepository memberRepository,
+            AuthorizationService authorizationService
     ) {
         this.workspaceRepository = workspaceRepository;
         this.dimensionRepository = dimensionRepository;
         this.memberRepository = memberRepository;
+        this.authorizationService = authorizationService;
     }
 
     @Transactional
-    public WorkspaceResponse createWorkspace(CreateWorkspaceRequest request) {
+    public WorkspaceResponse createWorkspace(CurrentUserContext context, CreateWorkspaceRequest request) {
+        authorizationService.requireHeaderAdmin(context);
         String code = Dimension.normalizeCode(request.code());
         if (workspaceRepository.existsByCode(code)) {
             throw conflict("Workspace code already exists: " + code);
@@ -52,7 +59,8 @@ public class MetadataService {
     }
 
     @Transactional(readOnly = true)
-    public List<WorkspaceResponse> listWorkspaces() {
+    public List<WorkspaceResponse> listWorkspaces(CurrentUserContext context) {
+        authorizationService.requireHeaderAdmin(context);
         return workspaceRepository.findAll()
                 .stream()
                 .map(WorkspaceResponse::from)
@@ -60,9 +68,10 @@ public class MetadataService {
     }
 
     @Transactional
-    public DimensionResponse createDimension(CreateDimensionRequest request) {
+    public DimensionResponse createDimension(CurrentUserContext context, CreateDimensionRequest request) {
         BudgetWorkspace workspace = workspaceRepository.findById(request.workspaceId())
                 .orElseThrow(() -> notFound("Workspace was not found: " + request.workspaceId()));
+        requireMetadataWrite(context, workspace.getId());
         String code = Dimension.normalizeCode(request.code());
 
         if (dimensionRepository.existsByWorkspaceIdAndCode(workspace.getId(), code)) {
@@ -81,8 +90,9 @@ public class MetadataService {
     }
 
     @Transactional(readOnly = true)
-    public List<DimensionResponse> listDimensions(UUID workspaceId, DimensionType type) {
+    public List<DimensionResponse> listDimensions(CurrentUserContext context, UUID workspaceId, DimensionType type) {
         ensureWorkspaceExists(workspaceId);
+        requireMetadataRead(context, workspaceId);
         List<Dimension> dimensions = type == null
                 ? dimensionRepository.findByWorkspaceIdOrderByCode(workspaceId)
                 : dimensionRepository.findByWorkspaceIdAndDimensionTypeOrderByCode(workspaceId, type);
@@ -90,13 +100,20 @@ public class MetadataService {
     }
 
     @Transactional(readOnly = true)
-    public DimensionResponse getDimension(UUID dimensionId) {
-        return DimensionResponse.from(loadDimension(dimensionId));
+    public DimensionResponse getDimension(CurrentUserContext context, UUID dimensionId) {
+        Dimension dimension = loadDimension(dimensionId);
+        requireMetadataRead(context, dimension.getWorkspace().getId());
+        return DimensionResponse.from(dimension);
     }
 
     @Transactional
-    public DimensionMemberResponse createMember(UUID dimensionId, CreateDimensionMemberRequest request) {
+    public DimensionMemberResponse createMember(
+            CurrentUserContext context,
+            UUID dimensionId,
+            CreateDimensionMemberRequest request
+    ) {
         Dimension dimension = loadDimension(dimensionId);
+        requireMetadataWrite(context, dimension.getWorkspace().getId());
         String code = Dimension.normalizeCode(request.code());
 
         if (memberRepository.existsByDimensionIdAndCode(dimensionId, code)) {
@@ -123,8 +140,9 @@ public class MetadataService {
     }
 
     @Transactional(readOnly = true)
-    public List<DimensionMemberResponse> listMembers(UUID dimensionId) {
-        loadDimension(dimensionId);
+    public List<DimensionMemberResponse> listMembers(CurrentUserContext context, UUID dimensionId) {
+        Dimension dimension = loadDimension(dimensionId);
+        requireMetadataRead(context, dimension.getWorkspace().getId());
         return memberRepository.findByDimensionIdOrderBySortOrderAscCodeAsc(dimensionId)
                 .stream()
                 .map(DimensionMemberResponse::from)
@@ -132,8 +150,13 @@ public class MetadataService {
     }
 
     @Transactional
-    public DimensionMemberResponse updateMember(UUID memberId, UpdateDimensionMemberRequest request) {
+    public DimensionMemberResponse updateMember(
+            CurrentUserContext context,
+            UUID memberId,
+            UpdateDimensionMemberRequest request
+    ) {
         DimensionMember member = loadMember(memberId);
+        requireMetadataWrite(context, member.getDimension().getWorkspace().getId());
 
         if (request.name() != null && !request.name().isBlank()) {
             member.rename(request.name());
@@ -157,6 +180,29 @@ public class MetadataService {
         member.markLeaf(!hasChildren);
 
         return DimensionMemberResponse.from(member);
+    }
+
+    private void requireMetadataWrite(CurrentUserContext context, UUID workspaceId) {
+        authorizationService.requireAnyRole(
+                context,
+                workspaceId,
+                SecurityRoleCode.BUDGET_ADMIN,
+                SecurityRoleCode.METADATA_MANAGER
+        );
+    }
+
+    private void requireMetadataRead(CurrentUserContext context, UUID workspaceId) {
+        authorizationService.requireAnyRole(
+                context,
+                workspaceId,
+                SecurityRoleCode.BUDGET_ADMIN,
+                SecurityRoleCode.METADATA_MANAGER,
+                SecurityRoleCode.TEMPLATE_DESIGNER,
+                SecurityRoleCode.BUDGET_OWNER,
+                SecurityRoleCode.BUDGET_REVIEWER,
+                SecurityRoleCode.IMPORT_OPERATOR,
+                SecurityRoleCode.READ_ONLY
+        );
     }
 
     private void refreshLeafState(DimensionMember member) {

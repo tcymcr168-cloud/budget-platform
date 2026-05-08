@@ -3073,3 +3073,101 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `SEC-003B`：后端业务写接口授权接入，逐步保护元数据、预算模型、预算模板、预算填报和实际数导入接口。
+
+## SEC-003B
+
+阶段名称：元数据 API 授权接入
+
+记录日期：2026-05-08
+
+### 阶段目标
+
+在 SEC-003 统一授权服务基础上，只针对元数据模块接入授权，保护 Workspace、Dimension 和 Dimension Member 的读写 API。本阶段不扩展到预算模型、模板、填报或实际数导入写接口。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `docs/architecture/sec-003-backend-authorization-entry-points.md`、`docs/architecture/bud-002-metadata-model-design.md`、现有 `MetadataController` 与 `MetadataService` |
+| 允许修改 | `backend/src/main/java/com/budgetplatform/metadata/*`、相关后端集成测试、SEC-003B 架构文档、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 前端 UI、PDF 原文、OCR 全文、删除文件、migration、预算模型/模板/填报/导入模块授权、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `mvn test`、`git check-ignore`、`git status --short`、`git diff --check`、后端边界关键词扫描 |
+| 授权状态 | 用户已授权全自动推进；本阶段无删除文件，无 migration |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/metadata/api/MetadataController.java` | 解析请求头身份上下文并传入服务层 |
+| `backend/src/main/java/com/budgetplatform/metadata/service/MetadataService.java` | 接入元数据读写授权规则 |
+| `backend/src/test/java/com/budgetplatform/metadata/api/MetadataControllerIntegrationTests.java` | 新增元数据读写授权测试 |
+| `backend/src/test/java/com/budgetplatform/budgetactual/api/ActualImportControllerIntegrationTests.java` | 为元数据准备步骤增加管理员请求头 |
+| `backend/src/test/java/com/budgetplatform/budgetmodel/api/BudgetModelControllerIntegrationTests.java` | 为元数据准备步骤增加管理员请求头 |
+| `backend/src/test/java/com/budgetplatform/budgetquery/api/BudgetQueryControllerIntegrationTests.java` | 为元数据准备步骤增加管理员请求头 |
+| `backend/src/test/java/com/budgetplatform/budgetsubmission/api/SubmissionControllerIntegrationTests.java` | 为元数据准备步骤增加管理员请求头 |
+| `backend/src/test/java/com/budgetplatform/budgettemplate/api/BudgetTemplateControllerIntegrationTests.java` | 为元数据准备步骤增加管理员请求头 |
+| `backend/src/test/java/com/budgetplatform/security/api/SecurityControllerIntegrationTests.java` | 为元数据准备步骤增加管理员请求头 |
+| `docs/architecture/sec-003b-metadata-authorization.md` | 新增 SEC-003B 架构与关闭建议文档 |
+| `README.md` | 更新当前安全治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-003B 阶段记录 |
+
+### 关键产出
+
+1. Workspace 创建和 Workspace 清单要求请求头 `BUDGET_ADMIN`。
+2. Dimension 与 Member 写操作要求 Workspace 内 `BUDGET_ADMIN` 或 `METADATA_MANAGER`。
+3. Dimension 与 Member 读操作允许 Workspace 内任一业务读取角色。
+4. 元数据控制器与服务层已统一接入 `CurrentUserContext`。
+5. 所有依赖元数据夹具的集成测试均显式使用管理员上下文。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 30, Failures: 0, Errors: 0, Skipped: 0 |
+| `git check-ignore` | 通过；PDF、OCR、构建产物、依赖目录和后端 `target` 均被忽略 |
+| `git status --short` | 通过；仅 SEC-003B 元数据授权、测试、文档和阶段记录修改 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| 后端边界关键词扫描 | 通过；`backend/src/main/java` 未发现 `@DeleteMapping`、ERP、Chart 或合并报表实现 |
+
+### 失败项与修复记录
+
+1. 使用 `rg` 搜索测试引用时，当前 Codex 桌面会话命中了打包路径 `C:\Program Files\WindowsApps\OpenAI.Codex_26.429.8261.0_x64__2p2nqsd0c76g0\app\resources\rg.exe` 并返回“拒绝访问”；已改用 PowerShell `Get-ChildItem` + `Select-String` 完成检索。
+2. 后端测试首轮通过，未出现编译或测试失败。
+
+### 风险与限制
+
+1. 请求头身份上下文仍是内部技术验证机制，不代表生产登录完成。
+2. 前端尚未统一注入身份请求头，元数据页面直接调用受保护 API 时可能返回 401 或 403。
+3. 本阶段只保护元数据模块；预算模型、模板、填报、实际数导入写接口仍需后续阶段逐步接入授权。
+4. Workspace 创建暂采用请求头管理员作为引导机制，后续应由生产认证替换。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| migration | 未新增 |
+| 前端 UI | 未修改 |
+| 预算模型/模板/填报/导入授权 | 未进入 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 预算模型、模板、填报和实际数导入写接口尚未接入授权。
+2. 前端安全请求头注入、用户切换和错误提示尚未实现。
+3. 生产级认证、JWT/SSO、密码策略和会话管理尚未实现。
+4. 持久化审计仍待 `AUDIT-001`。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-003B。
+
+关闭理由：元数据 API 读写授权、集成测试、阶段文档和阶段记录均已完成；后端测试通过，未删除文件，未新增 migration，未提交 PDF/OCR 全文或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `SEC-003C`：预算模型 API 授权接入，只处理预算模型模块。

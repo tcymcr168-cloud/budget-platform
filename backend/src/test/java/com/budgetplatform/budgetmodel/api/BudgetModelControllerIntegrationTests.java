@@ -19,6 +19,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class BudgetModelControllerIntegrationTests {
 
+    private static final String ADMIN_USER = "admin@example.com";
+    private static final String ADMIN_ROLES = "BUDGET_ADMIN";
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -101,6 +104,8 @@ class BudgetModelControllerIntegrationTests {
     private String createWorkspace(String code, String name) throws Exception {
         return mockMvc.perform(post("/api/metadata/workspaces")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "code": "%s",
@@ -117,6 +122,8 @@ class BudgetModelControllerIntegrationTests {
     private String createDimension(String workspaceId, String code, String name, String type) throws Exception {
         return mockMvc.perform(post("/api/metadata/dimensions")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "workspaceId": "%s",

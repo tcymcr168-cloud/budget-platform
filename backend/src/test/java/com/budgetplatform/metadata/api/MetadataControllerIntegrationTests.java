@@ -20,6 +20,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class MetadataControllerIntegrationTests {
 
+    private static final String ADMIN_USER = "admin@example.com";
+    private static final String ADMIN_ROLES = "BUDGET_ADMIN";
+    private static final String READ_ONLY_USER = "reader@example.com";
+    private static final String READ_ONLY_ROLES = "READ_ONLY";
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -31,6 +36,8 @@ class MetadataControllerIntegrationTests {
 
         mockMvc.perform(post("/api/metadata/dimensions/{dimensionId}/members", dimensionId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "code": "FIN",
@@ -45,6 +52,11 @@ class MetadataControllerIntegrationTests {
                 .andExpect(jsonPath("$.data.parentId").value(rootMemberId));
 
         mockMvc.perform(get("/api/metadata/dimensions/{dimensionId}/members", dimensionId))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/metadata/dimensions/{dimensionId}/members", dimensionId)
+                        .header("X-User-Id", READ_ONLY_USER)
+                        .header("X-User-Roles", READ_ONLY_ROLES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(2)));
     }
@@ -56,6 +68,8 @@ class MetadataControllerIntegrationTests {
 
         mockMvc.perform(post("/api/metadata/dimensions")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "workspaceId": "%s",
@@ -79,6 +93,8 @@ class MetadataControllerIntegrationTests {
 
         mockMvc.perform(post("/api/metadata/dimensions/{dimensionId}/members", entityDimensionId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "code": "FIN",
@@ -91,9 +107,32 @@ class MetadataControllerIntegrationTests {
                 .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"));
     }
 
+    @Test
+    void rejectsMetadataWriteWithoutMetadataRole() throws Exception {
+        String workspaceId = createWorkspace("SEC003B_WS", "SEC-003B Workspace");
+
+        mockMvc.perform(post("/api/metadata/dimensions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", READ_ONLY_USER)
+                        .header("X-User-Roles", READ_ONLY_ROLES)
+                        .content("""
+                                {
+                                  "workspaceId": "%s",
+                                  "code": "ENTITY",
+                                  "name": "Entity",
+                                  "dimensionType": "ENTITY",
+                                  "system": true
+                                }
+                                """.formatted(workspaceId)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+    }
+
     private String createWorkspace(String code, String name) throws Exception {
         return mockMvc.perform(post("/api/metadata/workspaces")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "code": "%s",
@@ -110,6 +149,8 @@ class MetadataControllerIntegrationTests {
     private String createDimension(String workspaceId, String code, String name, String type) throws Exception {
         return mockMvc.perform(post("/api/metadata/dimensions")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "workspaceId": "%s",
@@ -132,6 +173,8 @@ class MetadataControllerIntegrationTests {
                 """.formatted(parentId);
         return mockMvc.perform(post("/api/metadata/dimensions/{dimensionId}/members", dimensionId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "code": "%s",
