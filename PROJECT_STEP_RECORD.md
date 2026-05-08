@@ -3729,3 +3729,97 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUDIT-002`：审计查询 API 与基础分页，只提供治理排查所需的只读接口，不建设 BI 图表或复杂审计报表。
+
+## AUDIT-002
+
+阶段名称：审计查询 API 与基础分页
+
+记录日期：2026-05-08
+
+### 阶段目标
+
+在 AUDIT-001 持久化审计表基础上，新增只读审计查询 API，支持 actor、subject、action 过滤与基础分页，供治理排查使用。本阶段不建设前端审计页面、不提供导出、不做 BI 图表或复杂审计报表。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `docs/architecture/audit-001-persistent-audit-baseline.md`、现有 `AuditEventRecordRepository`、安全上下文与授权服务 |
+| 允许修改 | 审计查询 API/服务/响应、通用分页响应、审计查询测试、AUDIT-002 架构文档、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 删除文件、PDF 原文、OCR 全文、前端 UI、ERP 直连、BI 图表、合并报表、审计删除能力 |
+| 验证命令 | `mvn test`、`git check-ignore`、`git diff --check`、`git status --short`、后端边界关键词扫描 |
+| 授权状态 | 用户已授权全自动推进；本阶段无删除文件，无 migration |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/common/api/PageResponse.java` | 新增通用分页响应结构 |
+| `backend/src/main/java/com/budgetplatform/common/audit/AuditController.java` | 新增 `GET /api/audit/events` 只读审计查询接口 |
+| `backend/src/main/java/com/budgetplatform/common/audit/AuditQueryService.java` | 新增审计查询过滤、分页和 BUDGET_ADMIN 校验 |
+| `backend/src/main/java/com/budgetplatform/common/audit/AuditEventResponse.java` | 新增审计事件响应结构 |
+| `backend/src/main/java/com/budgetplatform/common/audit/AuditEventRecordRepository.java` | 新增审计事件过滤分页查询 |
+| `backend/src/test/java/com/budgetplatform/common/audit/AuditControllerIntegrationTests.java` | 新增查询、授权和参数校验集成测试 |
+| `docs/architecture/audit-002-audit-query-api.md` | 新增 AUDIT-002 架构与关闭建议文档 |
+| `README.md` | 更新当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUDIT-002 阶段记录 |
+
+### 关键产出
+
+1. `GET /api/audit/events` 支持 `actorId`、`subjectType`、`subjectId`、`action`、`page`、`size` 参数。
+2. 审计查询要求请求头包含 `BUDGET_ADMIN`。
+3. 分页响应包含 `items`、`page`、`size`、`totalElements`、`totalPages`。
+4. `size` 限制为 1 到 100，非法 action 和分页参数会返回 400。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 38, Failures: 0, Errors: 0, Skipped: 0 |
+| Flyway migration | 通过；成功验证 7 个 migrations，当前版本 v7 |
+| `git check-ignore` | 通过；PDF、OCR、构建产物、依赖目录和后端 `target` 均被忽略 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| `git status --short` | 通过；仅 AUDIT-002 审计查询 API、测试、文档和阶段记录修改 |
+| 后端边界关键词扫描 | 通过；`backend/src/main/java` 未发现 `@DeleteMapping`、ERP、Chart 或合并报表实现 |
+
+### 失败项与修复记录
+
+1. 后端测试首轮通过，未出现编译或测试失败。
+
+### 风险与限制
+
+1. 审计查询目前只允许 `BUDGET_ADMIN`，尚未设计按 Workspace 或 Entity 的审计可见性。
+2. `detailsJson` 作为 JSON 文本返回，未解析为对象。
+3. 本阶段没有前端审计页面、导出和保留策略。
+4. 审计查询分页仅支持固定时间倒序，暂未开放排序参数。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| migration | 未新增 |
+| 前端 UI | 未修改 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| 审计删除能力 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 审计前端视图尚未实现。
+2. 审计导出、保留、归档和脱敏策略尚未制定。
+3. 审计可见性仍是全局管理员级别，未细分到工作区。
+4. 元数据、预算模型和预算模板写操作审计仍需后续阶段补齐。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUDIT-002。
+
+关闭理由：审计只读查询 API、过滤分页、管理员授权、参数校验、测试、架构文档和阶段记录均已完成；后端测试通过，未删除文件，未新增 migration，未提交 PDF/OCR 全文或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUDIT-003`：补齐元数据、预算模型和预算模板写操作审计调用点，保持后端最小范围，不新增前端页面。
