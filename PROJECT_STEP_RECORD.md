@@ -2597,3 +2597,101 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一业务阶段仍是 BUD-010：预算与实际差异分析。该阶段在项目规则中属于明确受控范围，需用户明确批准“进入 BUD-010”后再开始业务实现。
+
+## RELEASE-001
+
+阶段名称：MVP 发布候选治理检查
+
+记录日期：2026-05-08
+
+### 阶段目标
+
+对 BUD-001 至 BUD-009 已完成的预算平台 MVP 做发布候选治理检查，明确当前可交付能力、不能宣称完成的能力、测试矩阵、边界扫描、发布风险和下一阶段选择。本阶段不进入 BUD-010，不修改业务代码，不新增 migration，不删除文件。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`README.md`、`docs/product/product-001-mvp-scope.md`、`docs/architecture/*`、当前源码与 Git 状态 |
+| 允许修改 | `docs/architecture/release-001-mvp-readiness.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | `backend/src`、`frontend/src`、migration、BUD-010 差异分析实现、PDF 原文、OCR 全文、删除文件 |
+| 验证命令 | `mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build`、`git check-ignore`、`git status --short`、`git diff --check` |
+| 授权状态 | 全自动模式；本阶段不涉及删除文件，不进入 BUD-010 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/release-001-mvp-readiness.md` | 新增 MVP 发布候选治理检查文档 |
+| `PROJECT_STEP_RECORD.md` | 追加 RELEASE-001 阶段记录 |
+
+### 关键产出
+
+1. 明确当前代码可作为“预算平台 MVP 内部技术验证候选版本”。
+2. 明确不能宣称生产可用，原因包括认证授权、持久化审计、分页性能、模板版本和导入撤销仍未实现。
+3. 明确 BUD-010 预算与实际差异分析未进入，不能提前实现或宣传为已完成。
+4. 补充后续非越界阶段建议：`SEC-001`、`AUDIT-001`、`PERF-001`、`E2E-001`。
+
+### 工具诊断
+
+| 工具 | 结果 |
+| --- | --- |
+| `rg` | 失败；命中 Codex 内嵌 `rg.exe` 并返回“拒绝访问” |
+| PowerShell `Get-ChildItem` / `Select-String` | 已作为替代方案完成文件与边界扫描 |
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 23, Failures: 0, Errors: 0, Skipped: 0 |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过 |
+| `git check-ignore` | 通过；PDF、OCR、构建产物、依赖目录和后端 `target` 均被忽略 |
+| `git status --short` | 通过；仅 `PROJECT_STEP_RECORD.md` 与 `docs/architecture/release-001-mvp-readiness.md` 为本阶段修改 |
+| `git diff --check` | 通过；仅出现 Git 对 `PROJECT_STEP_RECORD.md` 的 LF/CRLF 换行提示，无空白错误 |
+
+### 失败项与修复记录
+
+1. `rg` 无法运行，真实错误为“拒绝访问”；本阶段改用 PowerShell 原生命令完成扫描。
+2. 本阶段尚未出现文档生成失败或测试失败。
+
+### 风险与记录
+
+1. 本阶段只新增治理文档，不新增业务能力。
+2. 本阶段未修改 `backend/src`、`frontend/src` 或 migration。
+3. 本阶段未删除文件。
+4. 本阶段未提交 PDF 原文、OCR 全文、构建产物或依赖目录。
+5. BUD-010 仍需用户明确批准后才能进入。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 后端业务代码 | 未修改 |
+| 前端业务代码 | 未修改 |
+| migration | 未修改 |
+| BUD-010 差异分析 | 未进入 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| 删除文件 | 未执行 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 认证、授权、数据范围和持久化审计仍未实现。
+2. 查询分页、数据库条件下推、模板版本、Actual 撤销/冲销仍需后续阶段。
+3. `rg` PATH 或可执行权限问题建议后续单独修复。
+4. BUD-010 预算与实际差异分析仍未获明确批准。
+
+### 是否建议关闭本阶段
+
+建议关闭 RELEASE-001。
+
+关闭理由：MVP 发布候选治理检查文档已沉淀，后端测试、前端类型检查、lint、build、Git 忽略保护和差异检查均通过，未修改业务代码、migration、PDF 原文、OCR 全文或 BUD-010 业务实现。
+
+### 下一阶段建议
+
+用户已在 2026-05-08 明确批准 BUD-010，下一阶段进入 `BUD-010`：预算与实际差异分析。
