@@ -110,3 +110,5 @@ git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source
 ## 当前下一步
 
 当前主线已完成到 BUD-010，并完成 REVIEW-001 源码审查。后续建议优先补齐认证授权、持久化审计、查询分页与性能治理、模板版本治理和端到端测试。
+
+当前治理推进已进入 `SEC-001`，安全基线采用“角色 + Entity 数据范围 + 流程责任人”的模型，避免过早建设复杂多维权限矩阵。

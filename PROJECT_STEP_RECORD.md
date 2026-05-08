@@ -2794,3 +2794,90 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 建议下一阶段进入 `SEC-001`：认证、角色与数据范围设计，避免继续堆业务功能而缺少企业级治理底座。
+
+## SEC-001
+
+阶段名称：认证、角色与数据范围设计
+
+记录日期：2026-05-08
+
+### 阶段目标
+
+定义预算平台的认证、角色、操作权限和 Entity 数据范围模型，为后续企业级治理实现建立清晰边界。本阶段只做架构和 ADR 文档，不修改后端或前端业务代码，不新增 migration，不删除文件。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`README.md`、`docs/product/product-001-mvp-scope.md`、BUD-001 至 BUD-010 架构文档、当前源码安全散点 |
+| 允许修改 | `docs/architecture/sec-001-security-scope-design.md`、`docs/adr/0006-security-roles-and-entity-scope.md`、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | `backend/src`、`frontend/src`、migration、PDF 原文、OCR 全文、删除文件、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `git status --short`、`git diff --check`、`git check-ignore` |
+| 授权状态 | 全自动模式；本阶段不涉及删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/sec-001-security-scope-design.md` | 新增认证、角色、操作权限、Entity 数据范围、API 和后续阶段设计 |
+| `docs/adr/0006-security-roles-and-entity-scope.md` | 新增安全模型 ADR |
+| `README.md` | 更新当前治理推进状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-001 阶段记录 |
+
+### 关键产出
+
+1. 明确采用“角色 + Entity 数据范围 + 流程责任人”的安全模型。
+2. 定义 `BUDGET_ADMIN`、`METADATA_MANAGER`、`TEMPLATE_DESIGNER`、`BUDGET_OWNER`、`BUDGET_REVIEWER`、`IMPORT_OPERATOR`、`READ_ONLY` 七类角色。
+3. 明确 MVP 不建设 Account、Time、Category、Version 组合式复杂权限矩阵。
+4. 明确后续 `SEC-002`、`SEC-003`、`SEC-004`、`AUDIT-001`、`AUTH-001` 阶段拆分。
+5. 明确 SEC-002 可先使用轻量请求头身份上下文，仅用于内部技术验证；生产登录、JWT 或 SSO 后置到 `AUTH-001`。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `git status --short` | 通过；仅 SEC-001 文档、ADR、README 和阶段记录修改 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| `git check-ignore` | 通过；PDF、OCR、构建产物、依赖目录和后端 `target` 均被忽略 |
+
+### 失败项与修复记录
+
+1. 本阶段尚未出现失败项。
+
+### 风险与限制
+
+1. SEC-001 只完成设计，不代表接口已经受保护。
+2. 请求头身份上下文只能作为 SEC-002 内部技术验证方案，不可宣称生产认证完成。
+3. 真正的权限过滤需要 SEC-003 接入业务接口。
+4. 持久化审计仍需 `AUDIT-001`。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 后端业务代码 | 未修改 |
+| 前端业务代码 | 未修改 |
+| migration | 未新增 |
+| 删除文件 | 未执行 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 用户、角色、Entity 范围表尚未实现。
+2. 业务接口尚未接入授权判断。
+3. 前端安全管理 UI 尚未实现。
+4. 登录、JWT、SSO 和密码策略尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-001。
+
+关闭理由：安全模型、角色边界、Entity 数据范围、后续阶段拆分和 ADR 已完成沉淀；本阶段未修改业务代码、migration、PDF 原文、OCR 全文或任何禁止范围。
+
+### 下一阶段建议
+
+下一阶段进入 `SEC-002`：后端安全基础，实现用户、角色、Entity 范围、轻量身份上下文和管理 API。
