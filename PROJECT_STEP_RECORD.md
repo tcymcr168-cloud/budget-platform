@@ -2881,3 +2881,98 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段进入 `SEC-002`：后端安全基础，实现用户、角色、Entity 范围、轻量身份上下文和管理 API。
+
+## SEC-002
+
+阶段名称：后端安全基础
+
+记录日期：2026-05-08
+
+### 阶段目标
+
+基于 SEC-001 安全设计，实现后端用户、角色、Entity 数据范围、轻量请求头身份上下文和管理 API。本阶段新增安全数据模型与 API，但不把授权判断接入所有业务接口；业务接口授权接入后置到 SEC-003。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | SEC-001 安全设计、ADR 0006、现有 metadata 与 common API 模式、当前 migration |
+| 允许修改 | `backend/src/main/java/com/budgetplatform/security/*`、`backend/src/test/java/com/budgetplatform/security/*`、`backend/src/main/resources/db/migration/V6__security_baseline.sql`、`docs/architecture/sec-002-security-backend-baseline.md`、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 前端业务 UI、PDF 原文、OCR 全文、删除文件、ERP 直连、BI 图表、合并报表、全业务接口授权接入 |
+| 验证命令 | `mvn test`、`git check-ignore`、`git status --short`、`git diff --check` |
+| 授权状态 | 全自动模式；本阶段新增 migration 属于 SEC-002 范围，已记录风险 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/resources/db/migration/V6__security_baseline.sql` | 新增 `app_user`、`app_user_role`、`app_user_entity_scope` |
+| `backend/src/main/java/com/budgetplatform/security/domain/*` | 新增安全用户、角色、Entity 范围实体与枚举 |
+| `backend/src/main/java/com/budgetplatform/security/repository/*` | 新增安全仓储 |
+| `backend/src/main/java/com/budgetplatform/security/api/*` | 新增安全管理 API 请求、响应和控制器 |
+| `backend/src/main/java/com/budgetplatform/security/context/*` | 新增轻量请求头身份上下文解析 |
+| `backend/src/main/java/com/budgetplatform/security/service/SecurityService.java` | 新增用户、角色、Entity 范围管理服务 |
+| `backend/src/test/java/com/budgetplatform/security/api/SecurityControllerIntegrationTests.java` | 新增安全管理集成测试 |
+| `docs/architecture/sec-002-security-backend-baseline.md` | 新增 SEC-002 架构与关闭建议文档 |
+| `README.md` | 更新安全治理推进状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-002 阶段记录 |
+
+### 关键产出
+
+1. 新增安全数据模型 `app_user`、`app_user_role`、`app_user_entity_scope`。
+2. 新增 `SecurityRoleCode` 七类角色枚举。
+3. 新增 `/api/security/users`、角色授予、Entity 范围授予和 `/api/security/me`。
+4. `/api/security/me` 支持从 `X-User-Id` 与 `X-User-Roles` 解析内部技术验证身份上下文。
+5. 明确本阶段未接入全业务授权，避免一次性修改所有模块。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 27, Failures: 0, Errors: 0, Skipped: 0 |
+| `git check-ignore` | 通过；PDF、OCR、构建产物、依赖目录和后端 `target` 均被忽略 |
+| `git status --short` | 通过；仅 SEC-002 后端安全基础、migration、文档和阶段记录修改 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| 边界关键词扫描 | 通过；`backend/src/main/java` 未发现 `@DeleteMapping`、ERP、Chart 或合并报表实现 |
+
+### 失败项与修复记录
+
+1. 本阶段后端测试首轮通过，未出现编译或测试失败。
+
+### 风险与限制
+
+1. 本阶段新增 migration `V6__security_baseline.sql`。
+2. 安全管理 API 尚未强制 `BUDGET_ADMIN`，需 SEC-003 接入授权拦截。
+3. 请求头身份上下文只适合内部技术验证，不可宣称生产认证完成。
+4. 未提供删除、撤销或禁用角色/范围接口，后续如需撤销应单独设计停用或有效期策略。
+5. 持久化审计仍需 `AUDIT-001`。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 前端业务 UI | 未修改 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| 全业务授权接入 | 未进入，后置 SEC-003 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 业务接口尚未接入授权判断。
+2. 前端安全管理 UI 尚未实现。
+3. 审计尚未持久化。
+4. 登录、JWT、SSO 和密码策略尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-002。
+
+关闭理由：后端安全基础数据模型、管理 API、轻量身份上下文、集成测试和架构文档均已完成；验证命令通过，未删除文件，未提交 PDF/OCR 全文或构建产物，未进入 ERP、BI、合并报表或全业务授权接入。
+
+### 下一阶段建议
+
+下一阶段进入 `SEC-003`：后端授权接入，将角色与 Entity 数据范围逐步接入元数据、模型、模板、填报、查询、Actual 导入和差异分析接口。
