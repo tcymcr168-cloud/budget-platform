@@ -64,6 +64,7 @@ import {
   SubmissionTask,
   submitSubmissionTask,
 } from './features/submissions/submissionApi';
+import { setApiSecurityContext } from './shared/api/http';
 
 const dimensionTypes: DimensionType[] = [
   'ACCOUNT',
@@ -78,6 +79,16 @@ const axisTypes: TemplateAxisType[] = ['ROW', 'COLUMN', 'FILTER'];
 
 const queryGroupByOptions: QueryGroupBy[] = ['ACCOUNT', 'ENTITY', 'TIME', 'CATEGORY', 'VERSION'];
 
+const securityRoleOptions = [
+  'BUDGET_ADMIN',
+  'METADATA_MANAGER',
+  'TEMPLATE_DESIGNER',
+  'BUDGET_OWNER',
+  'BUDGET_REVIEWER',
+  'IMPORT_OPERATOR',
+  'READ_ONLY',
+];
+
 const initialScopeMembers: Record<DimensionType, DimensionMember[]> = {
   ACCOUNT: [],
   ENTITY: [],
@@ -86,6 +97,24 @@ const initialScopeMembers: Record<DimensionType, DimensionMember[]> = {
   VERSION: [],
   CUSTOM: [],
 };
+
+function formatActionError(caught: unknown) {
+  if (!caught || typeof caught !== 'object') {
+    return 'Request failed. Confirm the backend is running.';
+  }
+
+  const apiError = caught as { code?: unknown; message?: unknown; traceId?: unknown };
+  const message =
+    typeof apiError.message === 'string'
+      ? apiError.message
+      : 'Request failed. Confirm the backend is running.';
+
+  if (apiError.code === 'UNAUTHORIZED' || apiError.code === 'FORBIDDEN') {
+    return `${apiError.code}: ${message}`;
+  }
+
+  return message;
+}
 
 function App() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -182,7 +211,11 @@ function App() {
   });
   const [returnReason, setReturnReason] = useState('');
   const [loading, setLoading] = useState(false);
-  const [notice, setNotice] = useState('Connect the backend on port 8080 to manage metadata.');
+  const [securityContext, setSecurityContext] = useState({
+    userId: 'admin@example.com',
+    roles: 'BUDGET_ADMIN',
+  });
+  const [notice, setNotice] = useState('Security context is using BUDGET_ADMIN.');
   const [error, setError] = useState('');
 
   const selectedWorkspace = useMemo(
@@ -219,6 +252,10 @@ function App() {
     const usedBindingIds = new Set(templateAxes.map((axis) => axis.modelDimensionId));
     return modelBindings.filter((binding) => !usedBindingIds.has(binding.id));
   }, [modelBindings, templateAxes]);
+
+  useEffect(() => {
+    setApiSecurityContext(securityContext);
+  }, [securityContext]);
 
   useEffect(() => {
     void refreshWorkspaces();
@@ -312,11 +349,7 @@ function App() {
     try {
       await action();
     } catch (caught) {
-      const message =
-        caught && typeof caught === 'object' && 'message' in caught
-          ? String(caught.message)
-          : 'Request failed. Confirm the backend is running.';
-      setError(message);
+      setError(formatActionError(caught));
     } finally {
       setLoading(false);
     }
@@ -894,6 +927,31 @@ function App() {
           Refresh
         </button>
       </header>
+
+      <section className="security-strip" aria-label="Security context">
+        <label>
+          User
+          <input
+            value={securityContext.userId}
+            onChange={(event) =>
+              setSecurityContext({ ...securityContext, userId: event.target.value })
+            }
+          />
+        </label>
+        <label>
+          Role
+          <select
+            value={securityContext.roles}
+            onChange={(event) =>
+              setSecurityContext({ ...securityContext, roles: event.target.value })
+            }
+          >
+            {securityRoleOptions.map((role) => (
+              <option key={role}>{role}</option>
+            ))}
+          </select>
+        </label>
+      </section>
 
       <section className="status-row" aria-live="polite">
         <span>{notice}</span>

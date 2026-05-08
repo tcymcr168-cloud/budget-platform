@@ -111,6 +111,18 @@ h2 {
   color: #4f5d65;
 }
 
+.security-strip {
+  max-width: 1440px;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(220px, 0.45fr);
+  gap: 12px;
+  margin: 0 auto 18px;
+  border: 1px solid #d9e1e4;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #ffffff;
+}
+
 .status-row strong {
   color: #9d2f2f;
 }
@@ -428,7 +440,8 @@ td {
   .return-form,
   .query-form,
   .variance-form,
-  .import-form {
+  .import-form,
+  .security-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -453,7 +466,8 @@ td {
   .return-form,
   .query-form,
   .variance-form,
-  .import-form {
+  .import-form,
+  .security-strip {
     grid-template-columns: 1fr;
   }
 

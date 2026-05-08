@@ -1,5 +1,28 @@
 import type { ApiRequestOptions, ApiResponse } from './types';
 
+export interface ApiSecurityContext {
+  userId: string;
+  roles: string;
+}
+
+const defaultSecurityContext: ApiSecurityContext = {
+  userId: 'admin@example.com',
+  roles: 'BUDGET_ADMIN',
+};
+
+let securityContext: ApiSecurityContext = defaultSecurityContext;
+
+export function setApiSecurityContext(nextContext: ApiSecurityContext) {
+  securityContext = {
+    userId: nextContext.userId.trim(),
+    roles: nextContext.roles.trim(),
+  };
+}
+
+export function getApiSecurityContext() {
+  return securityContext;
+}
+
 export async function requestJson<T>(
   input: string | URL,
   options: ApiRequestOptions = {},
@@ -12,6 +35,14 @@ export async function requestJson<T>(
 
   if (options.requestId) {
     headers.set('X-Request-Id', options.requestId);
+  }
+
+  if (securityContext.userId && !headers.has('X-User-Id')) {
+    headers.set('X-User-Id', securityContext.userId);
+  }
+
+  if (securityContext.roles && !headers.has('X-User-Roles')) {
+    headers.set('X-User-Roles', securityContext.roles);
   }
 
   const response = await fetch(input, {

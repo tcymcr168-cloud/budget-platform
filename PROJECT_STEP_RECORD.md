@@ -3539,3 +3539,93 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `SEC-004`：前端安全上下文接入，为现有页面统一注入请求头并处理 401/403。
+
+## SEC-004
+
+阶段名称：前端安全上下文接入
+
+记录日期：2026-05-08
+
+### 阶段目标
+
+在不引入生产登录、JWT、SSO 或复杂权限管理页面的前提下，为现有 React/Vite MVP 接入内部安全上下文，统一向后端受保护 API 注入 `X-User-Id` 与 `X-User-Roles` 请求头，并让 401/403 授权错误在界面中更容易诊断。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `docs/architecture/sec-003f-actual-import-authorization.md`、现有 `frontend/src/shared/api/http.ts` 与 `frontend/src/App.tsx` |
+| 允许修改 | `frontend/src/shared/api/http.ts`、`frontend/src/App.tsx`、`frontend/src/styles.css`、SEC-004 架构文档、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 后端业务逻辑、migration、PDF 原文、OCR 全文、删除文件、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `pnpm type-check`、`pnpm lint`、`pnpm build`、`git check-ignore`、`git diff --check`、`git status --short` |
+| 授权状态 | 用户已授权全自动推进；本阶段无删除文件，无 migration |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `frontend/src/shared/api/http.ts` | 新增 API 安全上下文存取函数，并统一注入 `X-User-Id` 与 `X-User-Roles` |
+| `frontend/src/App.tsx` | 新增顶层内部安全上下文控件，并增强 401/403 授权错误展示 |
+| `frontend/src/styles.css` | 新增安全上下文区域的响应式样式 |
+| `docs/architecture/sec-004-frontend-security-context.md` | 新增 SEC-004 前端安全上下文设计文档 |
+| `README.md` | 更新当前安全治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-004 阶段记录 |
+
+### 关键产出
+
+1. 前端所有通过 `requestJson` 的 API 调用默认携带 `admin@example.com` 与 `BUDGET_ADMIN` 内部安全上下文。
+2. 应用顶部提供 User 与 Role 控件，支持在 MVP 验证时切换调用身份和角色。
+3. 授权失败时，界面会展示 `UNAUTHORIZED` 或 `FORBIDDEN` 错误码与后端消息。
+4. 未新增生产认证、密钥处理、数据库迁移或复杂权限矩阵。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `pnpm type-check` | 通过；`tsc --noEmit` 无错误 |
+| `pnpm lint` | 通过；`eslint .` 无错误 |
+| `pnpm build` | 通过；Vite 生产构建成功，输出在被忽略的 `frontend/dist` |
+| `git check-ignore` | 通过；PDF、OCR、构建产物、依赖目录和后端 `target` 均被忽略 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| `git status --short` | 通过；仅 SEC-004 前端安全上下文、文档和阶段记录修改 |
+
+### 失败项与修复记录
+
+1. 首轮前端 type-check、lint、build 均通过，未出现需要修复的编译或测试失败。
+
+### 风险与限制
+
+1. 本阶段仍是内部请求头上下文，不是生产级登录或会话管理。
+2. UI 当前一次选择一个角色；HTTP 客户端和后端仍支持逗号分隔的多角色请求头。
+3. Entity 范围授予尚未在前端暴露，涉及 Entity 范围的角色仍依赖后端安全数据准备。
+4. 持久化审计仍待后续审计阶段。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| backend/src | 未修改 |
+| migration | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 生产登录、JWT/SSO、密码策略和会话管理尚未实现。
+2. 前端尚未提供安全用户、角色授予和 Entity 范围维护页面。
+3. 查询和导入结果的更细行级数据裁剪仍需后续治理阶段设计。
+4. 持久化审计仍未完成。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-004。
+
+关闭理由：前端统一身份请求头注入、内部上下文切换、授权错误展示、阶段文档和阶段记录均已完成；前端 type-check、lint、build 均通过，未删除文件，未新增 migration，未提交 PDF/OCR 全文或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUDIT-001`：持久化审计基线设计与最小实现，优先覆盖安全管理与受保护业务写操作。
