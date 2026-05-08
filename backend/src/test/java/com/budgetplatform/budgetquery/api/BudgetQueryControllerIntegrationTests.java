@@ -137,7 +137,9 @@ class BudgetQueryControllerIntegrationTests {
         String timeBindingId = bindDimension(modelId, timeDimensionId, 30);
         bindDimension(modelId, categoryDimensionId, 40);
         bindDimension(modelId, versionDimensionId, 50);
-        mockMvc.perform(post("/api/budget-models/{budgetModelId}/activate", modelId))
+        mockMvc.perform(post("/api/budget-models/{budgetModelId}/activate", modelId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk());
 
         String templateId = createTemplate(modelId, prefix + "_TEMPLATE", prefix + " Template");
@@ -181,7 +183,9 @@ class BudgetQueryControllerIntegrationTests {
         String timeBindingId = bindDimension(modelId, timeDimensionId, 30);
         bindDimension(modelId, categoryDimensionId, 40);
         bindDimension(modelId, versionDimensionId, 50);
-        mockMvc.perform(post("/api/budget-models/{budgetModelId}/activate", modelId))
+        mockMvc.perform(post("/api/budget-models/{budgetModelId}/activate", modelId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk());
 
         String templateId = createTemplate(modelId, prefix + "_TEMPLATE", prefix + " Template");
@@ -288,6 +292,8 @@ class BudgetQueryControllerIntegrationTests {
     private String createBudgetModel(String workspaceId, String code, String name) throws Exception {
         return mockMvc.perform(post("/api/budget-models")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "workspaceId": "%s",
@@ -305,6 +311,8 @@ class BudgetQueryControllerIntegrationTests {
     private String bindDimension(String modelId, String dimensionId, int displayOrder) throws Exception {
         return mockMvc.perform(post("/api/budget-models/{budgetModelId}/dimensions", modelId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "dimensionId": "%s",

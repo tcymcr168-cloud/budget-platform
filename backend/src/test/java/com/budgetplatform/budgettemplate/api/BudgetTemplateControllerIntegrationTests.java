@@ -107,7 +107,9 @@ class BudgetTemplateControllerIntegrationTests {
         bindDimension(modelId, categoryId, 40);
         bindDimension(modelId, versionId, 50);
 
-        mockMvc.perform(post("/api/budget-models/{budgetModelId}/activate", modelId))
+        mockMvc.perform(post("/api/budget-models/{budgetModelId}/activate", modelId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk());
 
         return new Fixture(modelId, accountBindingId, timeBindingId);
@@ -155,6 +157,8 @@ class BudgetTemplateControllerIntegrationTests {
     private String createBudgetModel(String workspaceId, String code, String name) throws Exception {
         return mockMvc.perform(post("/api/budget-models")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "workspaceId": "%s",
@@ -172,6 +176,8 @@ class BudgetTemplateControllerIntegrationTests {
     private String bindDimension(String modelId, String dimensionId, int displayOrder) throws Exception {
         return mockMvc.perform(post("/api/budget-models/{budgetModelId}/dimensions", modelId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "dimensionId": "%s",

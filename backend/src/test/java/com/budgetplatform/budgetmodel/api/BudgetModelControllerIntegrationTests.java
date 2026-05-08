@@ -21,6 +21,8 @@ class BudgetModelControllerIntegrationTests {
 
     private static final String ADMIN_USER = "admin@example.com";
     private static final String ADMIN_ROLES = "BUDGET_ADMIN";
+    private static final String READ_ONLY_USER = "reader@example.com";
+    private static final String READ_ONLY_ROLES = "READ_ONLY";
 
     @Autowired
     private MockMvc mockMvc;
@@ -42,11 +44,18 @@ class BudgetModelControllerIntegrationTests {
         bindDimension(modelId, versionId, 50);
 
         mockMvc.perform(get("/api/budget-models/{budgetModelId}/dimensions", modelId))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/budget-models/{budgetModelId}/dimensions", modelId)
+                        .header("X-User-Id", READ_ONLY_USER)
+                        .header("X-User-Roles", READ_ONLY_ROLES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data", hasSize(5)));
 
-        mockMvc.perform(post("/api/budget-models/{budgetModelId}/activate", modelId))
+        mockMvc.perform(post("/api/budget-models/{budgetModelId}/activate", modelId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"));
     }
@@ -58,6 +67,8 @@ class BudgetModelControllerIntegrationTests {
 
         mockMvc.perform(post("/api/budget-models")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "workspaceId": "%s",
@@ -78,6 +89,8 @@ class BudgetModelControllerIntegrationTests {
 
         mockMvc.perform(post("/api/budget-models/{budgetModelId}/dimensions", modelId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "dimensionId": "%s",
@@ -96,9 +109,31 @@ class BudgetModelControllerIntegrationTests {
         String modelId = createBudgetModel(workspaceId, "MINIMAL", "Minimal Model");
         bindDimension(modelId, accountId, 10);
 
-        mockMvc.perform(post("/api/budget-models/{budgetModelId}/activate", modelId))
+        mockMvc.perform(post("/api/budget-models/{budgetModelId}/activate", modelId)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void rejectsBudgetModelWriteWithoutModelRole() throws Exception {
+        String workspaceId = createWorkspace("SEC003C_WS", "SEC-003C Workspace");
+
+        mockMvc.perform(post("/api/budget-models")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", READ_ONLY_USER)
+                        .header("X-User-Roles", READ_ONLY_ROLES)
+                        .content("""
+                                {
+                                  "workspaceId": "%s",
+                                  "code": "READ_ONLY_MODEL",
+                                  "name": "Read Only Model",
+                                  "description": "Should be rejected"
+                                }
+                                """.formatted(workspaceId)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
     }
 
     private String createWorkspace(String code, String name) throws Exception {
@@ -143,6 +178,8 @@ class BudgetModelControllerIntegrationTests {
     private String createBudgetModel(String workspaceId, String code, String name) throws Exception {
         return mockMvc.perform(post("/api/budget-models")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "workspaceId": "%s",
@@ -161,6 +198,8 @@ class BudgetModelControllerIntegrationTests {
     private void bindDimension(String modelId, String dimensionId, int displayOrder) throws Exception {
         mockMvc.perform(post("/api/budget-models/{budgetModelId}/dimensions", modelId)
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", ADMIN_USER)
+                        .header("X-User-Roles", ADMIN_ROLES)
                         .content("""
                                 {
                                   "dimensionId": "%s",

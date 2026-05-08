@@ -15,6 +15,9 @@ import com.budgetplatform.metadata.domain.Dimension;
 import com.budgetplatform.metadata.domain.DimensionType;
 import com.budgetplatform.metadata.repository.BudgetWorkspaceRepository;
 import com.budgetplatform.metadata.repository.DimensionRepository;
+import com.budgetplatform.security.context.CurrentUserContext;
+import com.budgetplatform.security.domain.SecurityRoleCode;
+import com.budgetplatform.security.service.AuthorizationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,23 +43,27 @@ public class BudgetModelService {
     private final DimensionRepository dimensionRepository;
     private final BudgetModelRepository budgetModelRepository;
     private final BudgetModelDimensionBindingRepository bindingRepository;
+    private final AuthorizationService authorizationService;
 
     public BudgetModelService(
             BudgetWorkspaceRepository workspaceRepository,
             DimensionRepository dimensionRepository,
             BudgetModelRepository budgetModelRepository,
-            BudgetModelDimensionBindingRepository bindingRepository
+            BudgetModelDimensionBindingRepository bindingRepository,
+            AuthorizationService authorizationService
     ) {
         this.workspaceRepository = workspaceRepository;
         this.dimensionRepository = dimensionRepository;
         this.budgetModelRepository = budgetModelRepository;
         this.bindingRepository = bindingRepository;
+        this.authorizationService = authorizationService;
     }
 
     @Transactional
-    public BudgetModelResponse createBudgetModel(CreateBudgetModelRequest request) {
+    public BudgetModelResponse createBudgetModel(CurrentUserContext context, CreateBudgetModelRequest request) {
         BudgetWorkspace workspace = workspaceRepository.findById(request.workspaceId())
                 .orElseThrow(() -> notFound("Workspace was not found: " + request.workspaceId()));
+        requireModelWrite(context, workspace.getId());
         String code = Dimension.normalizeCode(request.code());
 
         if (budgetModelRepository.existsByWorkspaceIdAndCode(workspace.getId(), code)) {
@@ -73,8 +80,9 @@ public class BudgetModelService {
     }
 
     @Transactional(readOnly = true)
-    public List<BudgetModelResponse> listBudgetModels(UUID workspaceId) {
+    public List<BudgetModelResponse> listBudgetModels(CurrentUserContext context, UUID workspaceId) {
         ensureWorkspaceExists(workspaceId);
+        requireModelRead(context, workspaceId);
         return budgetModelRepository.findByWorkspaceIdOrderByCode(workspaceId)
                 .stream()
                 .map(BudgetModelResponse::from)
@@ -82,13 +90,20 @@ public class BudgetModelService {
     }
 
     @Transactional(readOnly = true)
-    public BudgetModelResponse getBudgetModel(UUID budgetModelId) {
-        return BudgetModelResponse.from(loadBudgetModel(budgetModelId));
+    public BudgetModelResponse getBudgetModel(CurrentUserContext context, UUID budgetModelId) {
+        BudgetModel budgetModel = loadBudgetModel(budgetModelId);
+        requireModelRead(context, budgetModel.getWorkspace().getId());
+        return BudgetModelResponse.from(budgetModel);
     }
 
     @Transactional
-    public BudgetModelDimensionResponse bindDimension(UUID budgetModelId, BindBudgetModelDimensionRequest request) {
+    public BudgetModelDimensionResponse bindDimension(
+            CurrentUserContext context,
+            UUID budgetModelId,
+            BindBudgetModelDimensionRequest request
+    ) {
         BudgetModel budgetModel = loadBudgetModel(budgetModelId);
+        requireModelWrite(context, budgetModel.getWorkspace().getId());
         Dimension dimension = dimensionRepository.findById(request.dimensionId())
                 .orElseThrow(() -> notFound("Dimension was not found: " + request.dimensionId()));
 
@@ -113,8 +128,9 @@ public class BudgetModelService {
     }
 
     @Transactional(readOnly = true)
-    public List<BudgetModelDimensionResponse> listBoundDimensions(UUID budgetModelId) {
-        loadBudgetModel(budgetModelId);
+    public List<BudgetModelDimensionResponse> listBoundDimensions(CurrentUserContext context, UUID budgetModelId) {
+        BudgetModel budgetModel = loadBudgetModel(budgetModelId);
+        requireModelRead(context, budgetModel.getWorkspace().getId());
         return loadBindings(budgetModelId)
                 .stream()
                 .map(BudgetModelDimensionResponse::from)
@@ -122,8 +138,9 @@ public class BudgetModelService {
     }
 
     @Transactional
-    public BudgetModelResponse activateBudgetModel(UUID budgetModelId) {
+    public BudgetModelResponse activateBudgetModel(CurrentUserContext context, UUID budgetModelId) {
         BudgetModel budgetModel = loadBudgetModel(budgetModelId);
+        requireModelWrite(context, budgetModel.getWorkspace().getId());
         Set<DimensionType> boundTypes = loadBindings(budgetModelId).stream()
                 .map(BudgetModelDimensionBinding::getDimensionRole)
                 .collect(Collectors.toSet());
@@ -139,10 +156,34 @@ public class BudgetModelService {
     }
 
     @Transactional
-    public BudgetModelResponse deactivateBudgetModel(UUID budgetModelId) {
+    public BudgetModelResponse deactivateBudgetModel(CurrentUserContext context, UUID budgetModelId) {
         BudgetModel budgetModel = loadBudgetModel(budgetModelId);
+        requireModelWrite(context, budgetModel.getWorkspace().getId());
         budgetModel.deactivate();
         return BudgetModelResponse.from(budgetModel);
+    }
+
+    private void requireModelWrite(CurrentUserContext context, UUID workspaceId) {
+        authorizationService.requireAnyRole(
+                context,
+                workspaceId,
+                SecurityRoleCode.BUDGET_ADMIN,
+                SecurityRoleCode.METADATA_MANAGER
+        );
+    }
+
+    private void requireModelRead(CurrentUserContext context, UUID workspaceId) {
+        authorizationService.requireAnyRole(
+                context,
+                workspaceId,
+                SecurityRoleCode.BUDGET_ADMIN,
+                SecurityRoleCode.METADATA_MANAGER,
+                SecurityRoleCode.TEMPLATE_DESIGNER,
+                SecurityRoleCode.BUDGET_OWNER,
+                SecurityRoleCode.BUDGET_REVIEWER,
+                SecurityRoleCode.IMPORT_OPERATOR,
+                SecurityRoleCode.READ_ONLY
+        );
     }
 
     private int nextDisplayOrder(UUID budgetModelId) {
