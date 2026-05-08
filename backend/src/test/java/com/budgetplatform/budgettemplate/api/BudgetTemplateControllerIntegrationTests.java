@@ -1,5 +1,6 @@
 package com.budgetplatform.budgettemplate.api;
 
+import com.budgetplatform.common.audit.AuditEventRecordRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -8,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -27,12 +29,15 @@ class BudgetTemplateControllerIntegrationTests {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private AuditEventRecordRepository auditRepository;
+
     @Test
     void createsTemplateAddsAxesAndActivates() throws Exception {
         Fixture fixture = createActiveModelFixture("BUD006_FULL");
         String templateId = createTemplate(fixture.modelId(), "OPEX_INPUT", "OPEX Input Template");
 
-        addAxis(templateId, fixture.accountBindingId(), "ROW", 10);
+        String rowAxisId = addAxis(templateId, fixture.accountBindingId(), "ROW", 10);
         addAxis(templateId, fixture.timeBindingId(), "COLUMN", 20);
 
         mockMvc.perform(get("/api/budget-templates/{budgetTemplateId}/axes", templateId))
@@ -47,9 +52,14 @@ class BudgetTemplateControllerIntegrationTests {
 
         mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/activate", templateId)
                         .header("X-User-Id", ADMIN_USER)
-                        .header("X-User-Roles", ADMIN_ROLES))
+                .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+
+        assertThat(auditRepository.findBySubjectTypeAndSubjectIdOrderByOccurredAtAsc("budget_template", templateId))
+                .hasSize(2);
+        assertThat(auditRepository.findBySubjectTypeAndSubjectIdOrderByOccurredAtAsc("budget_template_axis", rowAxisId))
+                .hasSize(1);
     }
 
     @Test
@@ -245,8 +255,8 @@ class BudgetTemplateControllerIntegrationTests {
                 .replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
     }
 
-    private void addAxis(String templateId, String modelDimensionId, String axisType, int displayOrder) throws Exception {
-        mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/axes", templateId)
+    private String addAxis(String templateId, String modelDimensionId, String axisType, int displayOrder) throws Exception {
+        return mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/axes", templateId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-User-Id", ADMIN_USER)
                         .header("X-User-Roles", ADMIN_ROLES)
@@ -258,7 +268,11 @@ class BudgetTemplateControllerIntegrationTests {
                                   "displayOrder": %d
                                 }
                                 """.formatted(modelDimensionId, axisType, displayOrder)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString()
+                .replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
     }
 
     private record Fixture(String modelId, String accountBindingId, String timeBindingId) {

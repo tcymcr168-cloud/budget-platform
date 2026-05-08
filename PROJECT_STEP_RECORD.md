@@ -3823,3 +3823,95 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUDIT-003`：补齐元数据、预算模型和预算模板写操作审计调用点，保持后端最小范围，不新增前端页面。
+
+## AUDIT-003
+
+阶段名称：核心配置写操作审计覆盖
+
+记录日期：2026-05-08
+
+### 阶段目标
+
+在 AUDIT-001/AUDIT-002 基础上，补齐元数据、预算模型和预算模板写操作的审计调用点，让核心配置变更具备最小可追溯能力。本阶段不新增前端页面、不新增业务功能、不提供审计导出、不新增删除能力。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `docs/architecture/audit-001-persistent-audit-baseline.md`、`docs/architecture/audit-002-audit-query-api.md`、Metadata/Model/Template 服务与测试 |
+| 允许修改 | `MetadataService`、`BudgetModelService`、`BudgetTemplateService`、相关集成测试、AUDIT-003 架构文档、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 删除文件、PDF 原文、OCR 全文、migration、前端 UI、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `mvn test`、`git check-ignore`、`git diff --check`、`git status --short`、后端边界关键词扫描 |
+| 授权状态 | 用户已授权全自动推进；本阶段无删除文件，无 migration |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/metadata/service/MetadataService.java` | 为 Workspace、Dimension、Member 创建和 Member 更新记录审计 |
+| `backend/src/main/java/com/budgetplatform/budgetmodel/service/BudgetModelService.java` | 为预算模型创建、维度绑定、启停记录审计 |
+| `backend/src/main/java/com/budgetplatform/budgettemplate/service/BudgetTemplateService.java` | 为预算模板创建、轴添加、启停记录审计 |
+| `backend/src/test/java/com/budgetplatform/metadata/api/MetadataControllerIntegrationTests.java` | 增加元数据写操作审计断言 |
+| `backend/src/test/java/com/budgetplatform/budgetmodel/api/BudgetModelControllerIntegrationTests.java` | 增加预算模型写操作审计断言 |
+| `backend/src/test/java/com/budgetplatform/budgettemplate/api/BudgetTemplateControllerIntegrationTests.java` | 增加预算模板写操作审计断言 |
+| `docs/architecture/audit-003-core-write-audit-coverage.md` | 新增 AUDIT-003 架构与关闭建议文档 |
+| `README.md` | 更新当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUDIT-003 阶段记录 |
+
+### 关键产出
+
+1. 元数据写操作覆盖 `budget_workspace`、`dimension`、`dimension_member` 审计事件。
+2. 预算模型写操作覆盖 `budget_model` 和 `budget_model_dimension` 审计事件。
+3. 预算模板写操作覆盖 `budget_template` 和 `budget_template_axis` 审计事件。
+4. 代表性集成测试已断言审计事件真实落库。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 38, Failures: 0, Errors: 0, Skipped: 0 |
+| Flyway migration | 通过；成功验证 7 个 migrations，当前版本 v7 |
+| `git check-ignore` | 通过；PDF、OCR、构建产物、依赖目录和后端 `target` 均被忽略 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| `git status --short` | 通过；仅 AUDIT-003 后端审计调用点、测试、文档和阶段记录修改 |
+| 后端边界关键词扫描 | 通过；`backend/src/main/java` 未发现 `@DeleteMapping`、ERP、Chart 或合并报表实现 |
+
+### 失败项与修复记录
+
+1. 后端测试首轮通过，未出现编译或测试失败。
+
+### 风险与限制
+
+1. 本阶段只记录成功写操作，失败尝试暂不进入审计表。
+2. 审计前端视图、导出、保留、归档和脱敏仍未实现。
+3. 当前审计详情保持轻量，不记录完整请求体，避免过度沉淀敏感或冗余数据。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| migration | 未新增 |
+| 前端 UI | 未修改 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 审计前端视图尚未实现。
+2. 审计导出、保留、归档和脱敏策略尚未制定。
+3. 失败写尝试审计尚未设计。
+4. 生产登录和服务端可信身份链路尚未完成。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUDIT-003。
+
+关闭理由：核心配置写操作审计调用点、代表性落库断言、架构文档和阶段记录均已完成；后端测试通过，未删除文件，未新增 migration，未提交 PDF/OCR 全文或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `SEC-005`：生产认证边界设计，明确 JWT/SSO/会话管理路线，但先做设计文档，不直接接入外部身份服务。

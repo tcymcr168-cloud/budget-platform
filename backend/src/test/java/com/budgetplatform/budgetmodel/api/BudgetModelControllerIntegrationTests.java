@@ -1,5 +1,6 @@
 package com.budgetplatform.budgetmodel.api;
 
+import com.budgetplatform.common.audit.AuditEventRecordRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -8,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -27,6 +29,9 @@ class BudgetModelControllerIntegrationTests {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private AuditEventRecordRepository auditRepository;
+
     @Test
     void createsBudgetModelBindsDimensionsAndActivates() throws Exception {
         String workspaceId = createWorkspace("BUD005_WS", "BUD-005 Workspace");
@@ -37,7 +42,7 @@ class BudgetModelControllerIntegrationTests {
         String versionId = createDimension(workspaceId, "BUD005_VERSION", "Version", "VERSION");
         String modelId = createBudgetModel(workspaceId, "OPEX", "OPEX Budget Model");
 
-        bindDimension(modelId, accountId, 10);
+        String accountBindingId = bindDimension(modelId, accountId, 10);
         bindDimension(modelId, entityId, 20);
         bindDimension(modelId, timeId, 30);
         bindDimension(modelId, categoryId, 40);
@@ -55,9 +60,14 @@ class BudgetModelControllerIntegrationTests {
 
         mockMvc.perform(post("/api/budget-models/{budgetModelId}/activate", modelId)
                         .header("X-User-Id", ADMIN_USER)
-                        .header("X-User-Roles", ADMIN_ROLES))
+                .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+
+        assertThat(auditRepository.findBySubjectTypeAndSubjectIdOrderByOccurredAtAsc("budget_model", modelId))
+                .hasSize(2);
+        assertThat(auditRepository.findBySubjectTypeAndSubjectIdOrderByOccurredAtAsc("budget_model_dimension", accountBindingId))
+                .hasSize(1);
     }
 
     @Test
@@ -195,8 +205,8 @@ class BudgetModelControllerIntegrationTests {
                 .replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
     }
 
-    private void bindDimension(String modelId, String dimensionId, int displayOrder) throws Exception {
-        mockMvc.perform(post("/api/budget-models/{budgetModelId}/dimensions", modelId)
+    private String bindDimension(String modelId, String dimensionId, int displayOrder) throws Exception {
+        return mockMvc.perform(post("/api/budget-models/{budgetModelId}/dimensions", modelId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-User-Id", ADMIN_USER)
                         .header("X-User-Roles", ADMIN_ROLES)
@@ -207,6 +217,10 @@ class BudgetModelControllerIntegrationTests {
                                   "displayOrder": %d
                                 }
                                 """.formatted(dimensionId, displayOrder)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString()
+                .replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
     }
 }

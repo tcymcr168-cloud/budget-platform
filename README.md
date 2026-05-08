@@ -111,4 +111,4 @@ git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source
 
 当前主线已完成到 BUD-010，并完成 REVIEW-001 源码审查。后续建议优先补齐认证授权、持久化审计、查询分页与性能治理、模板版本治理和端到端测试。
 
-当前治理推进已完成 `AUDIT-002` 审计查询 API，安全基线采用“角色 + Entity 数据范围 + 流程责任人”的模型，避免过早建设复杂多维权限矩阵。SEC-003 已保护安全管理 API 与预算查询读取 API，SEC-003B 已保护元数据读写 API，SEC-003C 已保护预算模型读写 API，SEC-003D 已保护预算模板读写 API，SEC-003E 已保护预算填报读写和流程动作 API，SEC-003F 已保护实际数导入读写 API，SEC-004 已为前端统一注入内部身份请求头并展示 401/403 授权错误，AUDIT-001 已落地 `audit_event` 持久化审计表，AUDIT-002 已提供 BUDGET_ADMIN 只读审计查询与分页；生产登录、JWT/SSO、前端 Entity 范围维护和审计前端体验仍需后续阶段推进。
+当前治理推进已完成 `AUDIT-003` 核心写操作审计覆盖，安全基线采用“角色 + Entity 数据范围 + 流程责任人”的模型，避免过早建设复杂多维权限矩阵。SEC-003 已保护安全管理 API 与预算查询读取 API，SEC-003B 已保护元数据读写 API，SEC-003C 已保护预算模型读写 API，SEC-003D 已保护预算模板读写 API，SEC-003E 已保护预算填报读写和流程动作 API，SEC-003F 已保护实际数导入读写 API，SEC-004 已为前端统一注入内部身份请求头并展示 401/403 授权错误，AUDIT-001 已落地 `audit_event` 持久化审计表，AUDIT-002 已提供 BUDGET_ADMIN 只读审计查询与分页，AUDIT-003 已覆盖元数据、预算模型和预算模板写操作审计；生产登录、JWT/SSO、前端 Entity 范围维护和审计前端体验仍需后续阶段推进。

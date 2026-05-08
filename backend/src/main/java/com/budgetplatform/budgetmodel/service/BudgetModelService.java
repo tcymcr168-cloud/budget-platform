@@ -10,6 +10,9 @@ import com.budgetplatform.budgetmodel.repository.BudgetModelDimensionBindingRepo
 import com.budgetplatform.budgetmodel.repository.BudgetModelRepository;
 import com.budgetplatform.common.api.ApplicationException;
 import com.budgetplatform.common.api.ErrorCode;
+import com.budgetplatform.common.audit.AuditAction;
+import com.budgetplatform.common.audit.AuditEvent;
+import com.budgetplatform.common.audit.AuditService;
 import com.budgetplatform.metadata.domain.BudgetWorkspace;
 import com.budgetplatform.metadata.domain.Dimension;
 import com.budgetplatform.metadata.domain.DimensionType;
@@ -24,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -44,19 +48,22 @@ public class BudgetModelService {
     private final BudgetModelRepository budgetModelRepository;
     private final BudgetModelDimensionBindingRepository bindingRepository;
     private final AuthorizationService authorizationService;
+    private final AuditService auditService;
 
     public BudgetModelService(
             BudgetWorkspaceRepository workspaceRepository,
             DimensionRepository dimensionRepository,
             BudgetModelRepository budgetModelRepository,
             BudgetModelDimensionBindingRepository bindingRepository,
-            AuthorizationService authorizationService
+            AuthorizationService authorizationService,
+            AuditService auditService
     ) {
         this.workspaceRepository = workspaceRepository;
         this.dimensionRepository = dimensionRepository;
         this.budgetModelRepository = budgetModelRepository;
         this.bindingRepository = bindingRepository;
         this.authorizationService = authorizationService;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -75,6 +82,11 @@ public class BudgetModelService {
                 code,
                 request.name(),
                 request.description()
+        ));
+        record(context, "budget_model", budgetModel.getId(), AuditAction.CREATE, Map.of(
+                "workspaceId", workspace.getId().toString(),
+                "code", budgetModel.getCode(),
+                "status", budgetModel.getStatus().name()
         ));
         return BudgetModelResponse.from(budgetModel);
     }
@@ -124,6 +136,13 @@ public class BudgetModelService {
                 requiredForEntry,
                 displayOrder
         ));
+        record(context, "budget_model_dimension", binding.getId(), AuditAction.CREATE, Map.of(
+                "budgetModelId", budgetModel.getId().toString(),
+                "dimensionId", dimension.getId().toString(),
+                "dimensionRole", dimension.getDimensionType().name(),
+                "requiredForEntry", binding.isRequiredForEntry(),
+                "displayOrder", binding.getDisplayOrder()
+        ));
         return BudgetModelDimensionResponse.from(binding);
     }
 
@@ -152,6 +171,9 @@ public class BudgetModelService {
         }
 
         budgetModel.activate();
+        record(context, "budget_model", budgetModel.getId(), AuditAction.STATUS_CHANGE, Map.of(
+                "status", budgetModel.getStatus().name()
+        ));
         return BudgetModelResponse.from(budgetModel);
     }
 
@@ -160,7 +182,27 @@ public class BudgetModelService {
         BudgetModel budgetModel = loadBudgetModel(budgetModelId);
         requireModelWrite(context, budgetModel.getWorkspace().getId());
         budgetModel.deactivate();
+        record(context, "budget_model", budgetModel.getId(), AuditAction.STATUS_CHANGE, Map.of(
+                "status", budgetModel.getStatus().name()
+        ));
         return BudgetModelResponse.from(budgetModel);
+    }
+
+    private void record(
+            CurrentUserContext context,
+            String subjectType,
+            UUID subjectId,
+            AuditAction action,
+            Map<String, Object> details
+    ) {
+        auditService.record(new AuditEvent(
+                context == null ? null : context.userId(),
+                subjectType,
+                subjectId.toString(),
+                action,
+                null,
+                details
+        ));
     }
 
     private void requireModelWrite(CurrentUserContext context, UUID workspaceId) {

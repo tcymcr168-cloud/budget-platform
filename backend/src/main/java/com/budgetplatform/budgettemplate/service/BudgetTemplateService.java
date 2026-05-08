@@ -16,6 +16,9 @@ import com.budgetplatform.budgettemplate.repository.BudgetTemplateAxisRepository
 import com.budgetplatform.budgettemplate.repository.BudgetTemplateRepository;
 import com.budgetplatform.common.api.ApplicationException;
 import com.budgetplatform.common.api.ErrorCode;
+import com.budgetplatform.common.audit.AuditAction;
+import com.budgetplatform.common.audit.AuditEvent;
+import com.budgetplatform.common.audit.AuditService;
 import com.budgetplatform.metadata.domain.Dimension;
 import com.budgetplatform.security.context.CurrentUserContext;
 import com.budgetplatform.security.domain.SecurityRoleCode;
@@ -25,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -35,19 +39,22 @@ public class BudgetTemplateService {
     private final BudgetTemplateRepository templateRepository;
     private final BudgetTemplateAxisRepository axisRepository;
     private final AuthorizationService authorizationService;
+    private final AuditService auditService;
 
     public BudgetTemplateService(
             BudgetModelRepository budgetModelRepository,
             BudgetModelDimensionBindingRepository bindingRepository,
             BudgetTemplateRepository templateRepository,
             BudgetTemplateAxisRepository axisRepository,
-            AuthorizationService authorizationService
+            AuthorizationService authorizationService,
+            AuditService auditService
     ) {
         this.budgetModelRepository = budgetModelRepository;
         this.bindingRepository = bindingRepository;
         this.templateRepository = templateRepository;
         this.axisRepository = axisRepository;
         this.authorizationService = authorizationService;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -70,6 +77,11 @@ public class BudgetTemplateService {
                 code,
                 request.name(),
                 request.description()
+        ));
+        record(context, "budget_template", template.getId(), AuditAction.CREATE, Map.of(
+                "budgetModelId", budgetModel.getId().toString(),
+                "code", template.getCode(),
+                "status", template.getStatus().name()
         ));
         return BudgetTemplateResponse.from(template);
     }
@@ -118,6 +130,12 @@ public class BudgetTemplateService {
                 request.memberSelector(),
                 displayOrder
         ));
+        record(context, "budget_template_axis", axis.getId(), AuditAction.CREATE, Map.of(
+                "budgetTemplateId", template.getId().toString(),
+                "modelDimensionId", modelDimension.getId().toString(),
+                "axisType", axis.getAxisType().name(),
+                "displayOrder", axis.getDisplayOrder()
+        ));
         return TemplateAxisResponse.from(axis);
     }
 
@@ -142,6 +160,9 @@ public class BudgetTemplateService {
             throw badRequest("Template must define at least one column axis before activation.");
         }
         template.activate();
+        record(context, "budget_template", template.getId(), AuditAction.STATUS_CHANGE, Map.of(
+                "status", template.getStatus().name()
+        ));
         return BudgetTemplateResponse.from(template);
     }
 
@@ -150,7 +171,27 @@ public class BudgetTemplateService {
         BudgetTemplate template = loadTemplate(budgetTemplateId);
         requireTemplateWrite(context, template.getBudgetModel().getWorkspace().getId());
         template.deactivate();
+        record(context, "budget_template", template.getId(), AuditAction.STATUS_CHANGE, Map.of(
+                "status", template.getStatus().name()
+        ));
         return BudgetTemplateResponse.from(template);
+    }
+
+    private void record(
+            CurrentUserContext context,
+            String subjectType,
+            UUID subjectId,
+            AuditAction action,
+            Map<String, Object> details
+    ) {
+        auditService.record(new AuditEvent(
+                context == null ? null : context.userId(),
+                subjectType,
+                subjectId.toString(),
+                action,
+                null,
+                details
+        ));
     }
 
     private void requireTemplateWrite(CurrentUserContext context, UUID workspaceId) {

@@ -1,5 +1,6 @@
 package com.budgetplatform.metadata.api;
 
+import com.budgetplatform.common.audit.AuditEventRecordRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -8,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -27,6 +29,9 @@ class MetadataControllerIntegrationTests {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private AuditEventRecordRepository auditRepository;
 
     @Test
     void createsDimensionAndMemberHierarchy() throws Exception {
@@ -59,6 +64,13 @@ class MetadataControllerIntegrationTests {
                         .header("X-User-Roles", READ_ONLY_ROLES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(2)));
+
+        assertThat(auditRepository.findBySubjectTypeAndSubjectIdOrderByOccurredAtAsc("budget_workspace", workspaceId))
+                .hasSize(1);
+        assertThat(auditRepository.findBySubjectTypeAndSubjectIdOrderByOccurredAtAsc("dimension", dimensionId))
+                .hasSize(1);
+        assertThat(auditRepository.findBySubjectTypeAndSubjectIdOrderByOccurredAtAsc("dimension_member", rootMemberId))
+                .hasSize(1);
     }
 
     @Test

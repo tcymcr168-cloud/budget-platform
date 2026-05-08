@@ -2,6 +2,9 @@ package com.budgetplatform.metadata.service;
 
 import com.budgetplatform.common.api.ApplicationException;
 import com.budgetplatform.common.api.ErrorCode;
+import com.budgetplatform.common.audit.AuditAction;
+import com.budgetplatform.common.audit.AuditEvent;
+import com.budgetplatform.common.audit.AuditService;
 import com.budgetplatform.metadata.api.CreateDimensionMemberRequest;
 import com.budgetplatform.metadata.api.CreateDimensionRequest;
 import com.budgetplatform.metadata.api.CreateWorkspaceRequest;
@@ -24,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -33,17 +37,20 @@ public class MetadataService {
     private final DimensionRepository dimensionRepository;
     private final DimensionMemberRepository memberRepository;
     private final AuthorizationService authorizationService;
+    private final AuditService auditService;
 
     public MetadataService(
             BudgetWorkspaceRepository workspaceRepository,
             DimensionRepository dimensionRepository,
             DimensionMemberRepository memberRepository,
-            AuthorizationService authorizationService
+            AuthorizationService authorizationService,
+            AuditService auditService
     ) {
         this.workspaceRepository = workspaceRepository;
         this.dimensionRepository = dimensionRepository;
         this.memberRepository = memberRepository;
         this.authorizationService = authorizationService;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -55,6 +62,10 @@ public class MetadataService {
         }
 
         BudgetWorkspace workspace = workspaceRepository.save(new BudgetWorkspace(code, request.name()));
+        record(context, "budget_workspace", workspace.getId(), AuditAction.CREATE, Map.of(
+                "code", workspace.getCode(),
+                "name", workspace.getName()
+        ));
         return WorkspaceResponse.from(workspace);
     }
 
@@ -85,6 +96,11 @@ public class MetadataService {
                 request.dimensionType(),
                 request.system(),
                 request.attributesSchema()
+        ));
+        record(context, "dimension", dimension.getId(), AuditAction.CREATE, Map.of(
+                "workspaceId", workspace.getId().toString(),
+                "code", dimension.getCode(),
+                "dimensionType", dimension.getDimensionType().name()
         ));
         return DimensionResponse.from(dimension);
     }
@@ -136,6 +152,11 @@ public class MetadataService {
             parent.markLeaf(false);
         }
 
+        record(context, "dimension_member", member.getId(), AuditAction.CREATE, Map.of(
+                "dimensionId", dimension.getId().toString(),
+                "code", member.getCode(),
+                "parentId", parent == null ? "" : parent.getId().toString()
+        ));
         return DimensionMemberResponse.from(member);
     }
 
@@ -179,7 +200,30 @@ public class MetadataService {
         boolean hasChildren = memberRepository.existsByDimensionIdAndParentId(member.getDimension().getId(), member.getId());
         member.markLeaf(!hasChildren);
 
+        record(context, "dimension_member", member.getId(), AuditAction.UPDATE, Map.of(
+                "dimensionId", member.getDimension().getId().toString(),
+                "code", member.getCode(),
+                "status", member.getStatus().name(),
+                "parentId", member.getParent() == null ? "" : member.getParent().getId().toString()
+        ));
         return DimensionMemberResponse.from(member);
+    }
+
+    private void record(
+            CurrentUserContext context,
+            String subjectType,
+            UUID subjectId,
+            AuditAction action,
+            Map<String, Object> details
+    ) {
+        auditService.record(new AuditEvent(
+                context == null ? null : context.userId(),
+                subjectType,
+                subjectId.toString(),
+                action,
+                null,
+                details
+        ));
     }
 
     private void requireMetadataWrite(CurrentUserContext context, UUID workspaceId) {
