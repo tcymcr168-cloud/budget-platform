@@ -2695,3 +2695,102 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 用户已在 2026-05-08 明确批准 BUD-010，下一阶段进入 `BUD-010`：预算与实际差异分析。
+
+## BUD-010
+
+阶段名称：预算与实际差异分析基线
+
+记录日期：2026-05-08
+
+### 阶段目标
+
+在用户明确批准 BUD-010 后，实现最小版 Budget vs Actual 差异分析。本阶段复用 BUD-008 查询模块和 BUD-009 Actual 同源事实数据，不新增数据库表，不引入 BI 图表、ERP 直连、合并报表或复杂权限矩阵。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、BUD-008 查询文档、BUD-009 实际数导入文档、`fact_value` 同源事实表、现有前后端工作台 |
+| 允许修改 | `budgetquery` 后端 API/服务/测试、前端 `budgetQuery` API 与工作台展示、`docs/architecture/bud-010-budget-actual-variance.md`、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | PDF 原文、OCR 全文、删除文件、ERP 直连、BI 图表、合并报表、复杂权限矩阵 |
+| 验证命令 | `mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build`、`git check-ignore`、`git status --short`、`git diff --check` |
+| 授权状态 | 用户已明确批准 BUD-010；全自动模式执行 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/budgetquery/api/BudgetActualVarianceResponse.java` | 新增 Budget vs Actual 差异响应结构 |
+| `backend/src/main/java/com/budgetplatform/budgetquery/api/BudgetQueryController.java` | 新增 `/api/budget-query/variance` 只读接口 |
+| `backend/src/main/java/com/budgetplatform/budgetquery/service/BudgetQueryService.java` | 新增按 Account + Entity + Time 聚合预算与实际并计算差异的服务逻辑 |
+| `backend/src/test/java/com/budgetplatform/budgetquery/api/BudgetQueryControllerIntegrationTests.java` | 新增预算事实 + Actual 导入事实的差异分析集成测试 |
+| `frontend/src/features/budgetQuery/budgetQueryApi.ts` | 新增差异分析 API 类型与调用函数，并修正事实查询 nullable id 类型 |
+| `frontend/src/App.tsx` | 新增 Budget vs Actual 表格分析区域 |
+| `frontend/src/styles.css` | 新增差异分析表单布局样式 |
+| `docs/architecture/bud-010-budget-actual-variance.md` | 新增 BUD-010 架构与关闭建议文档 |
+| `README.md` | 更新当前 MVP 能力，标记 BUD-010 已进入并完成基线 |
+| `PROJECT_STEP_RECORD.md` | 追加 BUD-010 阶段记录 |
+
+### 关键产出
+
+1. 新增 `/api/budget-query/variance`，支持显式选择预算 Category 与实际 Category。
+2. 支持预算 Version、实际 Version、Entity、Time 和状态过滤。
+3. 默认不传状态时仅纳入 `APPROVED` 与 `LOCKED` 事实，避免草稿和提交中数据污染差异结果。
+4. 差异结果按 Account + Entity + Time 聚合，输出预算金额、实际金额、差异额、差异率和两侧行数。
+5. 前端新增表格型 Budget vs Actual 区域，不引入图表或 BI 组件。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 24, Failures: 0, Errors: 0, Skipped: 0 |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过 |
+| `git check-ignore` | 通过；PDF、OCR、前端构建产物、依赖目录和后端 `target` 均被忽略 |
+| `git status --short` | 通过；仅 BUD-010 相关源码、文档和阶段记录修改 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| 边界关键词扫描 | 通过；`backend/src` 与 `frontend/src` 未发现 `@DeleteMapping`、ERP、Chart 或合并报表实现 |
+
+### 失败项与修复记录
+
+1. 本阶段后端测试、前端类型检查、lint 和 build 首轮均通过。
+2. 未发生需要二次修复的测试失败。
+
+### 风险与限制
+
+1. 当前差异分析聚合粒度固定为 Account + Entity + Time。
+2. 差异率以预算金额为分母，预算为 0 时返回 `null`。
+3. 当前仍不做图表、趋势、钻取、看板、ERP 直连或合并报表。
+4. 认证、授权、数据范围、持久化审计、查询分页和数据库条件下推仍需后续独立阶段。
+5. 本阶段未新增 migration，继续复用现有 `fact_value`。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| BUD-010 明确批准 | 已批准 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| 复杂权限矩阵 | 未新增 |
+| migration | 未新增 |
+| 删除文件 | 未执行 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 差异分析尚未支持用户自定义分组、层级递归汇总或阈值标记。
+2. 尚未支持差异钻取到预算任务与 Actual 导入批次的组合视图。
+3. 查询分页、索引和权限过滤仍需后续阶段。
+
+### 是否建议关闭本阶段
+
+建议关闭 BUD-010。
+
+关闭理由：预算与实际差异分析后端接口、服务逻辑、前端表格入口、集成测试和架构文档均已完成，所有验证命令通过，未新增 migration、ERP、BI 图表、合并报表、删除文件、PDF 原文或 OCR 全文。
+
+### 下一阶段建议
+
+建议下一阶段进入 `SEC-001`：认证、角色与数据范围设计，避免继续堆业务功能而缺少企业级治理底座。

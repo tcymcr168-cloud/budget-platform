@@ -30,6 +30,8 @@ import {
   TemplateAxisType,
 } from './features/budgetTemplates/budgetTemplateApi';
 import {
+  analyzeBudgetActualVariance,
+  BudgetActualVarianceRow,
   exportFactsCsv,
   FactQueryRow,
   FactSummaryRow,
@@ -99,6 +101,7 @@ function App() {
   const [factValues, setFactValues] = useState<FactValue[]>([]);
   const [queryRows, setQueryRows] = useState<FactQueryRow[]>([]);
   const [summaryRows, setSummaryRows] = useState<FactSummaryRow[]>([]);
+  const [varianceRows, setVarianceRows] = useState<BudgetActualVarianceRow[]>([]);
   const [csvExport, setCsvExport] = useState('');
   const [actualImportBatches, setActualImportBatches] = useState<ActualImportBatch[]>([]);
   const [actualImportRows, setActualImportRows] = useState<ActualImportRow[]>([]);
@@ -163,6 +166,15 @@ function App() {
     status: 'APPROVED' as '' | FactValueStatus,
     groupBy: 'ACCOUNT' as QueryGroupBy,
   });
+  const [varianceDraft, setVarianceDraft] = useState({
+    entityMemberId: '',
+    timeMemberId: '',
+    budgetCategoryMemberId: '',
+    actualCategoryMemberId: '',
+    budgetVersionMemberId: '',
+    actualVersionMemberId: '',
+    status: '' as '' | FactValueStatus,
+  });
   const [actualImportDraft, setActualImportDraft] = useState({
     fileName: 'actual-expense.csv',
     operatorUser: 'importer@example.com',
@@ -225,6 +237,7 @@ function App() {
       setSelectedSubmissionTaskId('');
       setQueryRows([]);
       setSummaryRows([]);
+      setVarianceRows([]);
       setCsvExport('');
       setActualImportBatches([]);
       setActualImportRows([]);
@@ -254,6 +267,7 @@ function App() {
       setSelectedBudgetTemplateId('');
       setQueryRows([]);
       setSummaryRows([]);
+      setVarianceRows([]);
       setCsvExport('');
       setActualImportBatches([]);
       setActualImportRows([]);
@@ -797,6 +811,32 @@ function App() {
       const content = await exportFactsCsv(buildFactQueryFilters());
       setCsvExport(content);
       setNotice('CSV export generated.');
+    });
+  }
+
+  async function handleRunVariance() {
+    if (!selectedBudgetModelId) {
+      setError('Select a budget model first.');
+      return;
+    }
+    if (!varianceDraft.budgetCategoryMemberId || !varianceDraft.actualCategoryMemberId) {
+      setError('Select both budget and actual categories.');
+      return;
+    }
+
+    await runAction(async () => {
+      const rows = await analyzeBudgetActualVariance({
+        budgetModelId: selectedBudgetModelId,
+        budgetCategoryMemberId: varianceDraft.budgetCategoryMemberId,
+        actualCategoryMemberId: varianceDraft.actualCategoryMemberId,
+        budgetVersionMemberId: varianceDraft.budgetVersionMemberId || undefined,
+        actualVersionMemberId: varianceDraft.actualVersionMemberId || undefined,
+        entityMemberId: varianceDraft.entityMemberId || undefined,
+        timeMemberId: varianceDraft.timeMemberId || undefined,
+        status: varianceDraft.status || undefined,
+      });
+      setVarianceRows(rows);
+      setNotice(`${rows.length} variance rows loaded.`);
     });
   }
 
@@ -1921,11 +1961,206 @@ function App() {
         </section>
       </section>
 
+      <section className="query-layout" aria-label="Budget actual variance analysis">
+        <section className="panel" aria-labelledby="variance-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Step 11</p>
+              <h2 id="variance-title">Budget vs Actual</h2>
+            </div>
+            <span>{selectedBudgetModel?.code ?? 'No model'}</span>
+          </div>
+
+          <form
+            className="variance-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleRunVariance();
+            }}
+          >
+            <label>
+              Entity
+              <select
+                value={varianceDraft.entityMemberId}
+                onChange={(event) =>
+                  setVarianceDraft({ ...varianceDraft, entityMemberId: event.target.value })
+                }
+              >
+                <option value="">All entities</option>
+                {scopeMembers.ENTITY.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Time
+              <select
+                value={varianceDraft.timeMemberId}
+                onChange={(event) =>
+                  setVarianceDraft({ ...varianceDraft, timeMemberId: event.target.value })
+                }
+              >
+                <option value="">All time</option>
+                {scopeMembers.TIME.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Budget category
+              <select
+                required
+                value={varianceDraft.budgetCategoryMemberId}
+                onChange={(event) =>
+                  setVarianceDraft({
+                    ...varianceDraft,
+                    budgetCategoryMemberId: event.target.value,
+                  })
+                }
+              >
+                <option value="">Select budget</option>
+                {scopeMembers.CATEGORY.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Actual category
+              <select
+                required
+                value={varianceDraft.actualCategoryMemberId}
+                onChange={(event) =>
+                  setVarianceDraft({
+                    ...varianceDraft,
+                    actualCategoryMemberId: event.target.value,
+                  })
+                }
+              >
+                <option value="">Select actual</option>
+                {scopeMembers.CATEGORY.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Budget version
+              <select
+                value={varianceDraft.budgetVersionMemberId}
+                onChange={(event) =>
+                  setVarianceDraft({
+                    ...varianceDraft,
+                    budgetVersionMemberId: event.target.value,
+                  })
+                }
+              >
+                <option value="">All budget versions</option>
+                {scopeMembers.VERSION.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Actual version
+              <select
+                value={varianceDraft.actualVersionMemberId}
+                onChange={(event) =>
+                  setVarianceDraft({
+                    ...varianceDraft,
+                    actualVersionMemberId: event.target.value,
+                  })
+                }
+              >
+                <option value="">All actual versions</option>
+                {scopeMembers.VERSION.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Status
+              <select
+                value={varianceDraft.status}
+                onChange={(event) =>
+                  setVarianceDraft({
+                    ...varianceDraft,
+                    status: event.target.value as '' | FactValueStatus,
+                  })
+                }
+              >
+                <option value="">Approved and locked</option>
+                <option value="APPROVED">APPROVED</option>
+                <option value="LOCKED">LOCKED</option>
+              </select>
+            </label>
+            <button type="submit" disabled={loading || !selectedBudgetModelId}>
+              Analyze
+            </button>
+          </form>
+        </section>
+
+        <section className="panel" aria-labelledby="variance-results-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Variance</p>
+              <h2 id="variance-results-title">Budget vs Actual Table</h2>
+            </div>
+            <span>{varianceRows.length} rows</span>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Account</th>
+                  <th>Entity</th>
+                  <th>Time</th>
+                  <th>Budget</th>
+                  <th>Actual</th>
+                  <th>Variance</th>
+                  <th>Variance %</th>
+                  <th>Lines</th>
+                </tr>
+              </thead>
+              <tbody>
+                {varianceRows.map((row) => (
+                  <tr key={`${row.accountMemberId}-${row.entityMemberId}-${row.timeMemberId}`}>
+                    <td>
+                      {row.accountCode} - {row.accountName}
+                    </td>
+                    <td>{row.entityCode}</td>
+                    <td>{row.timeCode}</td>
+                    <td>{row.budgetAmount}</td>
+                    <td>{row.actualAmount}</td>
+                    <td>{row.varianceAmount}</td>
+                    <td>{row.variancePercent === null ? 'N/A' : row.variancePercent}</td>
+                    <td>
+                      {row.budgetLineCount} / {row.actualLineCount}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
       <section className="import-layout" aria-label="Actual import management">
         <section className="panel" aria-labelledby="actual-import-title">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Step 11</p>
+              <p className="eyebrow">Step 12</p>
               <h2 id="actual-import-title">Actual CSV Import</h2>
             </div>
             <span>{selectedBudgetModel?.code ?? 'No model'}</span>

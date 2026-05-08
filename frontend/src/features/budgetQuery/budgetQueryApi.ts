@@ -15,8 +15,9 @@ export interface FactQueryFilters {
 export interface FactQueryRow {
   id: string;
   budgetModelId: string;
-  budgetTemplateId: string;
-  submissionTaskId: string;
+  budgetTemplateId: string | null;
+  submissionTaskId: string | null;
+  importBatchId: string | null;
   accountCode: string;
   accountName: string;
   entityCode: string;
@@ -39,6 +40,35 @@ export interface FactSummaryRow {
 
 export interface FactSummaryFilters extends FactQueryFilters {
   groupBy: QueryGroupBy;
+}
+
+export interface BudgetActualVarianceFilters {
+  budgetModelId: string;
+  budgetCategoryMemberId: string;
+  actualCategoryMemberId: string;
+  budgetVersionMemberId?: string;
+  actualVersionMemberId?: string;
+  entityMemberId?: string;
+  timeMemberId?: string;
+  status?: FactValueStatus;
+}
+
+export interface BudgetActualVarianceRow {
+  accountMemberId: string;
+  accountCode: string;
+  accountName: string;
+  entityMemberId: string;
+  entityCode: string;
+  entityName: string;
+  timeMemberId: string;
+  timeCode: string;
+  timeName: string;
+  budgetAmount: number;
+  actualAmount: number;
+  varianceAmount: number;
+  variancePercent: number | null;
+  budgetLineCount: number;
+  actualLineCount: number;
 }
 
 function buildQuery(filters: FactQueryFilters | FactSummaryFilters) {
@@ -75,4 +105,11 @@ export async function exportFactsCsv(filters: FactQueryFilters) {
   }
 
   return response.text();
+}
+
+export async function analyzeBudgetActualVariance(filters: BudgetActualVarianceFilters) {
+  const response = await requestJson<BudgetActualVarianceRow[]>(
+    `/api/budget-query/variance?${buildQuery(filters)}`,
+  );
+  return response.data ?? [];
 }

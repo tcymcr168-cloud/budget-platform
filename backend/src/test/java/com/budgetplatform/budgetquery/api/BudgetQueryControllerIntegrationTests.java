@@ -60,6 +60,29 @@ class BudgetQueryControllerIntegrationTests {
                 .andExpect(content().string(containsString(fixture.accountCode())));
     }
 
+    @Test
+    void analyzesBudgetActualVarianceByAccountEntityAndTime() throws Exception {
+        VarianceFixture fixture = createVarianceFixture("BUD010_VAR");
+
+        mockMvc.perform(get("/api/budget-query/variance")
+                        .param("budgetModelId", fixture.modelId())
+                        .param("budgetCategoryMemberId", fixture.budgetCategoryMemberId())
+                        .param("actualCategoryMemberId", fixture.actualCategoryMemberId())
+                        .param("budgetVersionMemberId", fixture.budgetVersionMemberId())
+                        .param("actualVersionMemberId", fixture.actualVersionMemberId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].accountCode").value(fixture.accountCode()))
+                .andExpect(jsonPath("$.data[0].entityCode").value(fixture.entityCode()))
+                .andExpect(jsonPath("$.data[0].timeCode").value(fixture.timeCode()))
+                .andExpect(jsonPath("$.data[0].budgetAmount").value(1000.00))
+                .andExpect(jsonPath("$.data[0].actualAmount").value(1200.00))
+                .andExpect(jsonPath("$.data[0].varianceAmount").value(200.00))
+                .andExpect(jsonPath("$.data[0].variancePercent").value(20.0000))
+                .andExpect(jsonPath("$.data[0].budgetLineCount").value(1))
+                .andExpect(jsonPath("$.data[0].actualLineCount").value(1));
+    }
+
     private Fixture createApprovedFactFixture(String prefix) throws Exception {
         String workspaceId = createWorkspace(prefix + "_WS", prefix + " Workspace");
         String accountDimensionId = createDimension(workspaceId, prefix + "_ACCOUNT", "Account", "ACCOUNT");
@@ -98,6 +121,78 @@ class BudgetQueryControllerIntegrationTests {
                 .andExpect(status().isOk());
 
         return new Fixture(modelId, accountCode);
+    }
+
+    private VarianceFixture createVarianceFixture(String prefix) throws Exception {
+        String workspaceId = createWorkspace(prefix + "_WS", prefix + " Workspace");
+        String accountDimensionId = createDimension(workspaceId, prefix + "_ACCOUNT", "Account", "ACCOUNT");
+        String entityDimensionId = createDimension(workspaceId, prefix + "_ENTITY", "Entity", "ENTITY");
+        String timeDimensionId = createDimension(workspaceId, prefix + "_TIME", "Time", "TIME");
+        String categoryDimensionId = createDimension(workspaceId, prefix + "_CATEGORY", "Category", "CATEGORY");
+        String versionDimensionId = createDimension(workspaceId, prefix + "_VERSION", "Version", "VERSION");
+
+        String accountCode = prefix + "_TRAVEL";
+        String accountMemberId = createMember(accountDimensionId, accountCode, "Travel Expense");
+        String entityCode = prefix + "_OPS";
+        String entityMemberId = createMember(entityDimensionId, entityCode, "Operations");
+        String timeCode = prefix + "_202604";
+        String timeMemberId = createMember(timeDimensionId, timeCode, "2026-04");
+        String budgetCategoryMemberId = createMember(categoryDimensionId, prefix + "_BUDGET", "Budget");
+        String actualCategoryMemberId = createMember(categoryDimensionId, "ACTUAL", "Actual");
+        String budgetVersionMemberId = createMember(versionDimensionId, prefix + "_WORKING", "Working");
+        String actualVersionMemberId = createMember(versionDimensionId, prefix + "_FINAL", "Final");
+
+        String modelId = createBudgetModel(workspaceId, prefix + "_MODEL", prefix + " Model");
+        String accountBindingId = bindDimension(modelId, accountDimensionId, 10);
+        bindDimension(modelId, entityDimensionId, 20);
+        String timeBindingId = bindDimension(modelId, timeDimensionId, 30);
+        bindDimension(modelId, categoryDimensionId, 40);
+        bindDimension(modelId, versionDimensionId, 50);
+        mockMvc.perform(post("/api/budget-models/{budgetModelId}/activate", modelId))
+                .andExpect(status().isOk());
+
+        String templateId = createTemplate(modelId, prefix + "_TEMPLATE", prefix + " Template");
+        addAxis(templateId, accountBindingId, "ROW", 10);
+        addAxis(templateId, timeBindingId, "COLUMN", 20);
+        mockMvc.perform(post("/api/budget-templates/{budgetTemplateId}/activate", templateId))
+                .andExpect(status().isOk());
+
+        String taskId = createTask(templateId, entityMemberId, timeMemberId, budgetCategoryMemberId, budgetVersionMemberId);
+        saveValue(taskId, accountMemberId, "1000.00");
+        mockMvc.perform(post("/api/submissions/tasks/{taskId}/submit", taskId))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/submissions/tasks/{taskId}/approve", taskId))
+                .andExpect(status().isOk());
+
+        String batchId = mockMvc.perform(post("/api/actual-imports/validate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "budgetModelId": "%s",
+                                  "fileName": "actual-variance.csv",
+                                  "operatorUser": "importer@example.com",
+                                  "csvContent": "account,entity,time,category,version,amount\\n%s,%s,%s,ACTUAL,%s,1200.00"
+                                }
+                                """.formatted(modelId, accountCode, entityCode, timeCode, prefix + "_FINAL")))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString()
+                .replaceFirst(".*?\"id\":\"([^\"]+)\".*", "$1");
+
+        mockMvc.perform(post("/api/actual-imports/{batchId}/commit", batchId))
+                .andExpect(status().isOk());
+
+        return new VarianceFixture(
+                modelId,
+                accountCode,
+                entityCode,
+                timeCode,
+                budgetCategoryMemberId,
+                actualCategoryMemberId,
+                budgetVersionMemberId,
+                actualVersionMemberId
+        );
     }
 
     private String createWorkspace(String code, String name) throws Exception {
@@ -256,5 +351,17 @@ class BudgetQueryControllerIntegrationTests {
     }
 
     private record Fixture(String modelId, String accountCode) {
+    }
+
+    private record VarianceFixture(
+            String modelId,
+            String accountCode,
+            String entityCode,
+            String timeCode,
+            String budgetCategoryMemberId,
+            String actualCategoryMemberId,
+            String budgetVersionMemberId,
+            String actualVersionMemberId
+    ) {
     }
 }

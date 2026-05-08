@@ -3,7 +3,6 @@ package com.budgetplatform.budgetquery.api;
 import com.budgetplatform.budgetquery.service.BudgetQueryService;
 import com.budgetplatform.budgetsubmission.domain.FactValueStatus;
 import com.budgetplatform.common.api.ApiResponse;
-import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -79,5 +78,28 @@ public class BudgetQueryController {
                 versionMemberId,
                 status
         );
+    }
+
+    @GetMapping("/variance")
+    ApiResponse<List<BudgetActualVarianceResponse>> analyzeBudgetActualVariance(
+            @RequestParam UUID budgetModelId,
+            @RequestParam UUID budgetCategoryMemberId,
+            @RequestParam UUID actualCategoryMemberId,
+            @RequestParam(required = false) UUID budgetVersionMemberId,
+            @RequestParam(required = false) UUID actualVersionMemberId,
+            @RequestParam(required = false) UUID entityMemberId,
+            @RequestParam(required = false) UUID timeMemberId,
+            @RequestParam(required = false) FactValueStatus status
+    ) {
+        return ApiResponse.success(budgetQueryService.analyzeBudgetActualVariance(
+                budgetModelId,
+                budgetCategoryMemberId,
+                actualCategoryMemberId,
+                budgetVersionMemberId,
+                actualVersionMemberId,
+                entityMemberId,
+                timeMemberId,
+                status
+        ));
     }
 }

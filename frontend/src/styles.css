@@ -59,6 +59,7 @@ button:disabled {
 .value-form button,
 .return-form button,
 .query-form button,
+.variance-form button,
 .import-form button,
 .model-actions button {
   min-height: 38px;
@@ -171,6 +172,7 @@ h2 {
 .value-form,
 .return-form,
 .query-form,
+.variance-form,
 .import-form {
   display: grid;
   gap: 12px;
@@ -218,6 +220,10 @@ h2 {
 
 .query-form {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.variance-form {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .query-actions {
@@ -421,6 +427,7 @@ td {
   .value-form,
   .return-form,
   .query-form,
+  .variance-form,
   .import-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -445,6 +452,7 @@ td {
   .value-form,
   .return-form,
   .query-form,
+  .variance-form,
   .import-form {
     grid-template-columns: 1fr;
   }

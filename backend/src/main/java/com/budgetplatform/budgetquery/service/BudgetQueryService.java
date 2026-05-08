@@ -1,5 +1,6 @@
 package com.budgetplatform.budgetquery.service;
 
+import com.budgetplatform.budgetquery.api.BudgetActualVarianceResponse;
 import com.budgetplatform.budgetquery.api.FactQueryResponse;
 import com.budgetplatform.budgetquery.api.FactSummaryResponse;
 import com.budgetplatform.budgetquery.api.QueryGroupBy;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -87,6 +89,58 @@ public class BudgetQueryService {
         return builder.toString();
     }
 
+    @Transactional(readOnly = true)
+    public List<BudgetActualVarianceResponse> analyzeBudgetActualVariance(
+            UUID budgetModelId,
+            UUID budgetCategoryMemberId,
+            UUID actualCategoryMemberId,
+            UUID budgetVersionMemberId,
+            UUID actualVersionMemberId,
+            UUID entityMemberId,
+            UUID timeMemberId,
+            FactValueStatus status
+    ) {
+        Map<VarianceKey, VarianceAccumulator> variances = new LinkedHashMap<>();
+        for (FactValue value : factValueRepository.findByBudgetModel_IdOrderByUpdatedAtDesc(budgetModelId)) {
+            if (!matchesVarianceScope(value, entityMemberId, timeMemberId, status)) {
+                continue;
+            }
+
+            boolean budgetSide = value.getCategoryMember().getId().equals(budgetCategoryMemberId)
+                    && (budgetVersionMemberId == null || value.getVersionMember().getId().equals(budgetVersionMemberId));
+            boolean actualSide = value.getCategoryMember().getId().equals(actualCategoryMemberId)
+                    && (actualVersionMemberId == null || value.getVersionMember().getId().equals(actualVersionMemberId));
+            if (!budgetSide && !actualSide) {
+                continue;
+            }
+
+            VarianceKey key = new VarianceKey(
+                    value.getAccountMember().getId(),
+                    value.getEntityMember().getId(),
+                    value.getTimeMember().getId()
+            );
+            VarianceAccumulator accumulator = variances.computeIfAbsent(
+                    key,
+                    ignored -> new VarianceAccumulator(value)
+            );
+            if (budgetSide) {
+                accumulator.addBudget(value.getAmount());
+            }
+            if (actualSide) {
+                accumulator.addActual(value.getAmount());
+            }
+        }
+
+        return variances.values()
+                .stream()
+                .map(VarianceAccumulator::toResponse)
+                .sorted(Comparator
+                        .comparing(BudgetActualVarianceResponse::accountCode)
+                        .thenComparing(BudgetActualVarianceResponse::entityCode)
+                        .thenComparing(BudgetActualVarianceResponse::timeCode))
+                .toList();
+    }
+
     private List<FactValue> filterFacts(
             UUID budgetModelId,
             UUID entityMemberId,
@@ -103,6 +157,25 @@ public class BudgetQueryService {
                 .filter(value -> versionMemberId == null || value.getVersionMember().getId().equals(versionMemberId))
                 .filter(value -> status == null || value.getValueStatus() == status)
                 .toList();
+    }
+
+    private boolean matchesVarianceScope(
+            FactValue value,
+            UUID entityMemberId,
+            UUID timeMemberId,
+            FactValueStatus status
+    ) {
+        if (entityMemberId != null && !value.getEntityMember().getId().equals(entityMemberId)) {
+            return false;
+        }
+        if (timeMemberId != null && !value.getTimeMember().getId().equals(timeMemberId)) {
+            return false;
+        }
+        if (status != null) {
+            return value.getValueStatus() == status;
+        }
+        return value.getValueStatus() == FactValueStatus.APPROVED
+                || value.getValueStatus() == FactValueStatus.LOCKED;
     }
 
     private DimensionMember groupMember(FactValue value, QueryGroupBy groupBy) {
@@ -145,6 +218,62 @@ public class BudgetQueryService {
                     member.getName(),
                     total,
                     lineCount
+            );
+        }
+    }
+
+    private record VarianceKey(UUID accountMemberId, UUID entityMemberId, UUID timeMemberId) {
+    }
+
+    private static class VarianceAccumulator {
+
+        private final DimensionMember accountMember;
+        private final DimensionMember entityMember;
+        private final DimensionMember timeMember;
+        private BigDecimal budgetAmount = BigDecimal.ZERO;
+        private BigDecimal actualAmount = BigDecimal.ZERO;
+        private long budgetLineCount;
+        private long actualLineCount;
+
+        VarianceAccumulator(FactValue value) {
+            this.accountMember = value.getAccountMember();
+            this.entityMember = value.getEntityMember();
+            this.timeMember = value.getTimeMember();
+        }
+
+        void addBudget(BigDecimal amount) {
+            budgetAmount = budgetAmount.add(amount);
+            budgetLineCount++;
+        }
+
+        void addActual(BigDecimal amount) {
+            actualAmount = actualAmount.add(amount);
+            actualLineCount++;
+        }
+
+        BudgetActualVarianceResponse toResponse() {
+            BigDecimal varianceAmount = actualAmount.subtract(budgetAmount);
+            BigDecimal variancePercent = budgetAmount.compareTo(BigDecimal.ZERO) == 0
+                    ? null
+                    : varianceAmount
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(budgetAmount, 4, RoundingMode.HALF_UP);
+            return new BudgetActualVarianceResponse(
+                    accountMember.getId(),
+                    accountMember.getCode(),
+                    accountMember.getName(),
+                    entityMember.getId(),
+                    entityMember.getCode(),
+                    entityMember.getName(),
+                    timeMember.getId(),
+                    timeMember.getCode(),
+                    timeMember.getName(),
+                    budgetAmount,
+                    actualAmount,
+                    varianceAmount,
+                    variancePercent,
+                    budgetLineCount,
+                    actualLineCount
             );
         }
     }
