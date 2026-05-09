@@ -5323,3 +5323,94 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `SEC-012`：授权撤销与用户禁用设计。目标是先设计最小撤销/禁用边界，再决定是否需要 migration 和后端/前端实现阶段。
+
+## SEC-012
+
+阶段名称：授权撤销与用户禁用设计
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+设计用户禁用、Workspace 角色撤销和 Entity 范围撤销的最小治理边界，避免用物理删除作为普通业务流。本阶段只写设计文档，不新增后端/前端代码，不新增 migration，不删除文件，不访问外部服务。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `sec-001-security-scope-design.md`、`sec-011-frontend-entity-scope-management.md`、现有安全数据模型和项目删除授权规则 |
+| 允许修改 | `docs/architecture/sec-012-revoke-disable-design.md`、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 后端代码、前端代码、migration、物理删除接口、PDF 原文、OCR 全文、secrets、外部服务、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/sec-012-revoke-disable-design.md` | 新增授权撤销与用户禁用设计 |
+| `README.md` | 更新当前治理状态并增加 SEC-012 文档入口 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-012 阶段记录 |
+
+### 关键产出
+
+1. 明确用户禁用优先复用现有 `app_user.status`，不需要先做 migration。
+2. 明确角色/Entity 范围撤销推荐软撤销，需要独立 migration 阶段。
+3. 明确 MVP 不以物理删除作为普通安全治理动作。
+4. 明确后续拆分：`SEC-013` 用户禁用后端、`SEC-014` inactive 用户授权拦截、`SEC-015` 授权软撤销 schema/API、`SEC-016` 前端禁用/撤销 MVP。
+5. 明确审计、前端理由输入、无批量撤销和不级联删除业务数据。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| 文档阶段 | 未运行后端/前端测试；本阶段未修改代码 |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示 `PROJECT_STEP_RECORD.md` 与 `README.md` 在当前工作副本下 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 `PROJECT_STEP_RECORD.md`、`README.md` 和 `docs/architecture/sec-012-revoke-disable-design.md` |
+| 边界关键词扫描 | 命中既有 `AuditAction.DELETE`、审计前端 `DELETE` 筛选、既有 JWT 失败关闭和 `CurrentUser.authMode` 类型枚举；本阶段未修改代码，未新增 `DeleteMapping`、OAuth 依赖、token 存储、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 本阶段为设计文档阶段，未出现验证失败。
+
+### 风险与限制
+
+1. 本阶段为设计阶段，不提供实际禁用/撤销接口。
+2. 角色和 Entity 范围软撤销需要 migration，必须在后续实现阶段显式进入。
+3. 当前系统仍未拦截 inactive 用户，需要 SEC-013/SEC-014 实现。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端代码 | 未修改 |
+| 前端代码 | 未修改 |
+| migration | 未新增 |
+| 物理删除接口 | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| token 存储 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 用户禁用后端实现尚未开始。
+2. inactive 用户授权拦截尚未实现。
+3. 角色/Entity 范围软撤销 schema 和 API 尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-012。
+
+关闭理由：授权撤销与用户禁用设计、实现拆分和风险边界已沉淀，仓库保护检查通过；本阶段未删除文件，未修改后端/前端代码，未新增 migration，未提交 PDF/OCR 全文、secrets、token 或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `SEC-013`：用户禁用/启用后端 MVP。目标是复用现有 `app_user.status`，新增 disable/enable action endpoints、审计和测试；不做角色/Entity 范围软撤销 migration。
