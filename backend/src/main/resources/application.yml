@@ -21,3 +21,11 @@ budget-platform:
     allow-header-roles: ${BUDGET_PLATFORM_AUTH_ALLOW_HEADER_ROLES:false}
     reverse-proxy-user-header: ${BUDGET_PLATFORM_AUTH_REVERSE_PROXY_USER_HEADER:X-Forwarded-User}
     bootstrap-admin-users: ${BUDGET_PLATFORM_AUTH_BOOTSTRAP_ADMIN_USERS:}
+    jwt:
+      issuer: ${BUDGET_PLATFORM_AUTH_JWT_ISSUER:}
+      audience: ${BUDGET_PLATFORM_AUTH_JWT_AUDIENCE:}
+      jwks-uri: ${BUDGET_PLATFORM_AUTH_JWT_JWKS_URI:}
+      username-claim: ${BUDGET_PLATFORM_AUTH_JWT_USERNAME_CLAIM:sub}
+      clock-skew-seconds: ${BUDGET_PLATFORM_AUTH_JWT_CLOCK_SKEW_SECONDS:60}
+      max-token-length: ${BUDGET_PLATFORM_AUTH_JWT_MAX_TOKEN_LENGTH:8192}
+      allowed-algorithms: ${BUDGET_PLATFORM_AUTH_JWT_ALLOWED_ALGORITHMS:RS256}

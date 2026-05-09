@@ -6104,3 +6104,101 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUTH-008`：JWT/OIDC 依赖与配置属性基线。目标是新增最小依赖和配置结构，但暂不实现完整 token 校验逻辑；需要后端测试覆盖配置绑定和 JWT 模式失败关闭行为不退化。
+
+## AUTH-008
+
+阶段名称：JWT/OIDC 依赖与配置属性基线
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+新增未来 JWT/OIDC bearer adapter 所需的最小后端依赖和配置属性基线，覆盖配置默认值与绑定测试；本阶段不实现 token 校验，不访问外部 IdP/JWKS，不存储 token，不新增 secrets，不修改前端，不新增 migration。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`auth-007-jwt-oidc-bearer-validation-design.md`、当前认证代码与 Maven 依赖 |
+| 允许修改 | `backend/pom.xml`、`AuthProperties.java`、`application.yml`、后端配置测试、`docs/architecture/auth-008-jwt-config-baseline.md`、README、PROJECT_STEP_RECORD |
+| 禁止修改 | 前端业务代码、migration、token 校验逻辑、外部 IdP/JWKS 访问、secrets、PDF 原文、OCR 全文、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `mvn test`、`git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/pom.xml` | 新增 `spring-security-oauth2-jose` 依赖，为后续 JWT 验证提供 JOSE/JWT 能力 |
+| `backend/src/main/java/com/budgetplatform/security/context/AuthProperties.java` | 新增 `jwt` 嵌套配置属性及安全默认值 |
+| `backend/src/main/resources/application.yml` | 新增环境变量驱动的 `budget-platform.auth.jwt.*` 配置 |
+| `backend/src/test/java/com/budgetplatform/security/context/AuthPropertiesTests.java` | 新增 JWT 配置默认值与绑定测试 |
+| `docs/architecture/auth-008-jwt-config-baseline.md` | 新增 JWT 配置基线文档 |
+| `README.md` | 更新当前认证治理状态和 AUTH-008 文档入口 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUTH-008 阶段记录 |
+
+### 关键产出
+
+1. 新增最小 `spring-security-oauth2-jose` 依赖，但不引入 resource-server 自动过滤器。
+2. 新增 `issuer`、`audience`、`jwksUri`、`usernameClaim`、`clockSkewSeconds`、`maxTokenLength`、`allowedAlgorithms` 配置结构。
+3. 默认 username claim 为 `sub`，默认 clock skew 为 `60` 秒，默认 max token length 为 `8192`，默认算法 allow-list 为 `RS256`。
+4. `budget-platform.auth.mode=JWT` 仍保持失败关闭，未实现 bearer token 解析或验签。
+5. 未新增外部 IdP/JWKS 访问、token 存储、secrets、migration、前端 token 处理或阶段外功能。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；59 个测试全部通过，0 failures，0 errors，0 skipped；Flyway 成功验证并应用 8 个 migration |
+| 首次 `mvn test` | 失败于新增测试编译：`BindResult.orElseThrow()` 需要 supplier，不能无参调用 |
+| 修复记录 | 将测试中的 `.orElseThrow()` 改为 `.orElseThrow(() -> new AssertionError("Auth properties should bind."))` 后重新执行 Maven 测试通过 |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示 README、pom、AuthProperties、application.yml 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 AUTH-008 相关后端配置、测试、README、架构文档和阶段记录 |
+| 边界关键词扫描 | 命中既有 `AuditAction.DELETE`、`AuthMode.JWT`、JWT fail-closed 占位、前端 `CurrentUser.authMode` 和审计 `DELETE` 类型；新增命中仅为 `AuthProperties.Jwt` 配置结构，未新增 bearer 处理、token 存储、DeleteMapping、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 初次 Maven 测试编译失败，真实错误为 `BindResult.orElseThrow()` 缺少 supplier 参数。
+2. 已在 `AuthPropertiesTests` 中补充 `AssertionError` supplier 并重新运行 `mvn test`，验证通过。
+
+### 风险与限制
+
+1. 本阶段只提供配置与依赖基线，不提供实际 JWT/OIDC bearer 校验能力。
+2. `JWT` 模式仍保持失败关闭，生产可用路径仍是已实现的 `REVERSE_PROXY` trusted principal 模式。
+3. 后续 `AUTH-009` 需要补齐签名、issuer、audience、expiry、username claim、未知用户和 inactive 用户测试。
+4. JWKS 缓存、key rotation 和 IdP outage 回滚仍需实现阶段细化。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 前端业务代码 | 未修改 |
+| migration | 未新增 |
+| token 校验逻辑 | 未新增 |
+| token 存储 | 未新增 |
+| 外部 IdP/JWKS 访问 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. JWT/OIDC bearer 校验实现尚未开始。
+2. JWT 失败审计 reason 分类需要在 adapter 实现阶段落地。
+3. 前端 direct bearer token 流是否需要仍需部署形态确认。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUTH-008。
+
+关闭理由：最小 JWT 依赖、配置结构、环境变量、配置绑定测试、架构文档、README 和阶段记录已完成；后端 Maven 测试、资料保护检查、空白检查和越界扫描均通过。本阶段未删除文件，未新增 token 校验、token 存储、外部服务访问、secrets、migration、PDF/OCR 全文、构建产物、ERP、BI、合并报表或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUTH-009`：JWT bearer adapter 后端实现。目标是在 `CurrentUserContextResolver` 边界内实现 bearer token 提取、长度限制、签名/issuer/audience/expiry 校验、username claim 映射、未知用户处理、失败审计分类和测试覆盖；不引入前端 token 存储，不使用 IdP group/scope 作为预算授权。
