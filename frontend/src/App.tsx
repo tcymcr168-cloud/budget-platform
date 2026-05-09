@@ -227,6 +227,11 @@ function App() {
   const [summaryPage, setSummaryPage] = useState<FactSummaryPage>(emptyFactSummaryPage);
   const [variancePage, setVariancePage] = useState<BudgetActualVariancePage>(emptyVariancePage);
   const [csvExport, setCsvExport] = useState('');
+  const [csvExportInfo, setCsvExportInfo] = useState({
+    truncated: false,
+    totalRows: 0,
+    returnedRows: 0,
+  });
   const [actualImportBatches, setActualImportBatches] = useState<ActualImportBatch[]>([]);
   const [actualImportRows, setActualImportRows] = useState<ActualImportRow[]>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('');
@@ -400,6 +405,7 @@ function App() {
       setSummaryPage(emptyFactSummaryPage);
       setVariancePage(emptyVariancePage);
       setCsvExport('');
+      setCsvExportInfo({ truncated: false, totalRows: 0, returnedRows: 0 });
       setActualImportBatches([]);
       setActualImportRows([]);
       setSelectedImportBatchId('');
@@ -439,6 +445,7 @@ function App() {
       setSummaryPage(emptyFactSummaryPage);
       setVariancePage(emptyVariancePage);
       setCsvExport('');
+      setCsvExportInfo({ truncated: false, totalRows: 0, returnedRows: 0 });
       setActualImportBatches([]);
       setActualImportRows([]);
       setSelectedImportBatchId('');
@@ -1187,9 +1194,18 @@ function App() {
     }
 
     await runAction(async () => {
-      const content = await exportFactsCsv(buildFactQueryFilters());
-      setCsvExport(content);
-      setNotice('CSV export generated.');
+      const result = await exportFactsCsv(buildFactQueryFilters());
+      setCsvExport(result.content);
+      setCsvExportInfo({
+        truncated: result.truncated,
+        totalRows: result.totalRows,
+        returnedRows: result.returnedRows,
+      });
+      setNotice(
+        result.truncated
+          ? `CSV export capped at ${result.returnedRows} of ${result.totalRows} rows.`
+          : `CSV export generated with ${result.returnedRows} rows.`,
+      );
     });
   }
 
@@ -2798,7 +2814,13 @@ function App() {
               <p className="eyebrow">Export</p>
               <h2 id="csv-title">CSV Preview</h2>
             </div>
-            <span>{csvExport ? `${csvExport.split('\n').length - 1} lines` : 'No export'}</span>
+            <span>
+              {csvExport
+                ? `${csvExportInfo.returnedRows}/${csvExportInfo.totalRows} rows${
+                    csvExportInfo.truncated ? ' capped' : ''
+                  }`
+                : 'No export'}
+            </span>
           </div>
           <textarea className="csv-output" readOnly value={csvExport} />
         </section>

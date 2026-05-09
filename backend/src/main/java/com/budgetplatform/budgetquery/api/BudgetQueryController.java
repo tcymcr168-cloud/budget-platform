@@ -6,6 +6,8 @@ import com.budgetplatform.common.api.ApiResponse;
 import com.budgetplatform.common.api.PageResponse;
 import com.budgetplatform.security.context.CurrentUserContext;
 import com.budgetplatform.security.context.CurrentUserContextResolver;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -140,26 +142,34 @@ public class BudgetQueryController {
     }
 
     @GetMapping(value = "/facts.csv", produces = "text/csv")
-    String exportFactsCsv(
+    ResponseEntity<String> exportFactsCsv(
             @RequestParam UUID budgetModelId,
             @RequestParam(required = false) UUID entityMemberId,
             @RequestParam(required = false) UUID timeMemberId,
             @RequestParam(required = false) UUID categoryMemberId,
             @RequestParam(required = false) UUID versionMemberId,
             @RequestParam(required = false) FactValueStatus status,
+            @RequestParam(defaultValue = "1000") int limit,
             @RequestHeader(value = "X-User-Id", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles
     ) {
         CurrentUserContext context = contextResolver.resolve(userId, roles);
-        return budgetQueryService.exportFactsCsv(
+        BudgetQueryService.CsvExportResult result = budgetQueryService.exportFactsCsv(
                 context,
                 budgetModelId,
                 entityMemberId,
                 timeMemberId,
                 categoryMemberId,
                 versionMemberId,
-                status
+                status,
+                limit
         );
+        return ResponseEntity.ok()
+                .contentType(MediaType.valueOf("text/csv"))
+                .header("X-Budget-Platform-Export-Truncated", Boolean.toString(result.truncated()))
+                .header("X-Budget-Platform-Export-Total-Rows", Integer.toString(result.totalRows()))
+                .header("X-Budget-Platform-Export-Returned-Rows", Integer.toString(result.returnedRows()))
+                .body(result.content());
     }
 
     @GetMapping("/variance")

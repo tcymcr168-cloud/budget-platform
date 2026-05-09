@@ -13,6 +13,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -141,8 +142,35 @@ class BudgetQueryControllerIntegrationTests {
                         .header("X-User-Roles", "BUDGET_ADMIN"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("text/csv"))
+                .andExpect(header().string("X-Budget-Platform-Export-Truncated", "false"))
+                .andExpect(header().string("X-Budget-Platform-Export-Total-Rows", "1"))
+                .andExpect(header().string("X-Budget-Platform-Export-Returned-Rows", "1"))
                 .andExpect(content().string(containsString("account,entity,time,category,version,amount,status,source")))
                 .andExpect(content().string(containsString(fixture.accountCode())));
+    }
+
+    @Test
+    void capsCsvExportAndRejectsInvalidLimit() throws Exception {
+        Fixture fixture = createApprovedFactFixture("PERF005_CSV", true);
+
+        mockMvc.perform(get("/api/budget-query/facts.csv")
+                        .param("budgetModelId", fixture.modelId())
+                        .param("status", "APPROVED")
+                        .param("limit", "1")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Budget-Platform-Export-Truncated", "true"))
+                .andExpect(header().string("X-Budget-Platform-Export-Total-Rows", "2"))
+                .andExpect(header().string("X-Budget-Platform-Export-Returned-Rows", "1"));
+
+        mockMvc.perform(get("/api/budget-query/facts.csv")
+                        .param("budgetModelId", fixture.modelId())
+                        .param("limit", "5001")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"));
     }
 
     @Test
@@ -240,6 +268,10 @@ class BudgetQueryControllerIntegrationTests {
     }
 
     private Fixture createApprovedFactFixture(String prefix) throws Exception {
+        return createApprovedFactFixture(prefix, false);
+    }
+
+    private Fixture createApprovedFactFixture(String prefix, boolean includeSecondFact) throws Exception {
         String workspaceId = createWorkspace(prefix + "_WS", prefix + " Workspace");
         String accountDimensionId = createDimension(workspaceId, prefix + "_ACCOUNT", "Account", "ACCOUNT");
         String entityDimensionId = createDimension(workspaceId, prefix + "_ENTITY", "Entity", "ENTITY");
@@ -249,6 +281,9 @@ class BudgetQueryControllerIntegrationTests {
 
         String accountCode = prefix + "_TRAVEL";
         String accountMemberId = createMember(accountDimensionId, accountCode, "Travel Expense");
+        String secondAccountMemberId = includeSecondFact
+                ? createMember(accountDimensionId, prefix + "_MEALS", "Meals Expense")
+                : null;
         String entityMemberId = createMember(entityDimensionId, prefix + "_OPS", "Operations");
         String timeMemberId = createMember(timeDimensionId, prefix + "_202602", "2026-02");
         String categoryMemberId = createMember(categoryDimensionId, prefix + "_BUDGET", "Budget");
@@ -275,6 +310,9 @@ class BudgetQueryControllerIntegrationTests {
 
         String taskId = createTask(templateId, entityMemberId, timeMemberId, categoryMemberId, versionMemberId);
         saveValue(taskId, accountMemberId, "930.25");
+        if (secondAccountMemberId != null) {
+            saveValue(taskId, secondAccountMemberId, "70.00");
+        }
         mockMvc.perform(post("/api/submissions/tasks/{taskId}/submit", taskId)
                         .header("X-User-Id", ADMIN_USER)
                         .header("X-User-Roles", ADMIN_ROLES))

@@ -34,6 +34,7 @@ import java.util.UUID;
 public class BudgetQueryService {
 
     private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_CSV_EXPORT_LIMIT = 5000;
     private static final Set<String> FACT_SORTS = Set.of("updatedAt");
     private static final Set<String> SUMMARY_SORTS = Set.of("memberCode", "totalAmount", "lineCount");
     private static final Set<String> VARIANCE_SORTS = Set.of(
@@ -187,26 +188,38 @@ public class BudgetQueryService {
     }
 
     @Transactional(readOnly = true)
-    public String exportFactsCsv(
+    public CsvExportResult exportFactsCsv(
             CurrentUserContext context,
             UUID budgetModelId,
             UUID entityMemberId,
             UUID timeMemberId,
             UUID categoryMemberId,
             UUID versionMemberId,
-            FactValueStatus status
+            FactValueStatus status,
+            int limit
     ) {
+        validateCsvExportLimit(limit);
+        List<FactQueryResponse> rows = queryFacts(
+                context,
+                budgetModelId,
+                entityMemberId,
+                timeMemberId,
+                categoryMemberId,
+                versionMemberId,
+                status
+        );
+        boolean truncated = rows.size() > limit;
+        List<FactQueryResponse> exportedRows = truncated ? rows.subList(0, limit) : rows;
         StringBuilder builder = new StringBuilder("account,entity,time,category,version,amount,status,source\n");
-        queryFacts(context, budgetModelId, entityMemberId, timeMemberId, categoryMemberId, versionMemberId, status)
-                .forEach(row -> builder.append(csv(row.accountCode())).append(',')
-                        .append(csv(row.entityCode())).append(',')
-                        .append(csv(row.timeCode())).append(',')
-                        .append(csv(row.categoryCode())).append(',')
-                        .append(csv(row.versionCode())).append(',')
-                        .append(row.amount()).append(',')
-                        .append(row.valueStatus()).append(',')
-                        .append(row.sourceType()).append('\n'));
-        return builder.toString();
+        exportedRows.forEach(row -> builder.append(csv(row.accountCode())).append(',')
+                .append(csv(row.entityCode())).append(',')
+                .append(csv(row.timeCode())).append(',')
+                .append(csv(row.categoryCode())).append(',')
+                .append(csv(row.versionCode())).append(',')
+                .append(row.amount()).append(',')
+                .append(row.valueStatus()).append(',')
+                .append(row.sourceType()).append('\n'));
+        return new CsvExportResult(builder.toString(), truncated, rows.size(), exportedRows.size());
     }
 
     @Transactional(readOnly = true)
@@ -378,6 +391,16 @@ public class BudgetQueryService {
         return comparator;
     }
 
+    private void validateCsvExportLimit(int limit) {
+        if (limit < 1 || limit > MAX_CSV_EXPORT_LIMIT) {
+            throw new ApplicationException(
+                    ErrorCode.BAD_REQUEST,
+                    HttpStatus.BAD_REQUEST,
+                    "CSV export limit must be between 1 and " + MAX_CSV_EXPORT_LIMIT + "."
+            );
+        }
+    }
+
     private void authorizeRead(CurrentUserContext context, UUID workspaceId) {
         authorizationService.requireAnyRole(
                 context,
@@ -482,6 +505,14 @@ public class BudgetQueryService {
     }
 
     private record DataScope(boolean admin, Set<UUID> entityMemberIds) {
+    }
+
+    public record CsvExportResult(
+            String content,
+            boolean truncated,
+            int totalRows,
+            int returnedRows
+    ) {
     }
 
     private static class VarianceAccumulator {

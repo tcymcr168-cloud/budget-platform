@@ -98,6 +98,13 @@ export type FactQueryPage = PageResponse<FactQueryRow>;
 export type FactSummaryPage = PageResponse<FactSummaryRow>;
 export type BudgetActualVariancePage = PageResponse<BudgetActualVarianceRow>;
 
+export interface CsvExportResult {
+  content: string;
+  truncated: boolean;
+  totalRows: number;
+  returnedRows: number;
+}
+
 function buildQuery(
   filters:
     | FactQueryFilters
@@ -165,7 +172,12 @@ export async function exportFactsCsv(filters: FactQueryFilters) {
     throw new Error(`CSV export failed with status ${response.status}`);
   }
 
-  return response.text();
+  return {
+    content: await response.text(),
+    truncated: response.headers.get('X-Budget-Platform-Export-Truncated') === 'true',
+    totalRows: Number(response.headers.get('X-Budget-Platform-Export-Total-Rows') ?? '0'),
+    returnedRows: Number(response.headers.get('X-Budget-Platform-Export-Returned-Rows') ?? '0'),
+  } satisfies CsvExportResult;
 }
 
 export async function analyzeBudgetActualVariance(filters: BudgetActualVarianceFilters) {

@@ -6974,3 +6974,99 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `PERF-005`：CSV export cap 与截断提示。目标是为 `/api/budget-query/facts.csv` 增加明确行数上限和前端提示，防止轻量 CSV 预览演化成无界报表导出。
+
+## PERF-005
+
+阶段名称：CSV export cap 与截断提示
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+为 `/api/budget-query/facts.csv` 增加明确导出行数上限和截断信号，让预算 facts CSV 保持轻量文本预览定位，避免其演化成无界报表导出。本阶段不新增异步报表引擎、不新增 BI 图表、不新增 ERP 直连、不新增合并报表、不新增 migration、不处理 PDF/OCR。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`perf-001` 至 `perf-004` 文档、BudgetQuery 后端/前端代码、当前 Git 状态 |
+| 允许修改 | `/api/budget-query/facts.csv` 后端契约、预算查询 CSV 前端预览、相关集成测试、`docs/architecture/perf-005-csv-export-cap.md`、README、PROJECT_STEP_RECORD |
+| 禁止修改 | migration、PDF/OCR、异步报表、ERP 直连、BI 图表、合并报表、删除文件 |
+| 验证命令 | targeted Maven test、`mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build`、资料保护检查、空白检查、git 状态和边界扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/budgetquery/api/BudgetQueryController.java` | CSV export 返回 `ResponseEntity<String>`，新增 `limit` 参数和截断统计响应头 |
+| `backend/src/main/java/com/budgetplatform/budgetquery/service/BudgetQueryService.java` | 新增 `MAX_CSV_EXPORT_LIMIT=5000`、limit 校验和 `CsvExportResult` |
+| `backend/src/test/java/com/budgetplatform/budgetquery/api/BudgetQueryControllerIntegrationTests.java` | 覆盖 CSV header、截断导出和非法 limit |
+| `frontend/src/features/budgetQuery/budgetQueryApi.ts` | CSV export API 读取截断响应头并返回结构化结果 |
+| `frontend/src/App.tsx` | CSV preview 显示 returned/total rows 和 capped 状态，notice 区分正常/截断导出 |
+| `docs/architecture/perf-005-csv-export-cap.md` | 新增阶段设计说明 |
+| `README.md` | 更新 PERF-005 文档入口和当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 PERF-005 阶段记录 |
+
+### 关键产出
+
+1. `/api/budget-query/facts.csv` 默认 `limit=1000`。
+2. CSV export 最大允许 `limit=5000`，超过范围返回 `400 BAD_REQUEST`。
+3. 响应头新增 `X-Budget-Platform-Export-Truncated`、`X-Budget-Platform-Export-Total-Rows`、`X-Budget-Platform-Export-Returned-Rows`。
+4. 前端 CSV preview 展示 `returnedRows/totalRows`，截断时追加 `capped` 标记。
+5. 轻量 CSV 导出边界已记录为预览/诊断能力，不作为报表引擎。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn "-Dtest=com.budgetplatform.budgetquery.api.BudgetQueryControllerIntegrationTests" test` | 通过；10 tests，0 failures，0 errors，0 skipped |
+| `mvn test` | 通过；75 tests，0 failures，0 errors，0 skipped |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过；Vite 输出 `frontend/dist`，该目录继续被 `.gitignore` 忽略 |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物和依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示 README、PROJECT_STEP_RECORD、前后端源码后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 PERF-005 后端/前端代码、PERF-005 文档、README 和阶段记录 |
+| 边界关键词扫描 | 仅命中既有授权/JWT/前端 dev env guard 代码；本阶段未新增前端 token 存储、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 本阶段 targeted Maven test、完整 Maven test、前端 type-check、lint 和 build 均通过，未出现验证失败。
+
+### 风险与限制
+
+1. CSV export 仍在服务层物化匹配结果后再截断；数据库级查询下推仍需后续 `PERF-006` 处理。
+2. CSV 仍是文本预览，不提供文件下载治理、异步任务或报表归档。
+3. 未执行浏览器级 smoke 自动化。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| migration | 未新增 |
+| 异步报表引擎 | 未新增 |
+| 新业务模块 | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. Budget facts、summary、variance 和 CSV export 仍需要 repository-level query pushdown，减少服务层全量物化。
+2. PostgreSQL 执行计划和索引治理尚未开展。
+3. 浏览器级 smoke 自动化尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 PERF-005。
+
+关闭理由：CSV export cap、截断响应头、前端截断提示、测试、文档、README 和阶段记录已完成；后端 targeted/full tests 与前端 type-check/lint/build 均通过。本阶段未删除文件，未新增 migration、异步报表、ERP、BI、合并报表、PDF/OCR 全文、构建产物或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `PERF-006`：repository-level query pushdown 方案与最小实现。目标是优先处理 budget facts 查询路径，让 filters、分页和排序尽量下推到 repository/database 层，并通过测试保持现有 API 契约稳定。
