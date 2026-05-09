@@ -5770,10 +5770,6 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 | `pnpm build` | 通过；Vite 成功构建，产物位于被忽略的 `frontend/dist` |
 | `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
 | `git diff --check` | 通过；仅提示当前工作副本下若干文本文件 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
-| `git status --short` | 仅显示 AUDIT-005 相关前端代码、文档、README 和阶段记录 |
-| 边界关键词扫描 | 仅命中既有 `AuditAction.DELETE`、`AuthMode.JWT`、JWT fail-closed 占位、前端 `CurrentUser.authMode` 类型和审计 `DELETE` 筛选；未新增 `DeleteMapping`、OAuth 依赖、token 存储、ERP、BI 或合并报表代码 |
-| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
-| `git diff --check` | 通过；仅提示当前工作副本下若干文本文件 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
 | `git status --short` | 仅显示 SEC-016 相关前端代码、文档、README 和阶段记录 |
 | 边界关键词扫描 | 仅命中既有 `AuditAction.DELETE`、`AuthMode.JWT`、JWT fail-closed 占位、前端 `CurrentUser.authMode` 类型和审计 `DELETE` 筛选；未新增 `DeleteMapping`、OAuth 依赖、token 存储、ERP、BI 或合并报表代码 |
 
@@ -5913,3 +5909,105 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `OPS-002`：阶段巡视与发布前治理检查。目标是对当前安全治理主线进行仓库状态、测试命令、资料保护、未解决风险和下一批阶段拆分检查；不新增业务功能。
+
+## OPS-002
+
+阶段名称：阶段巡视与发布前治理检查
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+对当前安全治理主线进行仓库状态、后端/前端验证、资料保护、边界扫描、阶段记录一致性和下一批阶段拆分检查。本阶段不新增业务功能，不修改后端/前端业务代码，不新增 migration，不删除文件。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、README、近期架构文档、当前 Git 状态 |
+| 允许修改 | `docs/architecture/ops-002-governance-readiness-check.md`、README、PROJECT_STEP_RECORD；允许修正阶段记录文字错位 |
+| 禁止修改 | 后端业务代码、前端业务代码、migration、物理删除、PDF 原文、OCR 全文、secrets、外部服务、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build`、`git check-ignore`、`git diff --check`、`git status --short`、Git remote/log、PDF 清单、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/ops-002-governance-readiness-check.md` | 新增治理巡视与发布前检查文档 |
+| `README.md` | 更新当前治理状态和 OPS-002 文档入口 |
+| `PROJECT_STEP_RECORD.md` | 修正 SEC-016 验证表文字错位，并追加 OPS-002 阶段记录 |
+
+### 关键产出
+
+1. 确认当前分支为 `main`，remote 为 `https://github.com/tcymcr168-cloud/budget-platform.git`。
+2. 确认近期安全治理提交已推送到 `main`，当前 head 为 `9853fe2 feat: improve security audit review UX`。
+3. 确认 6 个 BPC PDF 仍在本地 `docs/source/bpc-pdf`。
+4. 确认后端、前端、资料保护、空白检查和边界扫描均通过。
+5. 修正 SEC-016 阶段记录中重复和错位的验证行。
+6. 明确下一批阶段建议：`AUTH-007`、`E2E-001`、`PERF-001`、`TEMPLATE-001`。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；57 个测试全部通过，0 failures，0 errors，0 skipped；Flyway 成功验证并应用 8 个 migration |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过；Vite 成功构建，产物位于被忽略的 `frontend/dist` |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过，无空白错误 |
+| `git status --short` | OPS-002 修改前为 clean；OPS-002 修改后仅显示 README、PROJECT_STEP_RECORD 和 OPS-002 文档 |
+| Git remote/log | 当前分支 `main`；remote `origin` 指向正式仓库；最近提交包含 AUDIT-005、SEC-016、SEC-015、SEC-014、SEC-013 |
+| PDF 清单 | `docs/source/bpc-pdf` 下 6 个 PDF 均存在 |
+| 边界关键词扫描 | 仅命中既有 `AuditAction.DELETE`、`AuthMode.JWT`、JWT fail-closed 占位、前端 `CurrentUser.authMode` 类型和审计 `DELETE` 筛选；未新增 `DeleteMapping`、OAuth 依赖、token 存储、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 本阶段验证命令未出现失败。
+2. 发现并修复 `PROJECT_STEP_RECORD.md` 中 SEC-016 验证表重复/错位文字，属于阶段记录一致性修复，不影响产品行为。
+
+### 风险与限制
+
+1. JWT/OIDC bearer 校验尚未实现；当前生产推荐路径仍是反向代理可信身份。
+2. 审计保留、归档和告警策略尚未实现。
+3. 端到端浏览器流程测试尚未实现。
+4. 查询分页和性能治理仍未推进。
+5. 模板版本生命周期治理仍未推进。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端业务代码 | 未修改 |
+| 前端业务代码 | 未修改 |
+| migration | 未新增 |
+| 物理删除控制 | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| token 存储 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | `frontend/dist` 已被忽略，未提交 |
+
+### 未解决问题
+
+1. JWT/OIDC bearer 校验尚未实现。
+2. E2E smoke 测试计划和实现尚未完成。
+3. 查询分页与性能治理尚未完成。
+4. 模板版本生命周期治理尚未完成。
+
+### 是否建议关闭本阶段
+
+建议关闭 OPS-002。
+
+关闭理由：治理巡视、验证命令、资料保护、阶段记录一致性修复和下一阶段拆分已完成；本阶段未删除文件，未新增业务功能、migration、后端/前端业务代码、PDF/OCR 全文、secrets、构建产物或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUTH-007`：JWT/OIDC bearer 校验设计。目标是先设计 production bearer validation 的依赖、配置、失败关闭、审计、测试和回滚边界；设计阶段不新增依赖、不实现 token 校验。
