@@ -4345,6 +4345,10 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 | 文档阶段 | 未运行后端/前端测试；本阶段未修改代码 |
 | `git check-ignore` | 通过；PDF、OCR、前端依赖/构建产物、后端 `target` 均被忽略 |
 | `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| `git status --short` | 通过；仅 OPS-001 runbook、README 和阶段记录修改 |
+| 源码边界关键词扫描 | 通过；`backend/src/main/java` 和 `frontend/src` 未发现 ERP、Chart、BI 图表、合并报表、secrets 或 password；仅命中 SEC-006 既有 `JWT` 失败关闭占位 |
+| `git check-ignore` | 通过；PDF、OCR、前端依赖/构建产物、后端 `target` 均被忽略 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
 | `git status --short` | 通过；仅 SEC-010 文档、README 和阶段记录修改 |
 | 源码边界关键词扫描 | 通过；`backend/src/main/java` 和 `frontend/src` 未发现 ERP、Chart、BI 图表、合并报表、secrets、password 或删除接口 |
 | 历史文档状态标注检查 | 通过；10 份 SEC/AUDIT 历史文档均已增加 `当前状态说明` 或 `Current Status` |
@@ -4672,3 +4676,88 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `OPS-001`：本地运行与验证手册。目标是沉淀当前后端、前端、认证 bootstrap、PDF/OCR 保护和常用测试命令，降低后续 24 小时巡视时的交接成本。
+
+## OPS-001
+
+阶段名称：本地运行与验证手册
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+沉淀当前项目的本地运行、测试、认证 bootstrap、资料保护和日常巡视检查步骤，降低后续自主推进和 24 小时巡视时的交接成本。本阶段只写运维文档，不修改业务代码、不新增 migration、不访问外部服务、不写 secrets。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `README.md`、`application.yml`、`application-test.yml`、`frontend/package.json`、`.gitignore`、`PROJECT_STEP_RECORD.md` |
+| 允许修改 | `docs/architecture/ops-001-local-runbook.md`、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 后端业务代码、前端实现、migration、PDF 原文、OCR 全文、JWT/OAuth 依赖、secrets、外部服务、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段未删除文件，未写代码，未新增 migration，未访问外部服务 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/ops-001-local-runbook.md` | 新增本地运行与日常巡视手册 |
+| `README.md` | 增加 runbook 引用并更新当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 OPS-001 阶段记录 |
+
+### 关键产出
+
+1. 明确仓库位置、分支、remote 和基础 Git 检查命令。
+2. 明确后端测试、前端 type-check/lint/build 命令。
+3. 明确本地认证 bootstrap 配置：`BUDGET_PLATFORM_AUTH_BOOTSTRAP_ADMIN_USERS` 和受控 `BUDGET_PLATFORM_AUTH_ALLOW_HEADER_ROLES`。
+4. 明确前端 dev identity 开关：`VITE_ENABLE_DEV_SECURITY_CONTEXT=false`。
+5. 明确 PDF/OCR、构建产物、依赖目录和 secrets 不得提交。
+6. 明确常见 401/403、PDF 出现在 Git、Flyway 失败等问题的第一检查点。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| 文档阶段 | 未运行后端/前端测试；本阶段未修改代码 |
+
+### 失败项与修复记录
+
+1. 本阶段为文档治理阶段，未出现验证失败。
+
+### 风险与限制
+
+1. OPS-001 是本地运行与巡视手册，不是生产部署手册。
+2. 生产认证、授权撤销、失败认证审计仍未实现。
+3. Docker 当前不是本项目本地验证的必需项。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端业务代码 | 未修改 |
+| 前端实现 | 未修改 |
+| migration | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 生产部署手册尚未建立。
+2. 正式登录实现、授权撤销设计和失败认证审计仍需后续阶段。
+
+### 是否建议关闭本阶段
+
+建议关闭 OPS-001。
+
+关闭理由：本地运行、验证、认证 bootstrap、资料保护和巡视检查步骤已沉淀；本阶段未写代码、未删除文件、未新增 migration、未提交 PDF/OCR 全文、secrets 或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUTH-001`：生产认证实现方案拆分。目标是基于 SEC-005 至 SEC-009 形成可实施的 JWT/OIDC 与反向代理二选一路线、风险清单和最小实现拆分；只有设计确认后再进入代码实现。
