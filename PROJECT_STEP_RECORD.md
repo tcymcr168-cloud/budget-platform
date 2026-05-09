@@ -6491,3 +6491,96 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `E2E-001`：端到端 smoke 测试基线设计与最小实现。目标是为核心 MVP 路径建立可重复的浏览器/API smoke 验证，但需先检查当前前端测试工具链，避免一次性引入过大测试框架。
+
+## E2E-001
+
+阶段名称：端到端 smoke 测试基线设计与最小实现
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+建立当前 MVP 的最小可重复 API smoke 基线，验证元数据、预算模型、预算模板、预算填报、实际数导入和预算与实际差异查询之间的跨模块主路径契约。本阶段不新增业务功能，不修改后端生产代码，不修改前端运行时代码，不新增 migration，不处理 PDF/OCR。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、AUTH-011 runbook、现有后端集成测试、当前 Git 状态 |
+| 允许修改 | 后端测试代码、`docs/architecture/e2e-001-smoke-test-baseline.md`、README、PROJECT_STEP_RECORD |
+| 禁止修改 | 后端生产代码、前端运行时代码、migration、PDF/OCR、ERP 直连、BI 图表、合并报表、删除文件 |
+| 验证命令 | targeted Maven test、`mvn test`、`git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/test/java/com/budgetplatform/e2e/MvpApiSmokeIntegrationTests.java` | 新增 MVP API smoke 集成测试 |
+| `docs/architecture/e2e-001-smoke-test-baseline.md` | 新增 smoke 测试基线说明 |
+| `README.md` | 更新 E2E-001 文档入口和当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 E2E-001 阶段记录 |
+
+### 关键产出
+
+1. 新增 `MvpApiSmokeIntegrationTests`，使用 Spring Boot + MockMvc + H2 test profile，不引入新测试依赖。
+2. smoke 路径覆盖 `/api/security/me`、metadata workspace/dimension/member、budget model create/bind/activate、budget template create/axis/activate、submission task/value/submit/approve、actual import validate/commit 和 budget-query variance。
+3. 测试写入预算值 `1000.00`，导入实际值 `850.00`，断言差异金额 `-150.00` 和差异率 `-15.0000`。
+4. 沉淀 API smoke 基线文档，明确当前仍不是浏览器 E2E，不证明真实 PostgreSQL、真实网关或真实 IdP。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn "-Dtest=com.budgetplatform.e2e.MvpApiSmokeIntegrationTests" test` | 通过；1 test，0 failures，0 errors，0 skipped |
+| `mvn test` | 通过；69 tests，0 failures，0 errors，0 skipped |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物和依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示 README 和 PROJECT_STEP_RECORD 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 E2E-001 测试、E2E-001 文档、README 和阶段记录 |
+| 边界关键词扫描 | 仅命中既有授权/JWT/前端 dev env guard 代码；本阶段未新增生产代码、前端 token 存储、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 首次 targeted Maven 命令使用未加引号的 PowerShell 参数：`mvn -Dtest=com.budgetplatform.e2e.MvpApiSmokeIntegrationTests test`。
+2. 真实错误：Maven 报 `Unknown lifecycle phase ".budgetplatform.e2e.MvpApiSmokeIntegrationTests"`。
+3. 定位：PowerShell 对未加引号的 `-Dtest=...` 属性解析不符合 Maven 预期，属于命令行参数解析问题，不是测试失败。
+4. 修复：改用 `mvn "-Dtest=com.budgetplatform.e2e.MvpApiSmokeIntegrationTests" test` 后 targeted test 通过。
+
+### 风险与限制
+
+1. 当前是 API smoke，不覆盖浏览器渲染、路由、表单交互或前端授权错误展示。
+2. 当前使用 H2 test profile，不等价于真实 PostgreSQL 数据量和执行计划。
+3. 当前使用 `DEV_HEADER` 测试认证模式，不等价于生产 reverse proxy 或 JWT IdP。
+4. 只覆盖一条 happy path，后续仍需分页/性能治理、负向路径、浏览器 smoke。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端生产代码 | 未修改 |
+| 前端运行时代码 | 未修改 |
+| migration | 未新增 |
+| 新业务功能 | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. 浏览器级 smoke 自动化尚未实现。
+2. 预算查询分页、排序、限流和性能防护仍未治理。
+3. PostgreSQL 目标环境下的真实数据量 smoke 尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 E2E-001。
+
+关闭理由：MVP API smoke 测试、文档、README 和阶段记录已完成；targeted Maven test 与完整后端测试均通过。本阶段未删除文件，未修改后端生产代码、前端运行时代码或 migration，未新增 ERP、BI、合并报表、PDF/OCR 全文、构建产物或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `PERF-001`：查询分页与性能治理设计。目标是先定义预算查询、差异查询、审计查询等列表接口的分页、排序、最大 page size、默认限制和性能风险边界，再按小阶段实现。
