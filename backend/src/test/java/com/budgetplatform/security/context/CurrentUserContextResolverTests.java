@@ -28,6 +28,7 @@ class CurrentUserContextResolverTests {
         CurrentUserContext context = resolver.resolve(" admin@example.com ", "BUDGET_ADMIN,READ_ONLY");
 
         assertThat(context.userId()).isEqualTo("admin@example.com");
+        assertThat(context.authMode()).isEqualTo(AuthMode.DEV_HEADER);
         assertThat(context.roles()).containsExactlyInAnyOrder(
                 SecurityRoleCode.BUDGET_ADMIN,
                 SecurityRoleCode.READ_ONLY
@@ -44,6 +45,7 @@ class CurrentUserContextResolverTests {
         CurrentUserContext context = resolver.resolve("admin@example.com", "BUDGET_ADMIN");
 
         assertThat(context.userId()).isEqualTo("admin@example.com");
+        assertThat(context.authMode()).isEqualTo(AuthMode.DEV_HEADER);
         assertThat(context.roles()).isEmpty();
     }
 
@@ -72,6 +74,7 @@ class CurrentUserContextResolverTests {
         CurrentUserContext context = resolver.resolve("client-supplied@example.com", "BUDGET_ADMIN");
 
         assertThat(context.userId()).isEqualTo("proxy.user@example.com");
+        assertThat(context.authMode()).isEqualTo(AuthMode.REVERSE_PROXY);
         assertThat(context.roles()).isEmpty();
     }
 

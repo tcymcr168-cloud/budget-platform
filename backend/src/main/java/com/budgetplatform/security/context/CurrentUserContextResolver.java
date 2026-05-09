@@ -45,7 +45,7 @@ public class CurrentUserContextResolver {
                 .filter(value -> !value.isBlank())
                 .map(SecurityRoleCode::valueOf)
                 .collect(Collectors.toUnmodifiableSet());
-        return new CurrentUserContext(userId, roles);
+        return new CurrentUserContext(userId, roles, AuthMode.DEV_HEADER);
     }
 
     private CurrentUserContext resolveReverseProxy() {
@@ -58,7 +58,7 @@ public class CurrentUserContextResolver {
         if (userId == null) {
             throw unauthorized("Trusted reverse proxy principal header is missing.");
         }
-        return new CurrentUserContext(userId, Set.of());
+        return new CurrentUserContext(userId, Set.of(), AuthMode.REVERSE_PROXY);
     }
 
     private HttpServletRequest currentRequest() {

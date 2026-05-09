@@ -30,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -148,8 +149,34 @@ public class SecurityService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public CurrentUserResponse currentUser(CurrentUserContext context) {
-        return new CurrentUserResponse(context.userId(), context.roles(), context.authenticated());
+        if (context == null || !context.authenticated()) {
+            return new CurrentUserResponse(null, Set.of(), false, null, List.of(), List.of());
+        }
+        return userRepository.findByUsername(AppUser.normalizeUsername(context.userId()))
+                .map(user -> new CurrentUserResponse(
+                        context.userId(),
+                        context.roles(),
+                        true,
+                        context.authMode(),
+                        roleRepository.findByUser_IdOrderByWorkspace_CodeAscRoleCodeAsc(user.getId())
+                                .stream()
+                                .map(UserRoleResponse::from)
+                                .toList(),
+                        scopeRepository.findByUser_IdOrderByWorkspace_CodeAscEntityMember_CodeAsc(user.getId())
+                                .stream()
+                                .map(EntityScopeResponse::from)
+                                .toList()
+                ))
+                .orElseGet(() -> new CurrentUserResponse(
+                        context.userId(),
+                        context.roles(),
+                        true,
+                        context.authMode(),
+                        List.of(),
+                        List.of()
+                ));
     }
 
     private void record(

@@ -4943,3 +4943,101 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUTH-004`：前端生产当前用户边界收敛。由于 `/api/security/me` 已存在，目标是确认前端生产构建只展示后端可信当前用户，不重新引入开发身份注入或角色覆盖；如发现前端已满足，则以文档和测试方式关闭该阶段。`AUTH-005` 失败认证审计可随后进入。
+
+## AUTH-003
+
+阶段名称：当前用户 API 与审计 actor 信任收敛
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+补齐 `/api/security/me` 的生产可信用户契约，使其返回认证模式、应用内 Workspace 角色和 Entity 范围摘要；同时验证反向代理模式下审计 actor 来自可信代理 principal，而不是客户端伪造的身份/角色头。本阶段不实现 JWT/OIDC、不修改前端登录、不新增 migration、不接外部服务、不写 secrets。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `auth-001-production-auth-implementation-plan.md`、`auth-002a-reverse-proxy-auth-adapter.md`、`SecurityController`、`SecurityService`、现有安全集成测试 |
+| 允许修改 | 当前用户响应 DTO、认证上下文、SecurityService、后端测试、AUTH-003 文档、README、PROJECT_STEP_RECORD |
+| 禁止修改 | 前端登录、JWT/OIDC 依赖、migration、PDF 原文、OCR 全文、secrets、外部服务、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `mvn test`、`git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段未删除文件，未新增 migration，未访问外部服务 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/security/context/CurrentUserContext.java` | 增加 `authMode` 字段并保留兼容构造函数 |
+| `backend/src/main/java/com/budgetplatform/security/context/CurrentUserContextResolver.java` | 在 dev header 与 reverse proxy 模式下写入 auth mode |
+| `backend/src/main/java/com/budgetplatform/security/api/CurrentUserResponse.java` | 增加 `authMode`、`applicationRoles`、`entityScopes` |
+| `backend/src/main/java/com/budgetplatform/security/service/SecurityService.java` | `/api/security/me` 汇总当前用户应用角色和 Entity 范围 |
+| `backend/src/test/java/com/budgetplatform/security/context/CurrentUserContextResolverTests.java` | 增加 auth mode 断言 |
+| `backend/src/test/java/com/budgetplatform/security/api/SecurityControllerReverseProxyIntegrationTests.java` | 新增反向代理 `/me` 与审计 actor 集成测试 |
+| `docs/architecture/auth-003-current-user-actor-trust.md` | 新增 AUTH-003 架构说明 |
+| `README.md` | 更新当前治理状态和 AUTH-003 文档入口 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUTH-003 阶段记录 |
+
+### 关键产出
+
+1. `/api/security/me` 返回 `authMode`，帮助前端区分 `DEV_HEADER` 与 `REVERSE_PROXY`。
+2. `/api/security/me` 返回持久化 `applicationRoles` 和 `entityScopes`，为生产当前用户展示提供后端可信摘要。
+3. 反向代理模式下 `X-User-Id` 与 `X-User-Roles` 不影响 `/me` 响应。
+4. 反向代理模式下创建安全用户的审计 actor 被验证为 `X-Trusted-User` principal，而不是客户端伪造的 `X-User-Id`。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` 首轮 | 失败；`SecurityService.java:[154,50] 找不到符号 符号: 变量 Set` |
+| 最小修复 | 已补充 `java.util.Set` import |
+| `mvn test` 第二轮 | 通过；Tests run: 52, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示多个工作副本文件 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 AUTH-003 相关后端安全上下文、当前用户响应、服务、测试、文档、README 和阶段记录 |
+| 后端/前端边界关键词扫描 | 仅命中既有 `AuthMode.JWT` 与 `CurrentUserContextResolver` JWT 失败关闭占位；未新增 JWT/OAuth 依赖、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 首轮 `mvn test` 编译失败，真实错误为 `SecurityService.java:[154,50] 找不到符号 符号: 变量 Set`。
+2. 修复方式：补充 `import java.util.Set;`。
+3. 第二轮 `mvn test` 通过，未发现新的测试失败。
+
+### 风险与限制
+
+1. 未注册但已认证的 principal 会返回空应用角色和空 Entity 范围摘要。
+2. 本阶段不实现失败认证审计。
+3. 本阶段不做 JWT/OIDC bearer 校验。
+4. 前端生产当前用户展示仍需后续阶段收敛。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 前端登录 | 未修改 |
+| migration | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 失败认证审计尚未实现。
+2. JWT/OIDC bearer 校验尚未实现。
+3. 前端需要在生产构建中消费 `/api/security/me` 的可信字段。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUTH-003。
+
+关闭理由：`/api/security/me` 已返回 auth mode、应用角色和 Entity 范围摘要；反向代理模式下当前用户与审计 actor 已通过集成测试验证；后端全量测试通过，仓库保护检查通过，未删除文件，未新增 migration，未提交 PDF/OCR 全文、secrets 或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUTH-004`：前端生产当前用户边界收敛。目标是让前端读取 `/api/security/me` 的可信字段并展示当前用户/auth mode，同时保持生产构建不注入开发身份或角色覆盖。
