@@ -167,7 +167,7 @@ public class BudgetQueryController {
         return ResponseEntity.ok()
                 .contentType(MediaType.valueOf("text/csv"))
                 .header("X-Budget-Platform-Export-Truncated", Boolean.toString(result.truncated()))
-                .header("X-Budget-Platform-Export-Total-Rows", Integer.toString(result.totalRows()))
+                .header("X-Budget-Platform-Export-Total-Rows", Long.toString(result.totalRows()))
                 .header("X-Budget-Platform-Export-Returned-Rows", Integer.toString(result.returnedRows()))
                 .body(result.content());
     }

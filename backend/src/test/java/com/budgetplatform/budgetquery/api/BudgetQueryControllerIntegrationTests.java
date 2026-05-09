@@ -95,6 +95,38 @@ class BudgetQueryControllerIntegrationTests {
     }
 
     @Test
+    void queriesFactsPageWithRepositoryPaging() throws Exception {
+        Fixture fixture = createApprovedFactFixture("PERF006_PAGE", true);
+
+        mockMvc.perform(get("/api/budget-query/facts/page")
+                        .param("budgetModelId", fixture.modelId())
+                        .param("status", "APPROVED")
+                        .param("page", "0")
+                        .param("size", "1")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(1)))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(1))
+                .andExpect(jsonPath("$.data.totalElements").value(2))
+                .andExpect(jsonPath("$.data.totalPages").value(2));
+
+        mockMvc.perform(get("/api/budget-query/facts/page")
+                        .param("budgetModelId", fixture.modelId())
+                        .param("status", "APPROVED")
+                        .param("page", "1")
+                        .param("size", "1")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(1)))
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.totalElements").value(2))
+                .andExpect(jsonPath("$.data.totalPages").value(2));
+    }
+
+    @Test
     void rejectsInvalidFactsPageParameters() throws Exception {
         Fixture fixture = createApprovedFactFixture("PERF002_BAD");
 

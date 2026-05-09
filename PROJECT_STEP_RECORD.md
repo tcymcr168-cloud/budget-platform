@@ -7070,3 +7070,98 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `PERF-006`：repository-level query pushdown 方案与最小实现。目标是优先处理 budget facts 查询路径，让 filters、分页和排序尽量下推到 repository/database 层，并通过测试保持现有 API 契约稳定。
+
+## PERF-006
+
+阶段名称：repository-level query pushdown 最小实现
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+将预算 facts 常用过滤、分页、排序和 CSV cap 查询从服务层 stream 过滤下推到 Spring Data repository/database 层。优先处理 `/api/budget-query/facts/page` 和 `/api/budget-query/facts.csv`，保持既有 API response shape、授权和数据范围行为稳定。本阶段不新增 migration、不改前端、不新增异步报表、ERP 直连、BI 图表或合并报表。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`perf-001`、`perf-005`、BudgetQuery 后端代码、当前 Git 状态 |
+| 允许修改 | BudgetQuery 后端 service/repository/tests、`docs/architecture/perf-006-repository-query-pushdown.md`、README、PROJECT_STEP_RECORD |
+| 禁止修改 | migration、前端、PDF/OCR、异步报表、ERP 直连、BI 图表、合并报表、删除文件 |
+| 验证命令 | targeted Maven test、`mvn test`、资料保护检查、空白检查、git 状态和边界扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/budgetsubmission/repository/FactValueRepository.java` | 扩展 `JpaSpecificationExecutor<FactValue>` |
+| `backend/src/main/java/com/budgetplatform/budgetquery/service/BudgetQueryService.java` | 新增 shared fact `Specification`、repository paging、repository CSV cap 查询和稳定 `updatedAt/id` 排序 |
+| `backend/src/main/java/com/budgetplatform/budgetquery/api/BudgetQueryController.java` | 适配 `CsvExportResult.totalRows` 为 long |
+| `backend/src/test/java/com/budgetplatform/budgetquery/api/BudgetQueryControllerIntegrationTests.java` | 新增 repository paging 行为覆盖，验证 `size=1`、总行数和第二页 |
+| `docs/architecture/perf-006-repository-query-pushdown.md` | 新增阶段设计说明 |
+| `README.md` | 更新 PERF-006 文档入口和当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 PERF-006 阶段记录 |
+
+### 关键产出
+
+1. `FactValueRepository` 支持 JPA Specification。
+2. facts 查询 specification 包含 budget model、entity/time/category/version/status 和 Entity 数据范围条件。
+3. `/api/budget-query/facts/page` 通过 `findAll(specification, PageRequest)` 完成分页和 total count。
+4. `/api/budget-query/facts.csv` 通过 `PageRequest.of(0, limit, updatedAt/id DESC)` 完成 capped query 和 total count。
+5. 非管理员无 Entity scope 时 specification 使用 false predicate，保持返回空结果的既有语义。
+6. 未引入业务字段 sort，仍只允许 `updatedAt`，并以 `id` 作为稳定 tie-breaker。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn "-Dtest=com.budgetplatform.budgetquery.api.BudgetQueryControllerIntegrationTests" test` | 通过；11 tests，0 failures，0 errors，0 skipped |
+| `mvn test` | 通过；76 tests，0 failures，0 errors，0 skipped |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物和依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示 README 和后端源码后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 PERF-006 后端代码、PERF-006 文档、README 和阶段记录 |
+| 边界关键词扫描 | 仅命中既有授权/JWT/前端 dev env guard 代码；本阶段未新增前端 token 存储、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 本阶段 targeted Maven test 和完整 Maven test 均通过，未出现验证失败。
+
+### 风险与限制
+
+1. H2 集成测试验证了查询正确性，但尚未捕获 PostgreSQL `EXPLAIN` 执行计划。
+2. 本阶段未新增索引 migration；生产数据量下仍需后续索引设计。
+3. summary 聚合仍在服务层完成，只是其基础 fact retrieval 复用 repository-level filters。
+4. variance 聚合仍按既有路径读取 model facts 后做服务层过滤，尚未下推。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| migration | 未新增 |
+| 前端 | 未修改 |
+| 异步报表引擎 | 未新增 |
+| 新业务模块 | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. PostgreSQL 索引和执行计划治理尚未开展。
+2. summary/variance 的数据库级 aggregation 尚未实现。
+3. 浏览器级 smoke 自动化尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 PERF-006。
+
+关闭理由：facts repository-level filters、PageRequest 分页、CSV cap query 下推、测试、文档、README 和阶段记录已完成；targeted/full Maven tests 通过，资料保护和边界检查通过。本阶段未删除文件，未新增 migration、前端改动、异步报表、ERP、BI、合并报表、PDF/OCR 全文或构建产物。
+
+### 下一阶段建议
+
+下一阶段建议进入 `PERF-007`：PostgreSQL 索引与执行计划治理设计。目标是先文档化 `fact_value` 查询索引候选、执行计划验证方式和 migration 风险，再决定是否进入实际索引 migration。

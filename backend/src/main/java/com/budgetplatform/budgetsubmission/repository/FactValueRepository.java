@@ -3,12 +3,13 @@ package com.budgetplatform.budgetsubmission.repository;
 import com.budgetplatform.budgetsubmission.domain.FactValue;
 import com.budgetplatform.budgetsubmission.domain.FactValueStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface FactValueRepository extends JpaRepository<FactValue, UUID> {
+public interface FactValueRepository extends JpaRepository<FactValue, UUID>, JpaSpecificationExecutor<FactValue> {
 
     Optional<FactValue> findBySubmissionTask_IdAndAccountMember_Id(UUID submissionTaskId, UUID accountMemberId);
 

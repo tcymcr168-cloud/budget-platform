@@ -17,12 +17,18 @@ import com.budgetplatform.metadata.domain.DimensionMember;
 import com.budgetplatform.security.context.CurrentUserContext;
 import com.budgetplatform.security.domain.SecurityRoleCode;
 import com.budgetplatform.security.service.AuthorizationService;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -105,16 +111,11 @@ public class BudgetQueryService {
         );
         BudgetModel model = loadModel(budgetModelId);
         authorizeRead(context, model.getWorkspace().getId());
-        List<FactValue> facts = filterFacts(context, model, entityMemberId, timeMemberId, categoryMemberId, versionMemberId, status)
-                .stream()
-                .sorted(factComparator(pageRequest))
-                .toList();
-        return PageResponse.fromList(
-                pageRequest.slice(facts).stream().map(FactQueryResponse::from).toList(),
-                pageRequest.page(),
-                pageRequest.size(),
-                facts.size()
+        Page<FactValue> facts = factValueRepository.findAll(
+                factSpecification(context, model, entityMemberId, timeMemberId, categoryMemberId, versionMemberId, status),
+                PageRequest.of(pageRequest.page(), pageRequest.size(), factSort(pageRequest))
         );
+        return PageResponse.from(facts, FactQueryResponse::from);
     }
 
     @Transactional(readOnly = true)
@@ -199,17 +200,16 @@ public class BudgetQueryService {
             int limit
     ) {
         validateCsvExportLimit(limit);
-        List<FactQueryResponse> rows = queryFacts(
-                context,
-                budgetModelId,
-                entityMemberId,
-                timeMemberId,
-                categoryMemberId,
-                versionMemberId,
-                status
+        BudgetModel model = loadModel(budgetModelId);
+        authorizeRead(context, model.getWorkspace().getId());
+        Page<FactValue> page = factValueRepository.findAll(
+                factSpecification(context, model, entityMemberId, timeMemberId, categoryMemberId, versionMemberId, status),
+                PageRequest.of(0, limit, defaultFactSort())
         );
-        boolean truncated = rows.size() > limit;
-        List<FactQueryResponse> exportedRows = truncated ? rows.subList(0, limit) : rows;
+        boolean truncated = page.getTotalElements() > page.getNumberOfElements();
+        List<FactQueryResponse> exportedRows = page.getContent().stream()
+                .map(FactQueryResponse::from)
+                .toList();
         StringBuilder builder = new StringBuilder("account,entity,time,category,version,amount,status,source\n");
         exportedRows.forEach(row -> builder.append(csv(row.accountCode())).append(',')
                 .append(csv(row.entityCode())).append(',')
@@ -219,7 +219,7 @@ public class BudgetQueryService {
                 .append(row.amount()).append(',')
                 .append(row.valueStatus()).append(',')
                 .append(row.sourceType()).append('\n'));
-        return new CsvExportResult(builder.toString(), truncated, rows.size(), exportedRows.size());
+        return new CsvExportResult(builder.toString(), truncated, page.getTotalElements(), exportedRows.size());
     }
 
     @Transactional(readOnly = true)
@@ -335,24 +335,79 @@ public class BudgetQueryService {
             FactValueStatus status
     ) {
         DataScope dataScope = dataScope(context, model.getWorkspace().getId());
-        return factValueRepository.findByBudgetModel_IdOrderByUpdatedAtDesc(model.getId())
-                .stream()
-                .filter(value -> matchesEntityScope(value, entityMemberId, dataScope))
-                .filter(value -> timeMemberId == null || value.getTimeMember().getId().equals(timeMemberId))
-                .filter(value -> categoryMemberId == null || value.getCategoryMember().getId().equals(categoryMemberId))
-                .filter(value -> versionMemberId == null || value.getVersionMember().getId().equals(versionMemberId))
-                .filter(value -> status == null || value.getValueStatus() == status)
-                .toList();
+        return factValueRepository.findAll(
+                factSpecification(dataScope, model.getId(), entityMemberId, timeMemberId, categoryMemberId, versionMemberId, status),
+                defaultFactSort()
+        );
     }
 
-    private Comparator<FactValue> factComparator(PageRequestSpec pageRequest) {
-        Comparator<FactValue> comparator = Comparator
-                .comparing(FactValue::getUpdatedAt)
-                .thenComparing(value -> value.getId().toString());
-        if (pageRequest.direction() == PageRequestSpec.Direction.DESC) {
-            return comparator.reversed();
-        }
-        return comparator;
+    private Specification<FactValue> factSpecification(
+            CurrentUserContext context,
+            BudgetModel model,
+            UUID entityMemberId,
+            UUID timeMemberId,
+            UUID categoryMemberId,
+            UUID versionMemberId,
+            FactValueStatus status
+    ) {
+        return factSpecification(
+                dataScope(context, model.getWorkspace().getId()),
+                model.getId(),
+                entityMemberId,
+                timeMemberId,
+                categoryMemberId,
+                versionMemberId,
+                status
+        );
+    }
+
+    private Specification<FactValue> factSpecification(
+            DataScope dataScope,
+            UUID budgetModelId,
+            UUID entityMemberId,
+            UUID timeMemberId,
+            UUID categoryMemberId,
+            UUID versionMemberId,
+            FactValueStatus status
+    ) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.equal(root.get("budgetModel").get("id"), budgetModelId));
+            if (entityMemberId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("entityMember").get("id"), entityMemberId));
+            }
+            if (timeMemberId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("timeMember").get("id"), timeMemberId));
+            }
+            if (categoryMemberId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("categoryMember").get("id"), categoryMemberId));
+            }
+            if (versionMemberId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("versionMember").get("id"), versionMemberId));
+            }
+            if (status != null) {
+                predicates.add(criteriaBuilder.equal(root.get("valueStatus"), status));
+            }
+            if (!dataScope.admin()) {
+                if (dataScope.entityMemberIds().isEmpty()) {
+                    predicates.add(criteriaBuilder.disjunction());
+                } else {
+                    predicates.add(root.get("entityMember").get("id").in(dataScope.entityMemberIds()));
+                }
+            }
+            return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
+        };
+    }
+
+    private Sort defaultFactSort() {
+        return Sort.by(Sort.Direction.DESC, "updatedAt", "id");
+    }
+
+    private Sort factSort(PageRequestSpec pageRequest) {
+        Sort.Direction direction = pageRequest.direction() == PageRequestSpec.Direction.DESC
+                ? Sort.Direction.DESC
+                : Sort.Direction.ASC;
+        return Sort.by(direction, "updatedAt", "id");
     }
 
     private Comparator<FactSummaryResponse> summaryComparator(PageRequestSpec pageRequest) {
@@ -510,7 +565,7 @@ public class BudgetQueryService {
     public record CsvExportResult(
             String content,
             boolean truncated,
-            int totalRows,
+            long totalRows,
             int returnedRows
     ) {
     }
