@@ -1,5 +1,9 @@
 # AUDIT-002 Audit Query API
 
+## Current Status
+
+AUDIT-002 originally described audit reads as requiring `BUDGET_ADMIN` from the request header context. Current default authorization is superseded by `SEC-007`: request header roles are ignored unless explicitly enabled, and audit access should be evaluated through persisted roles or a controlled bootstrap admin path.
+
 ## Stage Goal
 
 AUDIT-002 adds a minimal read-only audit query API for governance troubleshooting. It exposes persisted audit events with simple filters and pagination while avoiding BI dashboards, report builders, export pipelines, or delete capabilities.

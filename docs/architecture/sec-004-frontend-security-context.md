@@ -1,5 +1,9 @@
 # SEC-004 Frontend Security Context
 
+## Current Status
+
+SEC-004 documents the first internal frontend security context for MVP testing. Current behavior is superseded by `SEC-008`: the development identity selector is rendered only in Vite dev mode, and production builds do not automatically send `X-User-Id` or `X-User-Roles`.
+
 ## Stage Goal
 
 SEC-004 connects the existing React/Vite MVP to the backend authorization baseline by adding an internal security context to the shared HTTP client and the main application shell.

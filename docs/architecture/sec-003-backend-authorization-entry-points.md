@@ -1,5 +1,9 @@
 # SEC-003 后端授权入口接入
 
+## 当前状态说明
+
+SEC-003 记录的是第一批授权入口接入时的历史实现。当前默认策略已由 `SEC-007` 更新：Workspace 角色默认来自 `app_user_role`，请求头角色不再默认合并；`requireHeaderAdmin` 已收敛为显式 header role 或 bootstrap admin 白名单的引导入口。生产认证仍以后续可信 Principal 实现为准。
+
 ## 阶段目标
 
 SEC-003 在 SEC-001 安全模型和 SEC-002 安全基础数据结构之上，接入第一批后端授权入口。本阶段聚焦两个高风险面：

@@ -4337,6 +4337,11 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 | 文档阶段 | 未运行后端/前端测试；本阶段未修改代码 |
 | `git check-ignore` | 通过；PDF、OCR、前端依赖/构建产物、后端 `target` 均被忽略 |
 | `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| `git status --short` | 通过；仅 SEC-010 文档、README 和阶段记录修改 |
+| 源码边界关键词扫描 | 通过；`backend/src/main/java` 和 `frontend/src` 未发现 ERP、Chart、BI 图表、合并报表、secrets、password 或删除接口 |
+| 历史文档状态标注检查 | 通过；10 份 SEC/AUDIT 历史文档均已增加 `当前状态说明` 或 `Current Status` |
+| `git check-ignore` | 通过；PDF、OCR、前端依赖/构建产物、后端 `target` 均被忽略 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
 | `git status --short` | 通过；仅 SEC-009 文档、README 和阶段记录修改 |
 | 源码边界关键词扫描 | 通过；`backend/src/main/java` 和 `frontend/src` 未发现 ERP、Chart、BI 图表、合并报表、secrets 或删除接口；仅命中 SEC-006 既有 `JWT` 失败关闭占位 |
 
@@ -4382,3 +4387,97 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `SEC-010`：安全文档一致性收敛。目标是标注 SEC-001 至 SEC-004 中请求头角色方案的历史状态，避免后续阅读者误把早期 MVP header roles 当成当前默认生产策略。
+
+## SEC-010
+
+阶段名称：安全文档一致性收敛
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+在不修改代码、不新增 migration、不删除文件的前提下，标注早期 SEC 与 AUDIT 文档中请求头角色方案的历史状态，明确当前默认行为已由 SEC-007、SEC-008 和 SEC-009 收敛，避免后续团队误把 `X-User-Roles` 当作当前默认生产授权策略。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `SEC-001` 至 `SEC-009` 架构文档、`AUDIT-002`、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 允许修改 | 安全与审计架构文档状态说明、`docs/architecture/sec-010-security-document-consistency.md`、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 后端业务代码、前端实现、migration、PDF 原文、OCR 全文、JWT/OAuth 依赖、secrets、外部服务、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `git check-ignore`、`git diff --check`、`git status --short`、源码边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段未删除文件，未写代码，未新增 migration，未访问外部服务 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/sec-001-security-scope-design.md` | 标注早期请求头角色为历史 MVP 方案 |
+| `docs/architecture/sec-002-security-backend-baseline.md` | 标注当前默认策略已由 SEC-006/SEC-007/SEC-008 收敛 |
+| `docs/architecture/sec-003-backend-authorization-entry-points.md` | 标注 Workspace 角色默认来自持久化角色，bootstrap admin 为引导入口 |
+| `docs/architecture/sec-003b-metadata-authorization.md` | 标注元数据引导管理的当前策略 |
+| `docs/architecture/sec-003c-budget-model-authorization.md` | 标注预算模型授权当前策略 |
+| `docs/architecture/sec-003d-budget-template-authorization.md` | 标注预算模板授权当前策略 |
+| `docs/architecture/sec-003e-budget-submission-authorization.md` | 标注填报授权当前策略 |
+| `docs/architecture/sec-003f-actual-import-authorization.md` | 标注实际数导入授权当前策略 |
+| `docs/architecture/sec-004-frontend-security-context.md` | 标注 SEC-008 已 supersede 生产构建行为 |
+| `docs/architecture/audit-002-audit-query-api.md` | 标注审计查询请求头管理员规则已被 SEC-007 默认策略 supersede |
+| `docs/architecture/sec-010-security-document-consistency.md` | 新增一致性收敛说明 |
+| `README.md` | 更新当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-010 阶段记录 |
+
+### 关键产出
+
+1. 早期请求头角色方案保留为阶段历史，不再被误读为当前默认策略。
+2. 明确当前默认策略：后端不默认信任 `X-User-Roles`，前端生产构建不自动发送身份/角色请求头。
+3. 明确 Workspace 角色来自 `app_user_role`，Entity 范围来自 `app_user_entity_scope`。
+4. 明确 JWT/OIDC/反向代理仍是后续实现阶段，必须遵守 SEC-009 运维规则。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| 文档阶段 | 未运行后端/前端测试；本阶段未修改代码 |
+
+### 失败项与修复记录
+
+1. 本阶段为文档治理阶段，未出现验证失败。
+
+### 风险与限制
+
+1. SEC-010 只做文档一致性，不实现生产认证。
+2. 早期文档仍保留历史实现描述；读者需要参考新增当前状态说明和 SEC-007/SEC-008/SEC-009。
+3. 生产登录、失败认证审计和 `/api/security/me` 前端生产体验仍需后续阶段。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 业务代码 | 未修改 |
+| 前端实现 | 未修改 |
+| migration | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 正式生产认证仍未实现。
+2. Entity 范围维护仍缺少前端管理界面。
+3. 审计查询前端体验仍未建设。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-010。
+
+关闭理由：早期安全文档已补充当前状态说明，SEC-010 一致性文档、README 和阶段记录已更新；本阶段未写代码、未删除文件、未新增 migration、未提交 PDF/OCR 全文、secrets 或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `SEC-011`：前端 Entity 范围管理 MVP。目标是在现有安全 API 范围内，为用户角色与 Entity 范围维护提供最小前端入口，补齐当前安全治理中的实际操作缺口。
