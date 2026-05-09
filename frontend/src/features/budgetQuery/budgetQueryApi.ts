@@ -55,6 +55,11 @@ export interface FactSummaryFilters extends FactQueryFilters {
   groupBy: QueryGroupBy;
 }
 
+export interface FactSummaryPageInput extends FactSummaryFilters {
+  page: number;
+  size: number;
+}
+
 export interface BudgetActualVarianceFilters {
   budgetModelId: string;
   budgetCategoryMemberId: string;
@@ -64,6 +69,11 @@ export interface BudgetActualVarianceFilters {
   entityMemberId?: string;
   timeMemberId?: string;
   status?: FactValueStatus;
+}
+
+export interface BudgetActualVariancePageInput extends BudgetActualVarianceFilters {
+  page: number;
+  size: number;
 }
 
 export interface BudgetActualVarianceRow {
@@ -85,8 +95,18 @@ export interface BudgetActualVarianceRow {
 }
 
 export type FactQueryPage = PageResponse<FactQueryRow>;
+export type FactSummaryPage = PageResponse<FactSummaryRow>;
+export type BudgetActualVariancePage = PageResponse<BudgetActualVarianceRow>;
 
-function buildQuery(filters: FactQueryFilters | FactSummaryFilters | FactQueryPageInput) {
+function buildQuery(
+  filters:
+    | FactQueryFilters
+    | FactSummaryFilters
+    | FactQueryPageInput
+    | FactSummaryPageInput
+    | BudgetActualVarianceFilters
+    | BudgetActualVariancePageInput,
+) {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== '') {
@@ -123,6 +143,19 @@ export async function summarizeFacts(filters: FactSummaryFilters) {
   return response.data ?? [];
 }
 
+export async function summarizeFactsPage(filters: FactSummaryPageInput) {
+  const response = await requestJson<FactSummaryPage>(
+    `/api/budget-query/summary/page?${buildQuery(filters)}`,
+  );
+  return response.data ?? {
+    items: [],
+    page: filters.page,
+    size: filters.size,
+    totalElements: 0,
+    totalPages: 0,
+  };
+}
+
 export async function exportFactsCsv(filters: FactQueryFilters) {
   const response = await fetch(`/api/budget-query/facts.csv?${buildQuery(filters)}`, {
     headers: { Accept: 'text/csv' },
@@ -140,4 +173,17 @@ export async function analyzeBudgetActualVariance(filters: BudgetActualVarianceF
     `/api/budget-query/variance?${buildQuery(filters)}`,
   );
   return response.data ?? [];
+}
+
+export async function analyzeBudgetActualVariancePage(filters: BudgetActualVariancePageInput) {
+  const response = await requestJson<BudgetActualVariancePage>(
+    `/api/budget-query/variance/page?${buildQuery(filters)}`,
+  );
+  return response.data ?? {
+    items: [],
+    page: filters.page,
+    size: filters.size,
+    totalElements: 0,
+    totalPages: 0,
+  };
 }

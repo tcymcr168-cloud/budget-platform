@@ -55,6 +55,26 @@ class BudgetQueryControllerIntegrationTests {
     }
 
     @Test
+    void summarizesFactsPageWithDefaults() throws Exception {
+        Fixture fixture = createApprovedFactFixture("PERF004_SUM");
+
+        mockMvc.perform(get("/api/budget-query/summary/page")
+                        .param("budgetModelId", fixture.modelId())
+                        .param("groupBy", "ACCOUNT")
+                        .param("status", "APPROVED")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(1)))
+                .andExpect(jsonPath("$.data.items[0].memberCode").value(fixture.accountCode()))
+                .andExpect(jsonPath("$.data.items[0].totalAmount").value(930.25))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(25))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.totalPages").value(1));
+    }
+
+    @Test
     void queriesFactsPageWithDefaults() throws Exception {
         Fixture fixture = createApprovedFactFixture("PERF002_PAGE");
 
@@ -148,6 +168,53 @@ class BudgetQueryControllerIntegrationTests {
                 .andExpect(jsonPath("$.data[0].variancePercent").value(20.0000))
                 .andExpect(jsonPath("$.data[0].budgetLineCount").value(1))
                 .andExpect(jsonPath("$.data[0].actualLineCount").value(1));
+    }
+
+    @Test
+    void analyzesBudgetActualVariancePageWithDefaults() throws Exception {
+        VarianceFixture fixture = createVarianceFixture("PERF004_VAR");
+
+        mockMvc.perform(get("/api/budget-query/variance/page")
+                        .param("budgetModelId", fixture.modelId())
+                        .param("budgetCategoryMemberId", fixture.budgetCategoryMemberId())
+                        .param("actualCategoryMemberId", fixture.actualCategoryMemberId())
+                        .param("budgetVersionMemberId", fixture.budgetVersionMemberId())
+                        .param("actualVersionMemberId", fixture.actualVersionMemberId())
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(1)))
+                .andExpect(jsonPath("$.data.items[0].accountCode").value(fixture.accountCode()))
+                .andExpect(jsonPath("$.data.items[0].varianceAmount").value(200.00))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(25))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.totalPages").value(1));
+    }
+
+    @Test
+    void rejectsInvalidGroupedQueryPageParameters() throws Exception {
+        Fixture fixture = createApprovedFactFixture("PERF004_BAD_SUM");
+        VarianceFixture variance = createVarianceFixture("PERF004_BAD_VAR");
+
+        mockMvc.perform(get("/api/budget-query/summary/page")
+                        .param("budgetModelId", fixture.modelId())
+                        .param("groupBy", "ACCOUNT")
+                        .param("sort", "updatedAt")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"));
+
+        mockMvc.perform(get("/api/budget-query/variance/page")
+                        .param("budgetModelId", variance.modelId())
+                        .param("budgetCategoryMemberId", variance.budgetCategoryMemberId())
+                        .param("actualCategoryMemberId", variance.actualCategoryMemberId())
+                        .param("direction", "SIDEWAYS")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"));
     }
 
     @Test

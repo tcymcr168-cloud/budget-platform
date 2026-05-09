@@ -106,6 +106,39 @@ public class BudgetQueryController {
         ));
     }
 
+    @GetMapping("/summary/page")
+    ApiResponse<PageResponse<FactSummaryResponse>> summarizeFactsPage(
+            @RequestParam UUID budgetModelId,
+            @RequestParam QueryGroupBy groupBy,
+            @RequestParam(required = false) UUID entityMemberId,
+            @RequestParam(required = false) UUID timeMemberId,
+            @RequestParam(required = false) UUID categoryMemberId,
+            @RequestParam(required = false) UUID versionMemberId,
+            @RequestParam(required = false) FactValueStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(defaultValue = "memberCode") String sort,
+            @RequestParam(defaultValue = "ASC") String direction,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles
+    ) {
+        CurrentUserContext context = contextResolver.resolve(userId, roles);
+        return ApiResponse.success(budgetQueryService.summarizeFactsPage(
+                context,
+                budgetModelId,
+                groupBy,
+                entityMemberId,
+                timeMemberId,
+                categoryMemberId,
+                versionMemberId,
+                status,
+                page,
+                size,
+                sort,
+                direction
+        ));
+    }
+
     @GetMapping(value = "/facts.csv", produces = "text/csv")
     String exportFactsCsv(
             @RequestParam UUID budgetModelId,
@@ -153,6 +186,41 @@ public class BudgetQueryController {
                 entityMemberId,
                 timeMemberId,
                 status
+        ));
+    }
+
+    @GetMapping("/variance/page")
+    ApiResponse<PageResponse<BudgetActualVarianceResponse>> analyzeBudgetActualVariancePage(
+            @RequestParam UUID budgetModelId,
+            @RequestParam UUID budgetCategoryMemberId,
+            @RequestParam UUID actualCategoryMemberId,
+            @RequestParam(required = false) UUID budgetVersionMemberId,
+            @RequestParam(required = false) UUID actualVersionMemberId,
+            @RequestParam(required = false) UUID entityMemberId,
+            @RequestParam(required = false) UUID timeMemberId,
+            @RequestParam(required = false) FactValueStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(defaultValue = "accountCode") String sort,
+            @RequestParam(defaultValue = "ASC") String direction,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles
+    ) {
+        CurrentUserContext context = contextResolver.resolve(userId, roles);
+        return ApiResponse.success(budgetQueryService.analyzeBudgetActualVariancePage(
+                context,
+                budgetModelId,
+                budgetCategoryMemberId,
+                actualCategoryMemberId,
+                budgetVersionMemberId,
+                actualVersionMemberId,
+                entityMemberId,
+                timeMemberId,
+                status,
+                page,
+                size,
+                sort,
+                direction
         ));
     }
 }

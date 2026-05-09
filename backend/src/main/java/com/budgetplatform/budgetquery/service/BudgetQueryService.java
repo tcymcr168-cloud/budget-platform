@@ -35,6 +35,16 @@ public class BudgetQueryService {
 
     private static final int MAX_PAGE_SIZE = 100;
     private static final Set<String> FACT_SORTS = Set.of("updatedAt");
+    private static final Set<String> SUMMARY_SORTS = Set.of("memberCode", "totalAmount", "lineCount");
+    private static final Set<String> VARIANCE_SORTS = Set.of(
+            "accountCode",
+            "entityCode",
+            "timeCode",
+            "budgetAmount",
+            "actualAmount",
+            "varianceAmount",
+            "variancePercent"
+    );
 
     private final FactValueRepository factValueRepository;
     private final BudgetModelRepository budgetModelRepository;
@@ -134,6 +144,49 @@ public class BudgetQueryService {
     }
 
     @Transactional(readOnly = true)
+    public PageResponse<FactSummaryResponse> summarizeFactsPage(
+            CurrentUserContext context,
+            UUID budgetModelId,
+            QueryGroupBy groupBy,
+            UUID entityMemberId,
+            UUID timeMemberId,
+            UUID categoryMemberId,
+            UUID versionMemberId,
+            FactValueStatus status,
+            int page,
+            int size,
+            String sort,
+            String direction
+    ) {
+        PageRequestSpec pageRequest = PageRequestSpec.of(
+                page,
+                size,
+                sort,
+                direction,
+                SUMMARY_SORTS,
+                "memberCode",
+                PageRequestSpec.Direction.ASC,
+                MAX_PAGE_SIZE
+        );
+        List<FactSummaryResponse> summaries = summarizeFacts(
+                context,
+                budgetModelId,
+                groupBy,
+                entityMemberId,
+                timeMemberId,
+                categoryMemberId,
+                versionMemberId,
+                status
+        ).stream().sorted(summaryComparator(pageRequest)).toList();
+        return PageResponse.fromList(
+                pageRequest.slice(summaries),
+                pageRequest.page(),
+                pageRequest.size(),
+                summaries.size()
+        );
+    }
+
+    @Transactional(readOnly = true)
     public String exportFactsCsv(
             CurrentUserContext context,
             UUID budgetModelId,
@@ -214,6 +267,51 @@ public class BudgetQueryService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public PageResponse<BudgetActualVarianceResponse> analyzeBudgetActualVariancePage(
+            CurrentUserContext context,
+            UUID budgetModelId,
+            UUID budgetCategoryMemberId,
+            UUID actualCategoryMemberId,
+            UUID budgetVersionMemberId,
+            UUID actualVersionMemberId,
+            UUID entityMemberId,
+            UUID timeMemberId,
+            FactValueStatus status,
+            int page,
+            int size,
+            String sort,
+            String direction
+    ) {
+        PageRequestSpec pageRequest = PageRequestSpec.of(
+                page,
+                size,
+                sort,
+                direction,
+                VARIANCE_SORTS,
+                "accountCode",
+                PageRequestSpec.Direction.ASC,
+                MAX_PAGE_SIZE
+        );
+        List<BudgetActualVarianceResponse> variances = analyzeBudgetActualVariance(
+                context,
+                budgetModelId,
+                budgetCategoryMemberId,
+                actualCategoryMemberId,
+                budgetVersionMemberId,
+                actualVersionMemberId,
+                entityMemberId,
+                timeMemberId,
+                status
+        ).stream().sorted(varianceComparator(pageRequest)).toList();
+        return PageResponse.fromList(
+                pageRequest.slice(variances),
+                pageRequest.page(),
+                pageRequest.size(),
+                variances.size()
+        );
+    }
+
     private List<FactValue> filterFacts(
             CurrentUserContext context,
             BudgetModel model,
@@ -238,6 +336,42 @@ public class BudgetQueryService {
         Comparator<FactValue> comparator = Comparator
                 .comparing(FactValue::getUpdatedAt)
                 .thenComparing(value -> value.getId().toString());
+        if (pageRequest.direction() == PageRequestSpec.Direction.DESC) {
+            return comparator.reversed();
+        }
+        return comparator;
+    }
+
+    private Comparator<FactSummaryResponse> summaryComparator(PageRequestSpec pageRequest) {
+        Comparator<FactSummaryResponse> comparator = switch (pageRequest.sort()) {
+            case "totalAmount" -> Comparator.comparing(FactSummaryResponse::totalAmount);
+            case "lineCount" -> Comparator.comparingLong(FactSummaryResponse::lineCount);
+            default -> Comparator.comparing(FactSummaryResponse::memberCode);
+        };
+        comparator = comparator.thenComparing(FactSummaryResponse::memberCode);
+        if (pageRequest.direction() == PageRequestSpec.Direction.DESC) {
+            return comparator.reversed();
+        }
+        return comparator;
+    }
+
+    private Comparator<BudgetActualVarianceResponse> varianceComparator(PageRequestSpec pageRequest) {
+        Comparator<BudgetActualVarianceResponse> comparator = switch (pageRequest.sort()) {
+            case "entityCode" -> Comparator.comparing(BudgetActualVarianceResponse::entityCode);
+            case "timeCode" -> Comparator.comparing(BudgetActualVarianceResponse::timeCode);
+            case "budgetAmount" -> Comparator.comparing(BudgetActualVarianceResponse::budgetAmount);
+            case "actualAmount" -> Comparator.comparing(BudgetActualVarianceResponse::actualAmount);
+            case "varianceAmount" -> Comparator.comparing(BudgetActualVarianceResponse::varianceAmount);
+            case "variancePercent" -> Comparator.comparing(
+                    BudgetActualVarianceResponse::variancePercent,
+                    Comparator.nullsLast(BigDecimal::compareTo)
+            );
+            default -> Comparator.comparing(BudgetActualVarianceResponse::accountCode);
+        };
+        comparator = comparator
+                .thenComparing(BudgetActualVarianceResponse::accountCode)
+                .thenComparing(BudgetActualVarianceResponse::entityCode)
+                .thenComparing(BudgetActualVarianceResponse::timeCode);
         if (pageRequest.direction() == PageRequestSpec.Direction.DESC) {
             return comparator.reversed();
         }

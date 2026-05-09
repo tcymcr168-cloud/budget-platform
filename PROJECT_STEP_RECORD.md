@@ -6876,3 +6876,101 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `PERF-004`：summary 和 variance 分页响应契约。目标是分小步让 grouped query 结果也返回 `PageResponse` 并同步前端，避免继续扩散无界 List。
+
+## PERF-004
+
+阶段名称：summary 和 variance 分页响应契约
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+为预算 summary 和 Budget vs Actual variance 新增兼容型 paged endpoints，并让前端对应结果区消费 `PageResponse` 与 Previous/Next 控制。本阶段保留旧 unpaged endpoints，不修改 CSV export，不新增 migration，不引入 BI 图表、ERP 直连、合并报表或 PDF/OCR 处理。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`perf-001` 至 `perf-003` 文档、BudgetQuery 后端与前端代码、当前 Git 状态 |
+| 允许修改 | Budget query 后端接口/服务/测试、前端 budget query API 与 UI、`docs/architecture/perf-004-grouped-query-pagination.md`、README、PROJECT_STEP_RECORD |
+| 禁止修改 | migration、CSV export 行为、ERP 直连、BI 图表、合并报表、PDF/OCR、删除文件 |
+| 验证命令 | targeted Maven test、`mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build`、资料保护检查、空白检查、git 状态和边界扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/budgetquery/api/BudgetQueryController.java` | 新增 `/summary/page` 与 `/variance/page` |
+| `backend/src/main/java/com/budgetplatform/budgetquery/service/BudgetQueryService.java` | 新增 summary/variance 分页方法与排序 allow-list |
+| `backend/src/test/java/com/budgetplatform/budgetquery/api/BudgetQueryControllerIntegrationTests.java` | 覆盖 grouped query paged endpoints 和非法分页参数 |
+| `frontend/src/features/budgetQuery/budgetQueryApi.ts` | 新增 summary/variance page types 和 API functions |
+| `frontend/src/App.tsx` | summary/variance 改为 paged state 并增加分页控制 |
+| `docs/architecture/perf-004-grouped-query-pagination.md` | 新增阶段说明 |
+| `README.md` | 更新 PERF-004 文档入口和当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 PERF-004 阶段记录 |
+
+### 关键产出
+
+1. 新增 `GET /api/budget-query/summary/page`，返回 `PageResponse<FactSummaryResponse>`。
+2. 新增 `GET /api/budget-query/variance/page`，返回 `PageResponse<BudgetActualVarianceResponse>`。
+3. 保留旧 `/summary` 和 `/variance` endpoints，避免兼容性断裂。
+4. summary sort allow-list：`memberCode`、`totalAmount`、`lineCount`。
+5. variance sort allow-list：`accountCode`、`entityCode`、`timeCode`、`budgetAmount`、`actualAmount`、`varianceAmount`、`variancePercent`。
+6. 前端 summary 和 variance 结果区展示 totalElements，并提供 Previous/Next 控制。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn "-Dtest=com.budgetplatform.budgetquery.api.BudgetQueryControllerIntegrationTests" test` | 通过；9 tests，0 failures，0 errors，0 skipped |
+| `mvn test` | 通过；74 tests，0 failures，0 errors，0 skipped |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过；Vite 输出 `frontend/dist`，该目录应继续被忽略 |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物和依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示 README、PROJECT_STEP_RECORD、前后端源码后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 PERF-004 后端/前端分页代码、PERF-004 文档、README 和阶段记录 |
+| 边界关键词扫描 | 仅命中既有授权/JWT/前端 dev env guard 代码；本阶段未新增前端 token 存储、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 本阶段 targeted Maven test、完整 Maven test、前端 type-check、lint 和 build 均通过，未出现验证失败。
+
+### 风险与限制
+
+1. summary/variance 仍是服务层聚合后分页，不是数据库级 group by/pagination。
+2. CSV export 仍未限制 row cap。
+3. 没有执行 PostgreSQL 真实执行计划验证。
+4. 未引入浏览器自动化测试。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| migration | 未新增 |
+| CSV export 行为 | 未修改 |
+| 新业务功能 | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. CSV export cap 与截断提示尚未实现。
+2. 数据库级查询下推和 PostgreSQL 执行计划尚未处理。
+3. 浏览器级 smoke 自动化尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 PERF-004。
+
+关闭理由：summary/variance 兼容型 paged endpoints、前端分页适配、测试、文档、README 和阶段记录已完成；后端 targeted/full tests 与前端 type-check/lint/build 均通过。本阶段未删除文件，未新增 migration、CSV 行为变更、ERP、BI、合并报表、PDF/OCR 全文、构建产物或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `PERF-005`：CSV export cap 与截断提示。目标是为 `/api/budget-query/facts.csv` 增加明确行数上限和前端提示，防止轻量 CSV 预览演化成无界报表导出。

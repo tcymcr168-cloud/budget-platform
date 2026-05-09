@@ -36,14 +36,14 @@ import {
   TemplateAxisType,
 } from './features/budgetTemplates/budgetTemplateApi';
 import {
-  analyzeBudgetActualVariance,
-  BudgetActualVarianceRow,
+  analyzeBudgetActualVariancePage,
+  BudgetActualVariancePage,
   exportFactsCsv,
   FactQueryPage,
-  FactSummaryRow,
+  FactSummaryPage,
   queryFactsPage,
   QueryGroupBy,
-  summarizeFacts,
+  summarizeFactsPage,
 } from './features/budgetQuery/budgetQueryApi';
 import {
   createDimension,
@@ -104,6 +104,22 @@ const axisTypes: TemplateAxisType[] = ['ROW', 'COLUMN', 'FILTER'];
 const queryGroupByOptions: QueryGroupBy[] = ['ACCOUNT', 'ENTITY', 'TIME', 'CATEGORY', 'VERSION'];
 
 const emptyFactQueryPage: FactQueryPage = {
+  items: [],
+  page: 0,
+  size: 25,
+  totalElements: 0,
+  totalPages: 0,
+};
+
+const emptyFactSummaryPage: FactSummaryPage = {
+  items: [],
+  page: 0,
+  size: 25,
+  totalElements: 0,
+  totalPages: 0,
+};
+
+const emptyVariancePage: BudgetActualVariancePage = {
   items: [],
   page: 0,
   size: 25,
@@ -208,8 +224,8 @@ function App() {
   const [submissionTasks, setSubmissionTasks] = useState<SubmissionTask[]>([]);
   const [factValues, setFactValues] = useState<FactValue[]>([]);
   const [queryPage, setQueryPage] = useState<FactQueryPage>(emptyFactQueryPage);
-  const [summaryRows, setSummaryRows] = useState<FactSummaryRow[]>([]);
-  const [varianceRows, setVarianceRows] = useState<BudgetActualVarianceRow[]>([]);
+  const [summaryPage, setSummaryPage] = useState<FactSummaryPage>(emptyFactSummaryPage);
+  const [variancePage, setVariancePage] = useState<BudgetActualVariancePage>(emptyVariancePage);
   const [csvExport, setCsvExport] = useState('');
   const [actualImportBatches, setActualImportBatches] = useState<ActualImportBatch[]>([]);
   const [actualImportRows, setActualImportRows] = useState<ActualImportRow[]>([]);
@@ -381,8 +397,8 @@ function App() {
       setSubmissionTasks([]);
       setSelectedSubmissionTaskId('');
       setQueryPage(emptyFactQueryPage);
-      setSummaryRows([]);
-      setVarianceRows([]);
+      setSummaryPage(emptyFactSummaryPage);
+      setVariancePage(emptyVariancePage);
       setCsvExport('');
       setActualImportBatches([]);
       setActualImportRows([]);
@@ -420,8 +436,8 @@ function App() {
       setBudgetTemplates([]);
       setSelectedBudgetTemplateId('');
       setQueryPage(emptyFactQueryPage);
-      setSummaryRows([]);
-      setVarianceRows([]);
+      setSummaryPage(emptyFactSummaryPage);
+      setVariancePage(emptyVariancePage);
       setCsvExport('');
       setActualImportBatches([]);
       setActualImportRows([]);
@@ -1146,19 +1162,21 @@ function App() {
     });
   }
 
-  async function handleRunSummary() {
+  async function handleRunSummary(page = 0) {
     if (!selectedBudgetModelId) {
       setError('Select a budget model first.');
       return;
     }
 
     await runAction(async () => {
-      const rows = await summarizeFacts({
+      const nextPage = await summarizeFactsPage({
         ...buildFactQueryFilters(),
         groupBy: queryDraft.groupBy,
+        page,
+        size: summaryPage.size,
       });
-      setSummaryRows(rows);
-      setNotice(`${rows.length} summary rows loaded.`);
+      setSummaryPage(nextPage);
+      setNotice(`${nextPage.totalElements} summary groups matched.`);
     });
   }
 
@@ -1175,7 +1193,7 @@ function App() {
     });
   }
 
-  async function handleRunVariance() {
+  async function handleRunVariance(page = 0) {
     if (!selectedBudgetModelId) {
       setError('Select a budget model first.');
       return;
@@ -1186,7 +1204,7 @@ function App() {
     }
 
     await runAction(async () => {
-      const rows = await analyzeBudgetActualVariance({
+      const nextPage = await analyzeBudgetActualVariancePage({
         budgetModelId: selectedBudgetModelId,
         budgetCategoryMemberId: varianceDraft.budgetCategoryMemberId,
         actualCategoryMemberId: varianceDraft.actualCategoryMemberId,
@@ -1195,9 +1213,11 @@ function App() {
         entityMemberId: varianceDraft.entityMemberId || undefined,
         timeMemberId: varianceDraft.timeMemberId || undefined,
         status: varianceDraft.status || undefined,
+        page,
+        size: variancePage.size,
       });
-      setVarianceRows(rows);
-      setNotice(`${rows.length} variance rows loaded.`);
+      setVariancePage(nextPage);
+      setNotice(`${nextPage.totalElements} variance rows matched.`);
     });
   }
 
@@ -2717,7 +2737,33 @@ function App() {
               <p className="eyebrow">Summary</p>
               <h2 id="summary-title">Basic Aggregation</h2>
             </div>
-            <span>{summaryRows.length} groups</span>
+            <span>{summaryPage.totalElements} groups</span>
+          </div>
+
+          <div className="model-actions">
+            <button
+              type="button"
+              onClick={() => void handleRunSummary(Math.max(summaryPage.page - 1, 0))}
+              disabled={loading || !selectedBudgetModelId || summaryPage.page <= 0}
+            >
+              Previous
+            </button>
+            <span>
+              Page {summaryPage.totalPages === 0 ? 0 : summaryPage.page + 1} /{' '}
+              {summaryPage.totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleRunSummary(summaryPage.page + 1)}
+              disabled={
+                loading ||
+                !selectedBudgetModelId ||
+                summaryPage.totalPages === 0 ||
+                summaryPage.page + 1 >= summaryPage.totalPages
+              }
+            >
+              Next
+            </button>
           </div>
 
           <div className="table-wrap">
@@ -2731,7 +2777,7 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {summaryRows.map((row) => (
+                {summaryPage.items.map((row) => (
                   <tr key={`${row.groupBy}-${row.memberId}`}>
                     <td>{row.groupBy}</td>
                     <td>
@@ -2913,7 +2959,33 @@ function App() {
               <p className="eyebrow">Variance</p>
               <h2 id="variance-results-title">Budget vs Actual Table</h2>
             </div>
-            <span>{varianceRows.length} rows</span>
+            <span>{variancePage.totalElements} rows</span>
+          </div>
+
+          <div className="model-actions">
+            <button
+              type="button"
+              onClick={() => void handleRunVariance(Math.max(variancePage.page - 1, 0))}
+              disabled={loading || !selectedBudgetModelId || variancePage.page <= 0}
+            >
+              Previous
+            </button>
+            <span>
+              Page {variancePage.totalPages === 0 ? 0 : variancePage.page + 1} /{' '}
+              {variancePage.totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleRunVariance(variancePage.page + 1)}
+              disabled={
+                loading ||
+                !selectedBudgetModelId ||
+                variancePage.totalPages === 0 ||
+                variancePage.page + 1 >= variancePage.totalPages
+              }
+            >
+              Next
+            </button>
           </div>
 
           <div className="table-wrap">
@@ -2931,7 +3003,7 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {varianceRows.map((row) => (
+                {variancePage.items.map((row) => (
                   <tr key={`${row.accountMemberId}-${row.entityMemberId}-${row.timeMemberId}`}>
                     <td>
                       {row.accountCode} - {row.accountName}
