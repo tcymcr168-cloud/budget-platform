@@ -12,7 +12,7 @@ This stage does not implement JWT/OIDC validation, add dependencies, create logi
 | --- | --- | --- | --- |
 | `DEV_HEADER` | Local development and controlled tests only | Developer-supplied headers | Existing local mode |
 | `REVERSE_PROXY` | Production candidate behind trusted gateway | Gateway-set principal header | Implemented in AUTH-002A |
-| `JWT` | Future production/API route | Backend-validated bearer token | Fails closed until AUTH-002B |
+| `JWT` | Production/API candidate when IdP/JWKS and user provisioning are ready | Backend-validated bearer token | Backend adapter implemented in AUTH-009 |
 
 ## Required Environment Variables
 
@@ -22,10 +22,13 @@ This stage does not implement JWT/OIDC validation, add dependencies, create logi
 | `BUDGET_PLATFORM_AUTH_ALLOW_HEADER_ROLES` | dev/test only | Allows legacy request role headers when explicitly enabled | No |
 | `BUDGET_PLATFORM_AUTH_REVERSE_PROXY_USER_HEADER` | reverse proxy | Header name for the trusted principal | No |
 | `BUDGET_PLATFORM_AUTH_BOOTSTRAP_ADMIN_USERS` | bootstrap/local recovery | Comma-separated emergency admin usernames | No, but restrict operationally |
-| future `BUDGET_PLATFORM_AUTH_JWT_ISSUER` | JWT | Expected token issuer | No |
-| future `BUDGET_PLATFORM_AUTH_JWT_AUDIENCE` | JWT | Expected token audience | No |
-| future `BUDGET_PLATFORM_AUTH_JWT_JWKS_URI` | JWT | JWKS endpoint or metadata location | Operationally sensitive |
-| future `BUDGET_PLATFORM_AUTH_JWT_CLOCK_SKEW_SECONDS` | JWT | Allowed token clock skew | No |
+| `BUDGET_PLATFORM_AUTH_JWT_ISSUER` | JWT | Expected token issuer | No |
+| `BUDGET_PLATFORM_AUTH_JWT_AUDIENCE` | JWT | Expected token audience | No |
+| `BUDGET_PLATFORM_AUTH_JWT_JWKS_URI` | JWT | JWKS endpoint or metadata location | Operationally sensitive |
+| `BUDGET_PLATFORM_AUTH_JWT_USERNAME_CLAIM` | JWT | Claim mapped to application username | No |
+| `BUDGET_PLATFORM_AUTH_JWT_CLOCK_SKEW_SECONDS` | JWT | Allowed token clock skew | No |
+| `BUDGET_PLATFORM_AUTH_JWT_MAX_TOKEN_LENGTH` | JWT | Oversized bearer guard | No |
+| `BUDGET_PLATFORM_AUTH_JWT_ALLOWED_ALGORITHMS` | JWT | JWS algorithm allow-list | No |
 
 Do not commit `.env`, key files, raw tokens, client secrets, private keys, or environment-specific credentials.
 
@@ -51,20 +54,20 @@ Invoke-WebRequest -Uri https://<gateway-host>/api/security/me -Headers @{"X-Requ
 
 Expected successful response should show the gateway-authenticated user. A direct backend request without the trusted gateway header should fail.
 
-## Future JWT/OIDC Checklist
+## JWT/OIDC Checklist
 
-Before implementing or enabling JWT/OIDC:
+Before enabling JWT/OIDC:
 
-1. Select a validation library and document the dependency rationale.
+1. Confirm backend adapter tests pass.
 2. Validate signature, issuer, audience, expiry, not-before, and algorithm.
 3. Reject `none` and unexpected algorithms.
 4. Map `sub` or configured username claim to `app_user.username`.
 5. Keep `app_user_role` and Entity scope as the only budget authorization sources.
 6. Do not store bearer tokens in the frontend.
 7. Do not persist refresh tokens in this application unless a separate stage designs it.
-8. Configure JWKS cache and rotation behavior.
+8. Confirm JWKS availability and key rotation process.
 9. Fail closed on missing issuer, audience, or key configuration.
-10. Add tests with test keys or mocked verifier.
+10. Run AUTH-011 smoke and rollback checks before production enablement.
 
 ## CORS, TLS, And Cookie Rules
 

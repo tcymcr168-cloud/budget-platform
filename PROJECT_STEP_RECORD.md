@@ -6391,3 +6391,103 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUTH-011`：生产认证部署 smoke 与回滚手册。目标是为 `REVERSE_PROXY` 和 `JWT` 模式整理环境变量、启动前检查、HTTP smoke、审计检查、常见失败定位和回滚步骤；不提交 secrets，不访问真实外部 IdP。
+
+## AUTH-011
+
+阶段名称：生产认证部署 smoke 与回滚手册
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+为 `REVERSE_PROXY` 和 `JWT` 两条生产候选认证路线沉淀部署前检查、环境变量、HTTP smoke、审计核对、失败 reason 定位和回滚步骤。本阶段只写文档，不提交 secrets、raw token、`.env`、真实网关/IdP 配置，不访问真实外部 IdP，不修改前后端运行时代码，不新增 migration。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `auth-006-deployment-secret-operations-runbook.md`、`auth-009-jwt-bearer-adapter.md`、`auth-010-frontend-bearer-boundary.md`、`ops-001-local-runbook.md`、当前 Git 状态 |
+| 允许修改 | `docs/architecture/auth-011-auth-deployment-smoke-rollback.md`、`auth-006-deployment-secret-operations-runbook.md`、README、PROJECT_STEP_RECORD |
+| 禁止修改 | 前后端运行时代码、migration、secrets、raw token、`.env`、真实外部服务配置、PDF 原文、OCR 全文、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/auth-011-auth-deployment-smoke-rollback.md` | 新增生产认证 smoke 与回滚手册 |
+| `docs/architecture/auth-006-deployment-secret-operations-runbook.md` | 更新 JWT 状态和环境变量清单，避免旧的“future/fails closed”表述 |
+| `docs/architecture/sec-006-trusted-principal-adapter.md` | 增加当前状态说明，标记 SEC-006 为历史阶段 |
+| `docs/architecture/sec-007-remove-header-role-trust.md` | 更新风险说明，指向 AUTH-009 至 AUTH-011 当前认证状态 |
+| `docs/architecture/sec-010-security-document-consistency.md` | 增加 AUTH-011 后的当前认证状态说明 |
+| `README.md` | 更新 AUTH-011 文档入口和当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUTH-011 阶段记录 |
+
+### 关键产出
+
+1. 明确 `REVERSE_PROXY` 模式部署前置条件：后端不可被浏览器直连、网关认证、header stripping、可信 principal header、禁用 header role trust。
+2. 明确 `JWT` 模式环境变量：issuer、audience、JWKS URI、username claim、clock skew、max token length、allowed algorithms。
+3. 提供 reverse proxy 正向 smoke、direct-backend negative smoke、JWT 正向 smoke、JWT negative smoke 和审计检查命令模板。
+4. 明确禁止提交 raw token、`.env`、private key、client secret、真实 gateway/IdP 配置。
+5. 建立失败 reason triage 表：missing principal、missing bearer、invalid issuer/audience/signature、expired、unknown user、inactive user 等。
+6. 建立回滚表：gateway route 暴露、header missing、JWT 配置漂移、key rotation outage、用户锁定、日志泄露等。
+7. 明确生产不得回滚到 `DEV_HEADER`；`DEV_HEADER` 仍限本地开发和受控测试。
+8. 补充 SEC-006、SEC-007、SEC-010 的当前状态说明，避免历史阶段文档继续表达 JWT/reverse proxy 仍为未实现占位。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| 文档阶段 | 未运行后端/前端完整测试；本阶段未修改运行时代码、依赖或 migration |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示 README、PROJECT_STEP_RECORD 与 AUTH 文档后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 AUTH-011 文档、AUTH-006 文档、README 和阶段记录 |
+| 边界关键词扫描 | 仅命中文档中的 JWT/bearer/token/secrets/ERP/BI/合并报表禁用或 smoke 说明，以及既有代码中的授权/JWT 实现；未新增前后端代码、migration、PDF/OCR 处理、secrets、ERP、BI 或合并报表 |
+
+### 失败项与修复记录
+
+1. 本阶段未出现验证失败。
+2. 修正 `auth-006-deployment-secret-operations-runbook.md` 中 JWT 仍为 future/fails closed 的历史表述，使其与 AUTH-009 后端 adapter 状态一致。
+3. 补充 SEC-006、SEC-007、SEC-010 的当前状态说明，避免安全历史文档与当前认证主线冲突。
+
+### 风险与限制
+
+1. 本阶段不访问真实 IdP/JWKS，因此无法证明某个具体企业 IdP 配置可用。
+2. 手册中的 PowerShell smoke 命令包含占位域名和占位 token 变量，实际部署必须由运维在环境变量和 secret store 中注入。
+3. JWT key rotation、JWKS 可用性监控和告警仍未实现。
+4. 生产网关 header stripping 能力必须由部署环境实际验证。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 前端运行时代码 | 未修改 |
+| 后端运行时代码 | 未修改 |
+| migration | 未新增 |
+| secrets/raw token/.env | 未新增 |
+| 外部 IdP 访问 | 未执行 |
+| 真实 gateway/IdP 配置 | 未提交 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. 真实部署拓扑、网关产品和 IdP 租户尚未接入。
+2. JWT key rotation/JWKS 监控/认证失败告警尚未实现。
+3. 端到端浏览器 smoke 自动化仍未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUTH-011。
+
+关闭理由：生产认证 smoke 与回滚手册、AUTH-006 历史状态修正、README 和阶段记录已完成；资料保护、空白检查和越界扫描通过。本阶段未删除文件，未修改前后端运行时代码，未新增 migration、secrets、raw token、外部配置、PDF/OCR 全文、构建产物、ERP、BI、合并报表或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `E2E-001`：端到端 smoke 测试基线设计与最小实现。目标是为核心 MVP 路径建立可重复的浏览器/API smoke 验证，但需先检查当前前端测试工具链，避免一次性引入过大测试框架。

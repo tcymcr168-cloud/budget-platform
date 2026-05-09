@@ -108,7 +108,7 @@ SEC-007 validation result:
 
 ## Risks And Limits
 
-1. Production authentication is still not complete; `JWT` and `REVERSE_PROXY` modes remain failure-closed placeholders from SEC-006.
+1. Historical note: production authentication was incomplete when SEC-007 closed. Current `REVERSE_PROXY` and `JWT` status is documented in AUTH-009 through AUTH-011.
 2. Local operators must set `BUDGET_PLATFORM_AUTH_BOOTSTRAP_ADMIN_USERS` or temporarily set `BUDGET_PLATFORM_AUTH_ALLOW_HEADER_ROLES=true` for controlled bootstrap usage.
 3. Frontend still sends internal identity headers from SEC-004; this is acceptable only for local/internal MVP mode until SEC-008 replaces the UX boundary.
 4. Existing older architecture documents mention request header roles as the initial MVP mechanism; SEC-007 supersedes that behavior for defaults.

@@ -2,18 +2,25 @@
 
 ## Goal
 
-SEC-010 reconciles early security-stage documents with the current authentication and authorization posture. It keeps the historical stage records intact while making the current default behavior explicit for future readers.
+SEC-010 reconciles early security-stage documents with the authentication and authorization posture as of SEC-010. Later AUTH stages supersede the production authentication status notes where explicitly referenced.
 
 ## Current Security Baseline
 
-The current baseline after SEC-005 to SEC-009 is:
+The baseline after SEC-005 to SEC-009 was:
 
 1. `DEV_HEADER` is an explicit development/local mode.
 2. `X-User-Roles` is ignored by default on the backend.
 3. Workspace roles default to `app_user_role`.
 4. Entity scope defaults to `app_user_entity_scope`.
 5. Frontend production builds do not auto-inject `X-User-Id` or `X-User-Roles`.
-6. JWT/OIDC/reverse proxy authentication is still a future implementation stage and must follow SEC-009 operational rules.
+6. JWT/OIDC/reverse proxy authentication was still a future implementation stage and had to follow SEC-009 operational rules.
+
+Current status after AUTH-011:
+
+1. `REVERSE_PROXY` trusted principal mode is implemented.
+2. `JWT` bearer adapter is implemented for backend/API/gateway clients.
+3. Browser direct bearer flow remains out of MVP scope.
+4. Production smoke and rollback guidance lives in `auth-011-auth-deployment-smoke-rollback.md`.
 
 ## Updated Historical Documents
 

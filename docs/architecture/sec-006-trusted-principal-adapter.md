@@ -1,5 +1,11 @@
 # SEC-006 Trusted Principal Backend Adapter
 
+## Current Status Note
+
+SEC-006 is a historical adapter-baseline stage. The current implementation has since advanced: `REVERSE_PROXY` trusted principal mode was implemented after SEC-006, `JWT` bearer validation was implemented in AUTH-009, and deployment smoke/rollback guidance now lives in `auth-011-auth-deployment-smoke-rollback.md`.
+
+The original SEC-006 sections below describe the state at the time this stage closed.
+
 ## Stage Goal
 
 SEC-006 introduces a minimal backend authentication mode adapter around the existing `CurrentUserContextResolver`. The purpose is to make the current internal header mode explicit and to prevent future production modes from silently trusting caller-supplied role headers.
