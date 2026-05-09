@@ -82,6 +82,14 @@ public class AppUser {
         return status;
     }
 
+    public void disable() {
+        this.status = SecurityUserStatus.INACTIVE;
+    }
+
+    public void enable() {
+        this.status = SecurityUserStatus.ACTIVE;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }

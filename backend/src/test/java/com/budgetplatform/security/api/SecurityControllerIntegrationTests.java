@@ -162,6 +162,54 @@ class SecurityControllerIntegrationTests {
     }
 
     @Test
+    void disablesAndEnablesSecurityUserWithAudit() throws Exception {
+        String userId = createSecurityUser("sec.lifecycle@example.com");
+
+        mockMvc.perform(post("/api/security/users/{userId}/disable", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
+                        .content("""
+                                {
+                                  "reason": "Temporary leave"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("INACTIVE"));
+
+        mockMvc.perform(post("/api/security/users/{userId}/enable", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
+                        .content("""
+                                {
+                                  "reason": "Returned"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+
+        assertThat(auditRepository.findBySubjectTypeAndSubjectIdOrderByOccurredAtAsc("app_user", userId))
+                .filteredOn(event -> event.getAction().name().equals("STATUS_CHANGE"))
+                .hasSize(2)
+                .anySatisfy(event -> assertThat(event.getDetailsJson()).contains("Temporary leave"))
+                .anySatisfy(event -> assertThat(event.getDetailsJson()).contains("Returned"));
+    }
+
+    @Test
+    void rejectsSelfDisable() throws Exception {
+        String adminUserId = createSecurityUser("admin@example.com");
+
+        mockMvc.perform(post("/api/security/users/{userId}/disable", adminUserId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"));
+    }
+
+    @Test
     void resolvesCurrentUserFromHeaders() throws Exception {
         mockMvc.perform(get("/api/security/me")
                         .header("X-User-Id", "admin@example.com")

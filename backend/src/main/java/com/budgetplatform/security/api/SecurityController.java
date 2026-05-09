@@ -56,6 +56,30 @@ public class SecurityController {
         return ApiResponse.success(securityService.listUsers());
     }
 
+    @PostMapping("/users/{userId}/disable")
+    ApiResponse<SecurityUserResponse> disableUser(
+            @PathVariable UUID userId,
+            @RequestHeader(value = "X-User-Id", required = false) String actorId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles,
+            @Valid @RequestBody SecurityUserStatusChangeRequest request
+    ) {
+        CurrentUserContext context = contextResolver.resolve(actorId, roles);
+        authorizationService.requireHeaderAdmin(context);
+        return ApiResponse.success(securityService.disableUser(context, userId, request));
+    }
+
+    @PostMapping("/users/{userId}/enable")
+    ApiResponse<SecurityUserResponse> enableUser(
+            @PathVariable UUID userId,
+            @RequestHeader(value = "X-User-Id", required = false) String actorId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles,
+            @Valid @RequestBody SecurityUserStatusChangeRequest request
+    ) {
+        CurrentUserContext context = contextResolver.resolve(actorId, roles);
+        authorizationService.requireHeaderAdmin(context);
+        return ApiResponse.success(securityService.enableUser(context, userId, request));
+    }
+
     @PostMapping("/users/{userId}/roles")
     ApiResponse<UserRoleResponse> grantRole(
             @PathVariable UUID userId,

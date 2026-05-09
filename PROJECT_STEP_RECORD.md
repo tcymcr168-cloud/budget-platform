@@ -5414,3 +5414,101 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `SEC-013`：用户禁用/启用后端 MVP。目标是复用现有 `app_user.status`，新增 disable/enable action endpoints、审计和测试；不做角色/Entity 范围软撤销 migration。
+
+## SEC-013
+
+阶段名称：用户禁用/启用后端 MVP
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+复用现有 `app_user.status` 实现用户 disable/enable 后端 action endpoints，并记录 `STATUS_CHANGE` 审计。本阶段不新增 migration，不做角色/Entity 范围撤销，不做物理删除，不做前端 UI。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `sec-012-revoke-disable-design.md`、`SecurityController`、`SecurityService`、`AppUser`、现有安全集成测试 |
+| 允许修改 | 后端安全用户状态方法、status change request、SecurityController、SecurityService、安全集成测试、SEC-013 文档、README、PROJECT_STEP_RECORD |
+| 禁止修改 | migration、角色/Entity 范围撤销、物理删除接口、前端 UI、PDF 原文、OCR 全文、secrets、外部服务、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `mvn test`、`git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/security/domain/AppUser.java` | 增加 `disable()` / `enable()` |
+| `backend/src/main/java/com/budgetplatform/security/api/SecurityUserStatusChangeRequest.java` | 新增状态变更请求 |
+| `backend/src/main/java/com/budgetplatform/security/api/SecurityController.java` | 新增 disable/enable action endpoints |
+| `backend/src/main/java/com/budgetplatform/security/service/SecurityService.java` | 新增 disable/enable 服务、审计和自禁用保护 |
+| `backend/src/test/java/com/budgetplatform/security/api/SecurityControllerIntegrationTests.java` | 覆盖 disable/enable 审计和自禁用拒绝 |
+| `docs/architecture/sec-013-user-disable-backend.md` | 新增 SEC-013 架构说明 |
+| `README.md` | 更新当前治理状态和 SEC-013 文档入口 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-013 阶段记录 |
+
+### 关键产出
+
+1. 新增 `POST /api/security/users/{userId}/disable`。
+2. 新增 `POST /api/security/users/{userId}/enable`。
+3. 状态变更复用现有 `app_user.status`，不新增 migration。
+4. 状态变更记录 `STATUS_CHANGE` 审计和 reason。
+5. 当前用户不能禁用自己，避免最小治理场景下直接锁死当前管理员。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；54 个测试全部通过，0 failures，0 errors，0 skipped |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示当前工作副本下若干文本文件 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| 边界关键词扫描 | 仅命中既有 `AuditAction.DELETE`、`AuthMode.JWT`、JWT fail-closed 占位、前端 `CurrentUser.authMode` 类型和审计 `DELETE` 筛选；未新增 `DeleteMapping`、OAuth 依赖、token 存储、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 首次 `mvn test` 失败，真实错误为 `SecurityService.java` 找不到 `SecurityUserStatusChangeRequest` 符号。
+2. 定位原因：新增 request record 后未在 `SecurityService` 中导入该类型。
+3. 最小修复：补充 `import com.budgetplatform.security.api.SecurityUserStatusChangeRequest;`。
+4. 复测结果：`mvn test` 通过，54 个测试全部通过。
+
+### 风险与限制
+
+1. inactive 用户授权拦截留到 SEC-014。
+2. 角色/Entity 范围软撤销留到 SEC-015。
+3. 前端 disable/enable 按钮留到 SEC-016。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| migration | 未新增 |
+| 物理删除接口 | 未新增 |
+| 角色/Entity 范围撤销 | 未新增 |
+| 前端 UI | 未修改 |
+| JWT/OAuth 依赖 | 未新增 |
+| token 存储 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. inactive 用户仍需 SEC-014 接入授权拦截。
+2. 角色/Entity 范围软撤销仍需后续 migration 和 API。
+3. 前端禁用/启用入口尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-013。
+
+关闭理由：用户禁用/启用后端 action endpoints、状态审计和自禁用保护已完成；后端测试、资料保护检查、空白检查和越界扫描均通过。本阶段未删除文件，未新增 migration，未新增物理删除接口，未修改前端 UI，未提交 PDF/OCR 全文、secrets、构建产物或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `SEC-014`：inactive 用户授权拦截。目标是在授权服务中复用现有 `app_user.status`，拒绝 inactive 用户继续执行受保护操作，并补充测试与文档；不新增 migration，不做前端 UI，不做角色/Entity 范围软撤销。

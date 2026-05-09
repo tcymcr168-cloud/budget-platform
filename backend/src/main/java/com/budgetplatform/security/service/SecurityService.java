@@ -16,6 +16,7 @@ import com.budgetplatform.security.api.EntityScopeResponse;
 import com.budgetplatform.security.api.GrantEntityScopeRequest;
 import com.budgetplatform.security.api.GrantUserRoleRequest;
 import com.budgetplatform.security.api.SecurityUserResponse;
+import com.budgetplatform.security.api.SecurityUserStatusChangeRequest;
 import com.budgetplatform.security.api.UserRoleResponse;
 import com.budgetplatform.security.context.CurrentUserContext;
 import com.budgetplatform.security.domain.AppUser;
@@ -76,6 +77,39 @@ public class SecurityService {
                 .stream()
                 .map(SecurityUserResponse::from)
                 .toList();
+    }
+
+    @Transactional
+    public SecurityUserResponse disableUser(
+            CurrentUserContext context,
+            UUID userId,
+            SecurityUserStatusChangeRequest request
+    ) {
+        AppUser user = loadUser(userId);
+        ensureNotCurrentUser(context, user);
+        user.disable();
+        record(context, "app_user", user.getId().toString(), AuditAction.STATUS_CHANGE, Map.of(
+                "username", user.getUsername(),
+                "status", user.getStatus().name(),
+                "reason", sanitizeReason(request)
+        ));
+        return SecurityUserResponse.from(user);
+    }
+
+    @Transactional
+    public SecurityUserResponse enableUser(
+            CurrentUserContext context,
+            UUID userId,
+            SecurityUserStatusChangeRequest request
+    ) {
+        AppUser user = loadUser(userId);
+        user.enable();
+        record(context, "app_user", user.getId().toString(), AuditAction.STATUS_CHANGE, Map.of(
+                "username", user.getUsername(),
+                "status", user.getStatus().name(),
+                "reason", sanitizeReason(request)
+        ));
+        return SecurityUserResponse.from(user);
     }
 
     @Transactional
@@ -204,6 +238,20 @@ public class SecurityService {
     private BudgetWorkspace loadWorkspace(UUID workspaceId) {
         return workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> notFound("Workspace was not found: " + workspaceId));
+    }
+
+    private void ensureNotCurrentUser(CurrentUserContext context, AppUser user) {
+        if (context != null
+                && context.authenticated()
+                && AppUser.normalizeUsername(context.userId()).equals(user.getUsername())) {
+            throw badRequest("Current user cannot disable itself.");
+        }
+    }
+
+    private String sanitizeReason(SecurityUserStatusChangeRequest request) {
+        return request == null || request.reason() == null || request.reason().isBlank()
+                ? ""
+                : request.reason().trim();
     }
 
     private DimensionMember loadEntityMemberInWorkspace(UUID memberId, UUID workspaceId) {
