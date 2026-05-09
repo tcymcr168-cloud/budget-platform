@@ -92,6 +92,19 @@ public class SecurityController {
         return ApiResponse.success(securityService.grantRole(context, userId, request));
     }
 
+    @PostMapping("/users/{userId}/roles/{roleId}/revoke")
+    ApiResponse<UserRoleResponse> revokeRole(
+            @PathVariable UUID userId,
+            @PathVariable UUID roleId,
+            @RequestHeader(value = "X-User-Id", required = false) String actorId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles,
+            @Valid @RequestBody SecurityGrantRevokeRequest request
+    ) {
+        CurrentUserContext context = contextResolver.resolve(actorId, roles);
+        authorizationService.requireAdmin(context, securityService.roleWorkspaceId(userId, roleId));
+        return ApiResponse.success(securityService.revokeRole(context, userId, roleId, request));
+    }
+
     @GetMapping("/users/{userId}/roles")
     ApiResponse<List<UserRoleResponse>> listRoles(
             @PathVariable UUID userId,
@@ -118,6 +131,19 @@ public class SecurityController {
         CurrentUserContext context = contextResolver.resolve(actorId, roles);
         authorizationService.requireAdmin(context, request.workspaceId());
         return ApiResponse.success(securityService.grantEntityScope(context, userId, request));
+    }
+
+    @PostMapping("/users/{userId}/entity-scopes/{scopeId}/revoke")
+    ApiResponse<EntityScopeResponse> revokeEntityScope(
+            @PathVariable UUID userId,
+            @PathVariable UUID scopeId,
+            @RequestHeader(value = "X-User-Id", required = false) String actorId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles,
+            @Valid @RequestBody SecurityGrantRevokeRequest request
+    ) {
+        CurrentUserContext context = contextResolver.resolve(actorId, roles);
+        authorizationService.requireAdmin(context, securityService.entityScopeWorkspaceId(userId, scopeId));
+        return ApiResponse.success(securityService.revokeEntityScope(context, userId, scopeId, request));
     }
 
     @GetMapping("/users/{userId}/entity-scopes")

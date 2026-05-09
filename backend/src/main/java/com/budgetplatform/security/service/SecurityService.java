@@ -16,12 +16,14 @@ import com.budgetplatform.security.api.EntityScopeResponse;
 import com.budgetplatform.security.api.GrantEntityScopeRequest;
 import com.budgetplatform.security.api.GrantUserRoleRequest;
 import com.budgetplatform.security.api.SecurityUserResponse;
+import com.budgetplatform.security.api.SecurityGrantRevokeRequest;
 import com.budgetplatform.security.api.SecurityUserStatusChangeRequest;
 import com.budgetplatform.security.api.UserRoleResponse;
 import com.budgetplatform.security.context.CurrentUserContext;
 import com.budgetplatform.security.domain.AppUser;
 import com.budgetplatform.security.domain.AppUserEntityScope;
 import com.budgetplatform.security.domain.AppUserRole;
+import com.budgetplatform.security.domain.SecurityGrantStatus;
 import com.budgetplatform.security.repository.AppUserEntityScopeRepository;
 import com.budgetplatform.security.repository.AppUserRepository;
 import com.budgetplatform.security.repository.AppUserRoleRepository;
@@ -116,14 +118,29 @@ public class SecurityService {
     public UserRoleResponse grantRole(CurrentUserContext context, UUID userId, GrantUserRoleRequest request) {
         AppUser user = loadUser(userId);
         BudgetWorkspace workspace = loadWorkspace(request.workspaceId());
-        if (roleRepository.existsByUser_IdAndWorkspace_IdAndRoleCode(userId, workspace.getId(), request.roleCode())) {
+        if (roleRepository.existsByUser_IdAndWorkspace_IdAndRoleCodeAndStatus(
+                userId,
+                workspace.getId(),
+                request.roleCode(),
+                SecurityGrantStatus.ACTIVE
+        )) {
             throw conflict("Role already granted to user in workspace.");
         }
-        AppUserRole role = roleRepository.save(new AppUserRole(user, workspace, request.roleCode()));
+        AppUserRole role = roleRepository.findByUser_IdAndWorkspace_IdAndRoleCode(
+                        userId,
+                        workspace.getId(),
+                        request.roleCode()
+                )
+                .map(existingRole -> {
+                    existingRole.reactivate();
+                    return existingRole;
+                })
+                .orElseGet(() -> roleRepository.save(new AppUserRole(user, workspace, request.roleCode())));
         record(context, "app_user_role", role.getId().toString(), AuditAction.ACCESS_CHANGE, Map.of(
                 "username", user.getUsername(),
                 "workspaceId", workspace.getId().toString(),
-                "roleCode", role.getRoleCode().name()
+                "roleCode", role.getRoleCode().name(),
+                "status", role.getStatus().name()
         ));
         return UserRoleResponse.from(role);
     }
@@ -133,15 +150,49 @@ public class SecurityService {
         loadUser(userId);
         if (workspaceId != null) {
             loadWorkspace(workspaceId);
-            return roleRepository.findByUser_IdAndWorkspace_IdOrderByRoleCodeAsc(userId, workspaceId)
+            return roleRepository.findByUser_IdAndWorkspace_IdAndStatusOrderByRoleCodeAsc(
+                            userId,
+                            workspaceId,
+                            SecurityGrantStatus.ACTIVE
+                    )
                     .stream()
                     .map(UserRoleResponse::from)
                     .toList();
         }
-        return roleRepository.findByUser_IdOrderByWorkspace_CodeAscRoleCodeAsc(userId)
+        return roleRepository.findByUser_IdAndStatusOrderByWorkspace_CodeAscRoleCodeAsc(
+                        userId,
+                        SecurityGrantStatus.ACTIVE
+                )
                 .stream()
                 .map(UserRoleResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public UUID roleWorkspaceId(UUID userId, UUID roleId) {
+        return loadRoleGrant(userId, roleId).getWorkspace().getId();
+    }
+
+    @Transactional
+    public UserRoleResponse revokeRole(
+            CurrentUserContext context,
+            UUID userId,
+            UUID roleId,
+            SecurityGrantRevokeRequest request
+    ) {
+        AppUserRole role = loadRoleGrant(userId, roleId);
+        if (role.getStatus() == SecurityGrantStatus.REVOKED) {
+            throw conflict("Role grant is already revoked.");
+        }
+        role.revoke(actorId(context), sanitizeReason(request));
+        record(context, "app_user_role", role.getId().toString(), AuditAction.ACCESS_CHANGE, Map.of(
+                "username", role.getUser().getUsername(),
+                "workspaceId", role.getWorkspace().getId().toString(),
+                "roleCode", role.getRoleCode().name(),
+                "status", role.getStatus().name(),
+                "reason", role.getRevokedReason()
+        ));
+        return UserRoleResponse.from(role);
     }
 
     @Transactional
@@ -149,20 +200,35 @@ public class SecurityService {
         AppUser user = loadUser(userId);
         BudgetWorkspace workspace = loadWorkspace(request.workspaceId());
         DimensionMember entityMember = loadEntityMemberInWorkspace(request.entityMemberId(), workspace.getId());
-        if (scopeRepository.existsByUser_IdAndWorkspace_IdAndEntityMember_Id(userId, workspace.getId(), entityMember.getId())) {
+        if (scopeRepository.existsByUser_IdAndWorkspace_IdAndEntityMember_IdAndStatus(
+                userId,
+                workspace.getId(),
+                entityMember.getId(),
+                SecurityGrantStatus.ACTIVE
+        )) {
             throw conflict("Entity scope already granted to user in workspace.");
         }
-        AppUserEntityScope scope = scopeRepository.save(new AppUserEntityScope(
-                user,
-                workspace,
-                entityMember,
-                request.includeDescendants()
-        ));
+        AppUserEntityScope scope = scopeRepository.findByUser_IdAndWorkspace_IdAndEntityMember_Id(
+                        userId,
+                        workspace.getId(),
+                        entityMember.getId()
+                )
+                .map(existingScope -> {
+                    existingScope.reactivate(request.includeDescendants());
+                    return existingScope;
+                })
+                .orElseGet(() -> scopeRepository.save(new AppUserEntityScope(
+                        user,
+                        workspace,
+                        entityMember,
+                        request.includeDescendants()
+                )));
         record(context, "app_user_entity_scope", scope.getId().toString(), AuditAction.ACCESS_CHANGE, Map.of(
                 "username", user.getUsername(),
                 "workspaceId", workspace.getId().toString(),
                 "entityMemberId", entityMember.getId().toString(),
-                "includeDescendants", scope.isIncludeDescendants()
+                "includeDescendants", scope.isIncludeDescendants(),
+                "status", scope.getStatus().name()
         ));
         return EntityScopeResponse.from(scope);
     }
@@ -172,15 +238,50 @@ public class SecurityService {
         loadUser(userId);
         if (workspaceId != null) {
             loadWorkspace(workspaceId);
-            return scopeRepository.findByUser_IdAndWorkspace_IdOrderByEntityMember_CodeAsc(userId, workspaceId)
+            return scopeRepository.findByUser_IdAndWorkspace_IdAndStatusOrderByEntityMember_CodeAsc(
+                            userId,
+                            workspaceId,
+                            SecurityGrantStatus.ACTIVE
+                    )
                     .stream()
                     .map(EntityScopeResponse::from)
                     .toList();
         }
-        return scopeRepository.findByUser_IdOrderByWorkspace_CodeAscEntityMember_CodeAsc(userId)
+        return scopeRepository.findByUser_IdAndStatusOrderByWorkspace_CodeAscEntityMember_CodeAsc(
+                        userId,
+                        SecurityGrantStatus.ACTIVE
+                )
                 .stream()
                 .map(EntityScopeResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public UUID entityScopeWorkspaceId(UUID userId, UUID scopeId) {
+        return loadEntityScopeGrant(userId, scopeId).getWorkspace().getId();
+    }
+
+    @Transactional
+    public EntityScopeResponse revokeEntityScope(
+            CurrentUserContext context,
+            UUID userId,
+            UUID scopeId,
+            SecurityGrantRevokeRequest request
+    ) {
+        AppUserEntityScope scope = loadEntityScopeGrant(userId, scopeId);
+        if (scope.getStatus() == SecurityGrantStatus.REVOKED) {
+            throw conflict("Entity scope grant is already revoked.");
+        }
+        scope.revoke(actorId(context), sanitizeReason(request));
+        record(context, "app_user_entity_scope", scope.getId().toString(), AuditAction.ACCESS_CHANGE, Map.of(
+                "username", scope.getUser().getUsername(),
+                "workspaceId", scope.getWorkspace().getId().toString(),
+                "entityMemberId", scope.getEntityMember().getId().toString(),
+                "includeDescendants", scope.isIncludeDescendants(),
+                "status", scope.getStatus().name(),
+                "reason", scope.getRevokedReason()
+        ));
+        return EntityScopeResponse.from(scope);
     }
 
     @Transactional(readOnly = true)
@@ -194,11 +295,17 @@ public class SecurityService {
                         context.roles(),
                         true,
                         context.authMode(),
-                        roleRepository.findByUser_IdOrderByWorkspace_CodeAscRoleCodeAsc(user.getId())
+                        roleRepository.findByUser_IdAndStatusOrderByWorkspace_CodeAscRoleCodeAsc(
+                                        user.getId(),
+                                        SecurityGrantStatus.ACTIVE
+                                )
                                 .stream()
                                 .map(UserRoleResponse::from)
                                 .toList(),
-                        scopeRepository.findByUser_IdOrderByWorkspace_CodeAscEntityMember_CodeAsc(user.getId())
+                        scopeRepository.findByUser_IdAndStatusOrderByWorkspace_CodeAscEntityMember_CodeAsc(
+                                        user.getId(),
+                                        SecurityGrantStatus.ACTIVE
+                                )
                                 .stream()
                                 .map(EntityScopeResponse::from)
                                 .toList()
@@ -240,6 +347,24 @@ public class SecurityService {
                 .orElseThrow(() -> notFound("Workspace was not found: " + workspaceId));
     }
 
+    private AppUserRole loadRoleGrant(UUID userId, UUID roleId) {
+        AppUserRole role = roleRepository.findById(roleId)
+                .orElseThrow(() -> notFound("Role grant was not found: " + roleId));
+        if (!role.getUser().getId().equals(userId)) {
+            throw notFound("Role grant was not found for user: " + userId);
+        }
+        return role;
+    }
+
+    private AppUserEntityScope loadEntityScopeGrant(UUID userId, UUID scopeId) {
+        AppUserEntityScope scope = scopeRepository.findById(scopeId)
+                .orElseThrow(() -> notFound("Entity scope grant was not found: " + scopeId));
+        if (!scope.getUser().getId().equals(userId)) {
+            throw notFound("Entity scope grant was not found for user: " + userId);
+        }
+        return scope;
+    }
+
     private void ensureNotCurrentUser(CurrentUserContext context, AppUser user) {
         if (context != null
                 && context.authenticated()
@@ -252,6 +377,18 @@ public class SecurityService {
         return request == null || request.reason() == null || request.reason().isBlank()
                 ? ""
                 : request.reason().trim();
+    }
+
+    private String sanitizeReason(SecurityGrantRevokeRequest request) {
+        return request == null || request.reason() == null || request.reason().isBlank()
+                ? ""
+                : request.reason().trim();
+    }
+
+    private String actorId(CurrentUserContext context) {
+        return context == null || !context.authenticated()
+                ? null
+                : AppUser.normalizeUsername(context.userId());
     }
 
     private DimensionMember loadEntityMemberInWorkspace(UUID memberId, UUID workspaceId) {

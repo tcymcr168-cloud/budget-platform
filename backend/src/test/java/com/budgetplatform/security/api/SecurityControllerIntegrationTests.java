@@ -162,6 +162,124 @@ class SecurityControllerIntegrationTests {
     }
 
     @Test
+    void revokesRoleAndEntityScopeWithAuditAndReactivation() throws Exception {
+        String workspaceId = createWorkspace("SEC015_WS", "SEC-015 Workspace");
+        String entityDimensionId = createDimension(workspaceId, "SEC015_ENTITY", "Entity", "ENTITY");
+        String entityMemberId = createMember(entityDimensionId, "SEC015_OPS", "Operations");
+        String userId = createSecurityUser("sec.revoke@example.com");
+
+        String roleId = mockMvc.perform(post("/api/security/users/{userId}/roles", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
+                        .content("""
+                                {
+                                  "workspaceId": "%s",
+                                  "roleCode": "READ_ONLY"
+                                }
+                                """.formatted(workspaceId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString()
+                .replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
+
+        mockMvc.perform(post("/api/security/users/{userId}/roles/{roleId}/revoke", userId, roleId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
+                        .content("""
+                                {
+                                  "reason": "Role no longer needed"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("REVOKED"));
+
+        mockMvc.perform(get("/api/security/users/{userId}/roles", userId)
+                        .param("workspaceId", workspaceId)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(0)));
+
+        mockMvc.perform(post("/api/security/users/{userId}/roles", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
+                        .content("""
+                                {
+                                  "workspaceId": "%s",
+                                  "roleCode": "READ_ONLY"
+                                }
+                                """.formatted(workspaceId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(roleId))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+
+        String scopeId = mockMvc.perform(post("/api/security/users/{userId}/entity-scopes", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
+                        .content("""
+                                {
+                                  "workspaceId": "%s",
+                                  "entityMemberId": "%s",
+                                  "includeDescendants": true
+                                }
+                                """.formatted(workspaceId, entityMemberId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString()
+                .replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
+
+        mockMvc.perform(post("/api/security/users/{userId}/entity-scopes/{scopeId}/revoke", userId, scopeId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
+                        .content("""
+                                {
+                                  "reason": "Scope no longer needed"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("REVOKED"));
+
+        mockMvc.perform(get("/api/security/users/{userId}/entity-scopes", userId)
+                        .param("workspaceId", workspaceId)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(0)));
+
+        mockMvc.perform(post("/api/security/users/{userId}/entity-scopes", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN")
+                        .content("""
+                                {
+                                  "workspaceId": "%s",
+                                  "entityMemberId": "%s",
+                                  "includeDescendants": false
+                                }
+                                """.formatted(workspaceId, entityMemberId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(scopeId))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.includeDescendants").value(false));
+
+        assertThat(auditRepository.findBySubjectTypeAndSubjectIdOrderByOccurredAtAsc("app_user_role", roleId))
+                .hasSize(3)
+                .anySatisfy(event -> assertThat(event.getDetailsJson()).contains("Role no longer needed"));
+        assertThat(auditRepository.findBySubjectTypeAndSubjectIdOrderByOccurredAtAsc("app_user_entity_scope", scopeId))
+                .hasSize(3)
+                .anySatisfy(event -> assertThat(event.getDetailsJson()).contains("Scope no longer needed"));
+    }
+
+    @Test
     void disablesAndEnablesSecurityUserWithAudit() throws Exception {
         String userId = createSecurityUser("sec.lifecycle@example.com");
 

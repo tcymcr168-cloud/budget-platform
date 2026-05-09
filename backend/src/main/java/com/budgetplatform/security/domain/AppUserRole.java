@@ -44,6 +44,19 @@ public class AppUserRole {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    private SecurityGrantStatus status;
+
+    @Column(name = "revoked_at")
+    private Instant revokedAt;
+
+    @Column(name = "revoked_by", length = 120)
+    private String revokedBy;
+
+    @Column(name = "revoked_reason", length = 240)
+    private String revokedReason;
+
     protected AppUserRole() {
     }
 
@@ -52,11 +65,29 @@ public class AppUserRole {
         this.user = user;
         this.workspace = workspace;
         this.roleCode = roleCode;
+        this.status = SecurityGrantStatus.ACTIVE;
     }
 
     @PrePersist
     void beforeCreate() {
         createdAt = Instant.now();
+        if (status == null) {
+            status = SecurityGrantStatus.ACTIVE;
+        }
+    }
+
+    public void reactivate() {
+        this.status = SecurityGrantStatus.ACTIVE;
+        this.revokedAt = null;
+        this.revokedBy = null;
+        this.revokedReason = null;
+    }
+
+    public void revoke(String actorId, String reason) {
+        this.status = SecurityGrantStatus.REVOKED;
+        this.revokedAt = Instant.now();
+        this.revokedBy = actorId;
+        this.revokedReason = reason;
     }
 
     public UUID getId() {
@@ -77,5 +108,21 @@ public class AppUserRole {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public SecurityGrantStatus getStatus() {
+        return status;
+    }
+
+    public Instant getRevokedAt() {
+        return revokedAt;
+    }
+
+    public String getRevokedBy() {
+        return revokedBy;
+    }
+
+    public String getRevokedReason() {
+        return revokedReason;
     }
 }

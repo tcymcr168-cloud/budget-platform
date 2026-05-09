@@ -1,7 +1,9 @@
 package com.budgetplatform.security.api;
 
 import com.budgetplatform.security.domain.AppUserEntityScope;
+import com.budgetplatform.security.domain.SecurityGrantStatus;
 
+import java.time.Instant;
 import java.util.UUID;
 
 public record EntityScopeResponse(
@@ -12,7 +14,9 @@ public record EntityScopeResponse(
         UUID entityMemberId,
         String entityMemberCode,
         String entityMemberName,
-        boolean includeDescendants
+        boolean includeDescendants,
+        SecurityGrantStatus status,
+        Instant revokedAt
 ) {
 
     public static EntityScopeResponse from(AppUserEntityScope scope) {
@@ -24,7 +28,9 @@ public record EntityScopeResponse(
                 scope.getEntityMember().getId(),
                 scope.getEntityMember().getCode(),
                 scope.getEntityMember().getName(),
-                scope.isIncludeDescendants()
+                scope.isIncludeDescendants(),
+                scope.getStatus(),
+                scope.getRevokedAt()
         );
     }
 }

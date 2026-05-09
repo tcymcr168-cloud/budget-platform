@@ -5611,3 +5611,113 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `SEC-015`：角色与 Entity 范围软撤销 schema/API。目标是为 Workspace 角色授权和 Entity 范围授权增加软撤销能力、撤销 action endpoints、审计和测试；该阶段将涉及 migration，但用户已授权非删除事项自动推进。
+
+## SEC-015
+
+阶段名称：角色与 Entity 范围软撤销 schema/API
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+为 Workspace 角色授权和 Entity 范围授权增加软撤销字段、撤销 action endpoints、active-only 授权查询、审计和测试。本阶段允许新增 migration，但不做物理删除，不做前端 UI，不做批量撤销，不进入 ERP、BI 或合并报表。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `sec-012-revoke-disable-design.md`、`sec-014-inactive-user-authorization.md`、安全授权实体/仓库/服务/控制器/集成测试 |
+| 允许修改 | 授权实体、授权仓库、授权服务、SecurityController、授权响应、撤销请求、migration、安全集成测试、SEC-015 文档、README、PROJECT_STEP_RECORD |
+| 禁止修改 | 删除文件、物理删除接口、前端 UI、批量撤销、PDF 原文、OCR 全文、secrets、外部服务、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `mvn test`、`git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/resources/db/migration/V8__security_grant_soft_revoke.sql` | 新增授权软撤销字段和状态索引 |
+| `backend/src/main/java/com/budgetplatform/security/domain/SecurityGrantStatus.java` | 新增授权状态枚举 |
+| `backend/src/main/java/com/budgetplatform/security/domain/AppUserRole.java` | 增加 `ACTIVE`/`REVOKED` 状态、撤销和重新激活行为 |
+| `backend/src/main/java/com/budgetplatform/security/domain/AppUserEntityScope.java` | 增加 `ACTIVE`/`REVOKED` 状态、撤销和重新激活行为 |
+| `backend/src/main/java/com/budgetplatform/security/repository/AppUserRoleRepository.java` | 查询收敛为 active grant 并支持按唯一键查找旧授权 |
+| `backend/src/main/java/com/budgetplatform/security/repository/AppUserEntityScopeRepository.java` | 查询收敛为 active grant 并支持按唯一键查找旧授权 |
+| `backend/src/main/java/com/budgetplatform/security/service/AuthorizationService.java` | 角色和 Entity 范围授权判断只读取 active grant |
+| `backend/src/main/java/com/budgetplatform/security/service/SecurityService.java` | 新增撤销服务、重新 grant 激活旧记录、active-only 列表和 current user grants |
+| `backend/src/main/java/com/budgetplatform/security/api/SecurityController.java` | 新增 role/entity-scope revoke action endpoints |
+| `backend/src/main/java/com/budgetplatform/security/api/SecurityGrantRevokeRequest.java` | 新增撤销请求 |
+| `backend/src/main/java/com/budgetplatform/security/api/UserRoleResponse.java` | 返回授权状态和撤销时间 |
+| `backend/src/main/java/com/budgetplatform/security/api/EntityScopeResponse.java` | 返回授权状态和撤销时间 |
+| `backend/src/test/java/com/budgetplatform/security/api/SecurityControllerIntegrationTests.java` | 覆盖撤销、active-only 列表、重新 grant 激活和审计 |
+| `docs/architecture/sec-015-grant-soft-revoke-api.md` | 新增 SEC-015 架构说明 |
+| `README.md` | 更新当前治理状态和 SEC-015 文档入口 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-015 阶段记录 |
+
+### 关键产出
+
+1. `app_user_role` 和 `app_user_entity_scope` 新增 `status`、`revoked_at`、`revoked_by`、`revoked_reason`。
+2. 新增 `POST /api/security/users/{userId}/roles/{roleId}/revoke`。
+3. 新增 `POST /api/security/users/{userId}/entity-scopes/{scopeId}/revoke`。
+4. 授权判断、当前用户授权摘要和授权列表仅使用 `ACTIVE` grants。
+5. 撤销后的同一授权再次 grant 时重新激活原记录，避免数据库方言相关的部分唯一索引。
+6. 撤销和重新激活均记录 `ACCESS_CHANGE` 审计。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` 第一次 | 失败；`V8__security_grant_soft_revoke.sql` 第 1 行在 H2 下不支持一次 `ALTER TABLE ... ADD COLUMN` 添加多列 |
+| `mvn test` 第二次 | 通过；57 个测试全部通过，0 failures，0 errors，0 skipped；Flyway 成功应用 8 个 migration |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示当前工作副本下若干文本文件 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 SEC-015 相关后端代码、migration、测试、文档、README 和阶段记录 |
+| 边界关键词扫描 | 仅命中既有 `AuditAction.DELETE`、`AuthMode.JWT`、JWT fail-closed 占位、前端 `CurrentUser.authMode` 类型和审计 `DELETE` 筛选；未新增 `DeleteMapping`、OAuth 依赖、token 存储、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 首次后端测试失败：H2 报 `Syntax error in SQL statement "ALTER TABLE app_user_role ADD COLUMN status ... , ADD COLUMN ..."`。
+2. 定位原因：migration 使用了多列 ADD COLUMN 写法，H2 不兼容。
+3. 最小修复：将 V8 migration 拆为逐列 `ALTER TABLE ... ADD COLUMN`。
+4. 复测结果：`mvn test` 通过，57 个测试全部通过。
+
+### 风险与限制
+
+1. 当前 active list endpoints 隐藏 revoked grants，历史追踪主要依赖 audit。
+2. 重新 grant 会复用原 grant id。
+3. 前端禁用/启用和撤销入口仍需 SEC-016。
+4. JWT/OIDC bearer 校验仍未实现。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| migration | 新增 `V8__security_grant_soft_revoke.sql`，符合本阶段范围 |
+| 物理删除接口 | 未新增 |
+| 前端 UI | 未修改 |
+| 批量撤销 | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| token 存储 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 前端禁用/启用与撤销入口尚未实现。
+2. 审计生命周期事件筛选体验仍可在后续 AUDIT 阶段优化。
+3. JWT/OIDC bearer 校验尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-015。
+
+关闭理由：角色与 Entity 范围软撤销 schema/API、active-only 授权查询、撤销审计和重新 grant 激活行为已完成；后端测试、资料保护检查、空白检查和越界扫描均通过。本阶段未删除文件，未新增物理删除接口，未修改前端 UI，未提交 PDF/OCR 全文、secrets、构建产物或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `SEC-016`：前端禁用/启用与撤销 MVP。目标是在现有安全管理前端中增加用户 disable/enable、角色 revoke、Entity scope revoke 的最小操作入口和 reason 输入；不新增后端 schema，不做批量操作，不做复杂审批流。

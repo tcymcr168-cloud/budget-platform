@@ -4,6 +4,8 @@ import com.budgetplatform.metadata.domain.BudgetWorkspace;
 import com.budgetplatform.metadata.domain.DimensionMember;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -46,6 +48,19 @@ public class AppUserEntityScope {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    private SecurityGrantStatus status;
+
+    @Column(name = "revoked_at")
+    private Instant revokedAt;
+
+    @Column(name = "revoked_by", length = 120)
+    private String revokedBy;
+
+    @Column(name = "revoked_reason", length = 240)
+    private String revokedReason;
+
     protected AppUserEntityScope() {
     }
 
@@ -60,11 +75,30 @@ public class AppUserEntityScope {
         this.workspace = workspace;
         this.entityMember = entityMember;
         this.includeDescendants = includeDescendants;
+        this.status = SecurityGrantStatus.ACTIVE;
     }
 
     @PrePersist
     void beforeCreate() {
         createdAt = Instant.now();
+        if (status == null) {
+            status = SecurityGrantStatus.ACTIVE;
+        }
+    }
+
+    public void reactivate(boolean includeDescendants) {
+        this.status = SecurityGrantStatus.ACTIVE;
+        this.includeDescendants = includeDescendants;
+        this.revokedAt = null;
+        this.revokedBy = null;
+        this.revokedReason = null;
+    }
+
+    public void revoke(String actorId, String reason) {
+        this.status = SecurityGrantStatus.REVOKED;
+        this.revokedAt = Instant.now();
+        this.revokedBy = actorId;
+        this.revokedReason = reason;
     }
 
     public UUID getId() {
@@ -89,5 +123,21 @@ public class AppUserEntityScope {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public SecurityGrantStatus getStatus() {
+        return status;
+    }
+
+    public Instant getRevokedAt() {
+        return revokedAt;
+    }
+
+    public String getRevokedBy() {
+        return revokedBy;
+    }
+
+    public String getRevokedReason() {
+        return revokedReason;
     }
 }

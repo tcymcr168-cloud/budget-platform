@@ -5,6 +5,7 @@ import com.budgetplatform.common.api.ErrorCode;
 import com.budgetplatform.security.context.AuthProperties;
 import com.budgetplatform.security.context.CurrentUserContext;
 import com.budgetplatform.security.domain.AppUser;
+import com.budgetplatform.security.domain.SecurityGrantStatus;
 import com.budgetplatform.security.domain.SecurityRoleCode;
 import com.budgetplatform.security.domain.SecurityUserStatus;
 import com.budgetplatform.security.repository.AppUserEntityScopeRepository;
@@ -77,10 +78,11 @@ public class AuthorizationService {
             return true;
         }
         AppUser user = loadUser(context);
-        return scopeRepository.existsByUser_IdAndWorkspace_IdAndEntityMember_Id(
+        return scopeRepository.existsByUser_IdAndWorkspace_IdAndEntityMember_IdAndStatus(
                 user.getId(),
                 workspaceId,
-                entityMemberId
+                entityMemberId,
+                SecurityGrantStatus.ACTIVE
         );
     }
 
@@ -91,7 +93,11 @@ public class AuthorizationService {
             return Set.of();
         }
         AppUser user = loadUser(context);
-        return scopeRepository.findByUser_IdAndWorkspace_IdOrderByEntityMember_CodeAsc(user.getId(), workspaceId)
+        return scopeRepository.findByUser_IdAndWorkspace_IdAndStatusOrderByEntityMember_CodeAsc(
+                        user.getId(),
+                        workspaceId,
+                        SecurityGrantStatus.ACTIVE
+                )
                 .stream()
                 .map(scope -> scope.getEntityMember().getId())
                 .collect(Collectors.toUnmodifiableSet());
@@ -109,7 +115,11 @@ public class AuthorizationService {
         }
         Set<SecurityRoleCode> persistedRoles = (user == null
                 ? Stream.<SecurityRoleCode>empty()
-                : roleRepository.findByUser_IdAndWorkspace_IdOrderByRoleCodeAsc(user.getId(), workspaceId)
+                : roleRepository.findByUser_IdAndWorkspace_IdAndStatusOrderByRoleCodeAsc(
+                        user.getId(),
+                        workspaceId,
+                        SecurityGrantStatus.ACTIVE
+                )
                 .stream()
                 .map(role -> role.getRoleCode()))
                 .collect(Collectors.toSet());

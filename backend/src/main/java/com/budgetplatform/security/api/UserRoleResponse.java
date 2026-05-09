@@ -1,8 +1,10 @@
 package com.budgetplatform.security.api;
 
 import com.budgetplatform.security.domain.AppUserRole;
+import com.budgetplatform.security.domain.SecurityGrantStatus;
 import com.budgetplatform.security.domain.SecurityRoleCode;
 
+import java.time.Instant;
 import java.util.UUID;
 
 public record UserRoleResponse(
@@ -10,7 +12,9 @@ public record UserRoleResponse(
         UUID userId,
         UUID workspaceId,
         String workspaceCode,
-        SecurityRoleCode roleCode
+        SecurityRoleCode roleCode,
+        SecurityGrantStatus status,
+        Instant revokedAt
 ) {
 
     public static UserRoleResponse from(AppUserRole role) {
@@ -19,7 +23,9 @@ public record UserRoleResponse(
                 role.getUser().getId(),
                 role.getWorkspace().getId(),
                 role.getWorkspace().getCode(),
-                role.getRoleCode()
+                role.getRoleCode(),
+                role.getStatus(),
+                role.getRevokedAt()
         );
     }
 }
