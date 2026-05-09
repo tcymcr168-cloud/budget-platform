@@ -4196,3 +4196,99 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `SEC-008`：前端生产身份边界与内部身份选择器收敛。目标是在不实现完整登录/IdP 的前提下，把当前前端身份选择器明确限定为开发模式，并为生产认证接入预留稳定 UX 和 API 边界。
+
+## SEC-008
+
+阶段名称：前端生产身份边界与开发身份选择器收敛
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+让前端生产构建停止自动注入 `X-User-Id` 和 `X-User-Roles`，并隐藏内部开发身份选择器。保留 Vite dev 模式下的开发身份上下文用于本地 MVP 验证，但不把它伪装成生产登录系统。本阶段不实现 IdP、JWT、OAuth、密码登录、会话刷新、后端认证改造或 migration。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `docs/architecture/sec-004-frontend-security-context.md`、`docs/architecture/sec-005-production-auth-boundary.md`、`docs/architecture/sec-007-remove-header-role-trust.md`、`frontend/src/shared/api/http.ts`、`frontend/src/App.tsx` |
+| 允许修改 | 前端共享 HTTP 客户端、App 顶部身份控件、Vite 类型声明、SEC-008 架构文档、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 删除文件、后端业务逻辑、migration、PDF 原文、OCR 全文、外部 IdP/JWT/OAuth 接入、secrets、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `pnpm type-check`、`pnpm lint`、`pnpm build`、`git check-ignore`、`git diff --check`、`git status --short`、前端边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段未删除文件，未新增 migration，未访问外部服务 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `frontend/src/shared/api/http.ts` | 将内部身份请求头注入限制在 Vite dev 模式，并支持 `VITE_ENABLE_DEV_SECURITY_CONTEXT=false` 关闭 |
+| `frontend/src/App.tsx` | 仅在 dev 身份上下文启用时展示内部 User/Role 选择器 |
+| `frontend/src/vite-env.d.ts` | 新增 Vite 环境变量类型声明 |
+| `docs/architecture/sec-008-frontend-auth-boundary.md` | 新增前端认证边界文档 |
+| `README.md` | 更新当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-008 阶段记录 |
+
+### 关键产出
+
+1. 生产构建不再自动注入 `X-User-Id`。
+2. 生产构建不再自动注入 `X-User-Roles`。
+3. 内部 User/Role 选择器仅在 Vite dev 模式下渲染。
+4. 开发模式可通过 `VITE_ENABLE_DEV_SECURITY_CONTEXT=false` 临时关闭内部身份注入。
+5. 前端边界与 SEC-007 后端默认不信任角色头的策略保持一致。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过；Vite 生产构建成功，产物位于已忽略的 `frontend/dist` |
+| `git check-ignore` | 通过；PDF、OCR、前端依赖/构建产物、后端 `target` 均被忽略 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| `git status --short` | 通过；仅 SEC-008 前端、文档和阶段记录修改 |
+| 前端边界关键词扫描 | 通过；`frontend/src` 未发现 token/password/sessionStorage/localStorage、ERP、Chart、BI 图表或合并报表实现 |
+| 生产 bundle 身份头检查 | 通过；`frontend/dist/assets/*.js` 不包含 `X-User-Id` 或 `X-User-Roles` 字符串，且 `frontend/dist` 被忽略 |
+
+### 失败项与修复记录
+
+1. 前端三项验证首轮通过，未出现类型、lint 或构建失败。
+2. 阶段探索时前端目录列表误展开了 `node_modules`，后续只读取 `frontend/src` 和配置文件，未修改或删除依赖目录。
+
+### 风险与限制
+
+1. 正式生产登录仍未实现；生产构建停止注入身份头后，需要后续可信认证机制提供身份。
+2. 开发模式默认仍保留内部身份选择器，以维持 MVP 手工验证效率。
+3. 后端默认已不信任 `X-User-Roles`，本地非测试环境如需手工管理权限，需要配合 `BUDGET_PLATFORM_AUTH_BOOTSTRAP_ADMIN_USERS` 或显式允许 header roles。
+4. 本阶段未改造为 `/api/security/me` 驱动的完整登录态 UX。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端业务逻辑 | 未修改 |
+| migration | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 生产登录、会话、JWT/OIDC 或反向代理认证仍未实现。
+2. 前端尚未基于 `/api/security/me` 展示可信当前用户。
+3. Entity 范围维护仍缺少前端管理界面。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-008。
+
+关闭理由：生产构建身份头注入已关闭，开发身份选择器已限定为 dev 模式，前端 type-check、lint、build 全部通过；未删除文件，未新增 migration，未提交 PDF/OCR 全文、secrets 或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `SEC-009`：会话与 Token 运维规则文档化。目标是在正式接入 JWT/OIDC 或反向代理认证前，先明确 token 生命周期、注销、时钟偏差、CORS/cookie、失败认证审计和密钥运维边界。

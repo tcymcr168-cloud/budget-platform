@@ -64,7 +64,7 @@ import {
   SubmissionTask,
   submitSubmissionTask,
 } from './features/submissions/submissionApi';
-import { setApiSecurityContext } from './shared/api/http';
+import { isDevSecurityContextEnabled, setApiSecurityContext } from './shared/api/http';
 
 const dimensionTypes: DimensionType[] = [
   'ACCOUNT',
@@ -117,6 +117,7 @@ function formatActionError(caught: unknown) {
 }
 
 function App() {
+  const devSecurityContextEnabled = isDevSecurityContextEnabled();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [dimensions, setDimensions] = useState<Dimension[]>([]);
   const [members, setMembers] = useState<DimensionMember[]>([]);
@@ -215,7 +216,9 @@ function App() {
     userId: 'admin@example.com',
     roles: 'BUDGET_ADMIN',
   });
-  const [notice, setNotice] = useState('Security context is using BUDGET_ADMIN.');
+  const [notice, setNotice] = useState(
+    devSecurityContextEnabled ? 'Development identity is using BUDGET_ADMIN.' : 'Ready.',
+  );
   const [error, setError] = useState('');
 
   const selectedWorkspace = useMemo(
@@ -928,30 +931,32 @@ function App() {
         </button>
       </header>
 
-      <section className="security-strip" aria-label="Security context">
-        <label>
-          User
-          <input
-            value={securityContext.userId}
-            onChange={(event) =>
-              setSecurityContext({ ...securityContext, userId: event.target.value })
-            }
-          />
-        </label>
-        <label>
-          Role
-          <select
-            value={securityContext.roles}
-            onChange={(event) =>
-              setSecurityContext({ ...securityContext, roles: event.target.value })
-            }
-          >
-            {securityRoleOptions.map((role) => (
-              <option key={role}>{role}</option>
-            ))}
-          </select>
-        </label>
-      </section>
+      {devSecurityContextEnabled ? (
+        <section className="security-strip" aria-label="Development identity context">
+          <label>
+            User
+            <input
+              value={securityContext.userId}
+              onChange={(event) =>
+                setSecurityContext({ ...securityContext, userId: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            Role
+            <select
+              value={securityContext.roles}
+              onChange={(event) =>
+                setSecurityContext({ ...securityContext, roles: event.target.value })
+              }
+            >
+              {securityRoleOptions.map((role) => (
+                <option key={role}>{role}</option>
+              ))}
+            </select>
+          </label>
+        </section>
+      ) : null}
 
       <section className="status-row" aria-live="polite">
         <span>{notice}</span>

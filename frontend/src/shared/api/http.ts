@@ -5,6 +5,9 @@ export interface ApiSecurityContext {
   roles: string;
 }
 
+const devSecurityContextEnabled =
+  import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEV_SECURITY_CONTEXT !== 'false';
+
 const defaultSecurityContext: ApiSecurityContext = {
   userId: 'admin@example.com',
   roles: 'BUDGET_ADMIN',
@@ -23,6 +26,10 @@ export function getApiSecurityContext() {
   return securityContext;
 }
 
+export function isDevSecurityContextEnabled() {
+  return devSecurityContextEnabled;
+}
+
 export async function requestJson<T>(
   input: string | URL,
   options: ApiRequestOptions = {},
@@ -37,11 +44,11 @@ export async function requestJson<T>(
     headers.set('X-Request-Id', options.requestId);
   }
 
-  if (securityContext.userId && !headers.has('X-User-Id')) {
+  if (devSecurityContextEnabled && securityContext.userId && !headers.has('X-User-Id')) {
     headers.set('X-User-Id', securityContext.userId);
   }
 
-  if (securityContext.roles && !headers.has('X-User-Roles')) {
+  if (devSecurityContextEnabled && securityContext.roles && !headers.has('X-User-Roles')) {
     headers.set('X-User-Roles', securityContext.roles);
   }
 
