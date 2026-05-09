@@ -7459,3 +7459,96 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `E2E-003`：浏览器端创建流程 smoke。目标是在继续使用受控 mock 的前提下覆盖 workspace/model/template 的前端创建交互，保持不新增业务功能，并为后续 backend-backed browser smoke 做准备。
+
+## E2E-003
+
+阶段名称：浏览器端创建流程 smoke
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+在 `E2E-002` 浏览器 smoke 基线之上，新增一条创建流程 smoke，验证正式 React/Vite 工作台可以通过现有 UI 和共享 API client 完成 workspace、budget model、budget template 的创建交互链。本阶段不新增业务功能，不修改后端运行时代码，不新增 migration，不处理 PDF/OCR，不新增 ERP 直连、BI 图表或合并报表。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`E2E-002`、`frontend/src/App.tsx` 表单与 handler、前端 API 契约、当前 Git 状态 |
+| 允许修改 | `frontend/e2e`、E2E 架构文档、README、PROJECT_STEP_RECORD |
+| 禁止修改 | backend/src、frontend/src、migration、PDF/OCR、ERP 直连、BI 图表、合并报表、删除文件、临时入口页 |
+| 验证命令 | `pnpm e2e`、`pnpm type-check`、`pnpm lint`、`pnpm build`、资料保护检查、空白检查、git 状态和边界扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `frontend/e2e/create-flow-smoke.spec.ts` | 新增 workspace -> budget model -> template 创建流程浏览器 smoke |
+| `docs/architecture/e2e-003-browser-create-flow-smoke.md` | 新增阶段说明、覆盖范围、契约说明和限制 |
+| `README.md` | 新增 E2E-003 文档入口，更新资料保护命令和当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 E2E-003 阶段记录 |
+
+### 关键产出
+
+1. 新增 Playwright spec，通过正式 Vite webServer 打开应用，不使用临时 HTML 或调试入口。
+2. 使用同源 `/api/*` route mock 和平台 `{ success: true, data }` envelope。
+3. route mock 内维护内存状态，验证 POST 创建后 GET 列表可以反映新对象。
+4. 覆盖 `AUTO_WS`、`AUTO_MODEL`、`AUTO_TEMPLATE` 的创建和可见性断言。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `pnpm e2e` | 通过；Chromium，2 tests passed |
+| `pnpm type-check` | 通过；包含 app TS 与 E2E TS |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过；Vite production build 成功，`frontend/dist` 继续被忽略 |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ frontend/playwright-report/ frontend/test-results/ backend/target/` | 通过；PDF、OCR、构建产物、依赖和 Playwright 输出目录均被忽略 |
+| `git diff --check` | 通过；仅提示 README、PROJECT_STEP_RECORD 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 E2E-003 spec、E2E-003 文档、README 和阶段记录 |
+| 边界扫描 | 仅命中既有授权/JWT/前端 dev env guard 代码；本阶段未新增 ERP、BI、合并报表、PDF/OCR 原文或密钥 |
+
+### 失败项与修复记录
+
+1. 阶段前读取 `frontend/src/features/budgetModel/budgetModelApi.ts` 失败，真实原因为路径写成单数 `budgetModel`；正确路径为 `frontend/src/features/budgetModels/budgetModelApi.ts`，随后按正确路径读取。
+2. 新增 `pnpm e2e`、`pnpm type-check`、`pnpm lint`、`pnpm build` 均一次通过，未出现测试失败。
+
+### 风险与限制
+
+1. 本阶段仍使用前端 route mock，不验证真实后端持久化。
+2. 未覆盖 dimension binding、template axis、submission task、actual import 或 variance 浏览器流程。
+3. 未覆盖移动 viewport。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| backend/src | 未修改 |
+| frontend/src | 未修改 |
+| migration | 未新增，未修改 |
+| 新业务模块 | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+| Playwright 测试产物 | 已通过 `.gitignore` 排除，未提交 |
+
+### 未解决问题
+
+1. backend-backed browser smoke 仍需稳定本地 profile 和数据 reset 策略。
+2. template axis binding 浏览器 smoke 需要明确 model-dimension fixture 策略后再进入。
+3. PostgreSQL EXPLAIN 采集尚未执行。
+
+### 是否建议关闭本阶段
+
+建议关闭 E2E-003。
+
+关闭理由：创建流程 browser smoke、文档、README 和阶段记录已完成；`pnpm e2e`、`pnpm type-check`、`pnpm lint`、`pnpm build` 均通过。本阶段未删除文件，未修改 backend/src、frontend/src 或 migration，未新增业务模块、ERP、BI、合并报表、PDF/OCR 全文或构建产物。
+
+### 下一阶段建议
+
+下一阶段建议进入 `PG-EXPLAIN-001`：PostgreSQL EXPLAIN 采集准备与可执行脚本。目标是在不依赖 Docker 的前提下检查本机 PostgreSQL 可用性、沉淀可重复 EXPLAIN 采集脚本和数据准备策略；如无法连接本机数据库，则输出真实错误和替代路径。
