@@ -4292,3 +4292,93 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `SEC-009`：会话与 Token 运维规则文档化。目标是在正式接入 JWT/OIDC 或反向代理认证前，先明确 token 生命周期、注销、时钟偏差、CORS/cookie、失败认证审计和密钥运维边界。
+
+## SEC-009
+
+阶段名称：会话与 Token 运维规则文档化
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+在不实现 JWT/OIDC、Spring Security、登录页、cookie session、secrets、外部身份服务或 migration 的前提下，定义后续生产认证必须遵守的 token 生命周期、校验规则、注销、时钟偏差、CORS/cookie、失败认证审计和密钥轮换边界，避免未来实现阶段临时拼接认证行为。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `docs/architecture/sec-005-production-auth-boundary.md`、`docs/architecture/sec-006-trusted-principal-adapter.md`、`docs/architecture/sec-007-remove-header-role-trust.md`、`docs/architecture/sec-008-frontend-auth-boundary.md`、审计阶段文档、`README.md` |
+| 允许修改 | `docs/architecture/sec-009-session-token-operations.md`、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 业务代码、前端实现、migration、PDF 原文、OCR 全文、JWT/OAuth 依赖、外部 IdP、secrets、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段未删除文件，未写代码，未新增 migration，未访问外部服务 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/sec-009-session-token-operations.md` | 新增会话与 Token 运维规则文档 |
+| `README.md` | 更新当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-009 阶段记录 |
+
+### 关键产出
+
+1. 明确未来 JWT/OIDC/反向代理认证模式的会话载体与后端职责。
+2. 明确 token 校验规则：签名、issuer、audience、expiry、nbf、subject、算法和大小限制。
+3. 明确推荐起点：60 秒 clock skew、5 到 15 分钟 access token 生命周期、JWKS 缓存与 key miss 刷新策略。
+4. 明确浏览器 session 规则：不把 bearer token 存入 `localStorage`/`sessionStorage`，cookie 需 `HttpOnly`、`Secure` 和 SameSite。
+5. 明确失败认证审计事件与禁止记录 raw token/secrets/大段 IdP payload。
+6. 明确密钥轮换和缺失配置 fail-closed 原则。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| 文档阶段 | 未运行后端/前端测试；本阶段未修改代码 |
+| `git check-ignore` | 通过；PDF、OCR、前端依赖/构建产物、后端 `target` 均被忽略 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| `git status --short` | 通过；仅 SEC-009 文档、README 和阶段记录修改 |
+| 源码边界关键词扫描 | 通过；`backend/src/main/java` 和 `frontend/src` 未发现 ERP、Chart、BI 图表、合并报表、secrets 或删除接口；仅命中 SEC-006 既有 `JWT` 失败关闭占位 |
+
+### 失败项与修复记录
+
+1. 本阶段为文档治理阶段，未出现验证失败。
+
+### 风险与限制
+
+1. SEC-009 只定义运维规则，不实现真实生产认证。
+2. 未来接入 JWT/OIDC 或反向代理身份时，仍需实现后端校验、前端会话 UX、失败认证审计写入和密钥配置。
+3. 当前项目仍不能在生产环境依赖 dev-header 模式。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 业务代码 | 未修改 |
+| 前端实现 | 未修改 |
+| migration | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 生产认证实现阶段尚未开始。
+2. 失败认证事件尚未写入 `audit_event`。
+3. `/api/security/me` 尚未成为前端生产登录态入口。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-009。
+
+关闭理由：会话与 Token 运维边界已形成文档，README 和阶段记录已更新；本阶段未写代码、未删除文件、未新增 migration、未提交 PDF/OCR 全文、secrets 或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `SEC-010`：安全文档一致性收敛。目标是标注 SEC-001 至 SEC-004 中请求头角色方案的历史状态，避免后续阅读者误把早期 MVP header roles 当成当前默认生产策略。
