@@ -5136,3 +5136,100 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUTH-005`：失败认证审计。目标是在不存储 raw token、secrets 或 PII-heavy payload 的前提下，记录缺失 principal、可信头缺失、未实现 JWT 模式等认证失败类别。
+
+## AUTH-005
+
+阶段名称：失败认证审计
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+在不新增 migration、不存储 raw token、不写 secrets、不接外部身份服务的前提下，为认证解析失败记录低敏安全审计事件。本阶段只覆盖当前 resolver 边界内的失败认证类别，不实现 JWT/OIDC bearer 校验，不做登录/登出。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `sec-009-session-token-operations.md`、`auth-004-frontend-current-user-boundary.md`、`CurrentUserContextResolver`、现有 audit 模型 |
+| 允许修改 | 审计 action enum、认证 resolver、相关后端测试、前端 audit action 类型/选项、AUTH-005 文档、README、PROJECT_STEP_RECORD |
+| 禁止修改 | migration、JWT/OIDC 依赖、token 存储、secrets、外部服务、PDF 原文、OCR 全文、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `mvn test`、`pnpm type-check`、`pnpm lint`、`pnpm build`、`git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段未删除文件，未新增 migration，未访问外部服务 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/common/audit/AuditAction.java` | 新增 `AUTH_FAILURE` |
+| `backend/src/main/java/com/budgetplatform/security/context/CurrentUserContextResolver.java` | 认证失败时记录低敏审计事件 |
+| `backend/src/test/java/com/budgetplatform/security/api/SecurityControllerReverseProxyIntegrationTests.java` | 验证反向代理缺失 principal 会写入失败认证审计 |
+| `frontend/src/features/audit/auditApi.ts` | 增加 `AUTH_FAILURE` 类型 |
+| `frontend/src/App.tsx` | 审计筛选 action 增加 `AUTH_FAILURE` |
+| `docs/architecture/auth-005-failed-authentication-audit.md` | 新增 AUTH-005 架构说明 |
+| `README.md` | 更新当前治理状态和 AUTH-005 文档入口 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUTH-005 阶段记录 |
+
+### 关键产出
+
+1. 认证失败以 `subjectType=authentication`、`subjectId=failure`、`action=AUTH_FAILURE` 写入既有 audit 表。
+2. 失败详情只包含 reason、message、authMode、headerName、method、path、requestId 等低敏字段。
+3. 反向代理可信头缺失会记录 `MISSING_REVERSE_PROXY_PRINCIPAL`。
+4. JWT 模式未实现会记录 `JWT_NOT_IMPLEMENTED`。
+5. 前端审计筛选支持 `AUTH_FAILURE`。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 52, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过；Vite 生产构建成功，产物位于已忽略的 `frontend/dist` |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示多个工作副本文件 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 AUTH-005 相关后端认证/审计、前端审计类型、文档、README 和阶段记录 |
+| 边界关键词扫描 | 命中既有 `AuthMode.JWT`、`CurrentUserContextResolver` JWT 失败关闭占位，以及前端 `CurrentUser.authMode` 的类型枚举；未新增 OAuth 依赖、token 存储、Bearer 处理、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 后端与前端验证首轮通过，未出现测试、类型、lint 或构建失败。
+
+### 风险与限制
+
+1. 本阶段记录当前 resolver 边界内的认证失败，不覆盖所有授权失败。
+2. JWT/OIDC bearer 校验仍未实现，因此 JWT 失败只覆盖“模式未实现”的失败类别。
+3. 失败认证事件与业务审计共用既有 audit 表，后续可再设计保留与归档策略。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| migration | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| token 存储 | 未新增 |
+| raw token 审计 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. JWT/OIDC bearer 校验尚未实现。
+2. 授权撤销/禁用用户流程尚未实现。
+3. 审计保留、归档和安全事件告警仍未设计。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUTH-005。
+
+关闭理由：认证失败审计已覆盖当前 resolver 边界，反向代理缺失 principal 的失败审计已由集成测试验证；后端测试、前端 type-check/lint/build 和仓库保护检查均通过，未删除文件，未新增 migration，未提交 PDF/OCR 全文、secrets、raw token 或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUTH-006`：部署与密钥运维手册。目标是沉淀 `DEV_HEADER`、`REVERSE_PROXY` 和未来 JWT/OIDC 的环境变量、网关 header 覆盖、CORS/TLS、日志脱敏、回滚与检查清单；仍不实现 JWT/OIDC 代码。

@@ -106,6 +106,7 @@ const auditActionOptions = [
   'STATUS_CHANGE',
   'IMPORT',
   'ACCESS_CHANGE',
+  'AUTH_FAILURE',
 ] satisfies AuditAction[];
 
 const securityRoleOptions = [

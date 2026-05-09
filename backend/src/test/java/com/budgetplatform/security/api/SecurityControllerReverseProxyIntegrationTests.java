@@ -49,9 +49,19 @@ class SecurityControllerReverseProxyIntegrationTests {
     void rejectsCurrentUserWhenTrustedReverseProxyHeaderIsMissing() throws Exception {
         mockMvc.perform(get("/api/security/me")
                         .header("X-User-Id", "attacker@example.com")
-                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                        .header("X-User-Roles", "BUDGET_ADMIN")
+                        .header("X-Request-Id", "auth-missing-principal-test"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+
+        assertThat(auditRepository.findBySubjectTypeAndSubjectIdOrderByOccurredAtAsc("authentication", "failure"))
+                .anySatisfy(event -> {
+                    assertThat(event.getAction().name()).isEqualTo("AUTH_FAILURE");
+                    assertThat(event.getActorId()).isNull();
+                    assertThat(event.getDetailsJson()).contains("MISSING_REVERSE_PROXY_PRINCIPAL");
+                    assertThat(event.getDetailsJson()).contains("X-Trusted-User");
+                    assertThat(event.getDetailsJson()).contains("auth-missing-principal-test");
+                });
     }
 
     @Test

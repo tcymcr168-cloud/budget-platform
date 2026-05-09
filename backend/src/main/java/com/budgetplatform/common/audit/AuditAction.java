@@ -6,5 +6,6 @@ public enum AuditAction {
     DELETE,
     STATUS_CHANGE,
     IMPORT,
-    ACCESS_CHANGE
+    ACCESS_CHANGE,
+    AUTH_FAILURE
 }
