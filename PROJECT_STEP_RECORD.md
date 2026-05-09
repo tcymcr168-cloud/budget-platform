@@ -6298,3 +6298,96 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUTH-010`：前端 bearer 边界决策与设计。目标是判断浏览器是否需要 direct bearer flow；若需要，只做安全边界设计并避免 `localStorage`/`sessionStorage` token 存储；若不需要，则明确 JWT 用于 API/gateway 客户端，浏览器生产流量继续走 reverse proxy trusted principal。
+
+## AUTH-010
+
+阶段名称：前端 bearer 边界决策与设计
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+在后端 JWT bearer adapter 已可用后，明确 React 浏览器前端是否进入 direct bearer token flow。本阶段只做架构决策与文档沉淀，不修改前端运行时代码，不新增 token 存储，不新增 login/logout UI，不新增 IdP SDK，不修改后端认证行为，不新增 migration。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `auth-009-jwt-bearer-adapter.md`、`auth-004-frontend-current-user-boundary.md`、`sec-008-frontend-auth-boundary.md`、README、当前 Git 状态 |
+| 允许修改 | `docs/architecture/auth-010-frontend-bearer-boundary.md`、README、PROJECT_STEP_RECORD |
+| 禁止修改 | 前端运行时代码、后端运行时代码、migration、token 存储、IdP SDK、secrets、PDF 原文、OCR 全文、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/auth-010-frontend-bearer-boundary.md` | 新增前端 bearer 边界决策文档 |
+| `README.md` | 更新 AUTH-010 文档入口和当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUTH-010 阶段记录 |
+
+### 关键产出
+
+1. MVP 决策：不实现浏览器 direct bearer token flow。
+2. 生产浏览器流量继续优先采用 `REVERSE_PROXY` trusted principal，由企业 SSO/gateway 在浏览器与后端之间处理身份会话。
+3. 后端 `JWT` adapter 定位为 API gateway、非浏览器 API 客户端、自动化客户端或受控 gateway-to-backend 调用。
+4. 明确拒绝在 `localStorage` 或 `sessionStorage` 中保存 access token。
+5. 明确未来若必须进入 direct bearer flow，需要先完成 OIDC Authorization Code + PKCE、BFF/session-cookie、CSRF/CORS、logout、刷新失败、E2E 和回滚设计。
+6. 保持应用预算授权继续来自 `app_user_role` 与 `app_user_entity_scope`，不使用 IdP group/scope claim。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| 文档阶段 | 未运行后端/前端完整测试；本阶段未修改运行时代码、依赖或 migration |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示 README、PROJECT_STEP_RECORD 和 AUTH-010 文档后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 AUTH-010 文档、README 和阶段记录 |
+| 边界关键词扫描 | 仅命中文档中的 bearer/JWT/localStorage/sessionStorage/ERP/BI/合并报表禁用说明；未新增前端 token 存储、后端代码、migration、PDF/OCR 处理、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 本阶段未出现验证失败。
+
+### 风险与限制
+
+1. 本阶段是架构决策，不实现新的浏览器登录能力。
+2. 生产浏览器认证仍依赖 reverse proxy/gateway 的企业 SSO 和 header stripping 能力。
+3. 后端 JWT adapter 已可用，但真实 IdP/JWKS smoke test 和回滚手册尚未沉淀。
+4. 如未来必须支持 direct bearer browser flow，需要单独阶段引入更完整的威胁模型和 E2E 验证。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 前端运行时代码 | 未修改 |
+| 后端运行时代码 | 未修改 |
+| migration | 未新增 |
+| token 存储 | 未新增 |
+| localStorage/sessionStorage | 未新增代码 |
+| IdP SDK | 未新增 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. `REVERSE_PROXY` 和 `JWT` 两种生产认证模式仍缺部署 smoke 与回滚手册。
+2. 真实企业 SSO/gateway 产品形态尚未绑定到具体部署拓扑。
+3. JWT key rotation、JWKS 可用性监控和认证失败告警尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUTH-010。
+
+关闭理由：前端 bearer 边界决策、拒绝浏览器 token 存储原则、生产 reverse proxy 路线、JWT adapter 使用场景、未来 direct bearer 前置条件、README 和阶段记录已完成；资料保护、空白检查和越界扫描通过。本阶段未删除文件，未修改前后端运行时代码，未新增 migration、token 存储、IdP SDK、secrets、PDF/OCR 全文、构建产物、ERP、BI、合并报表或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUTH-011`：生产认证部署 smoke 与回滚手册。目标是为 `REVERSE_PROXY` 和 `JWT` 模式整理环境变量、启动前检查、HTTP smoke、审计检查、常见失败定位和回滚步骤；不提交 secrets，不访问真实外部 IdP。
