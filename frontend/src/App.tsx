@@ -59,7 +59,9 @@ import {
 } from './features/metadata/metadataApi';
 import {
   createSecurityUser,
+  CurrentUser,
   EntityScope,
+  getCurrentUser,
   grantEntityScope,
   grantUserRole,
   listEntityScopes,
@@ -143,6 +145,10 @@ function formatActionError(caught: unknown) {
   return message;
 }
 
+function uniqueRoleCount(roles: UserRole[]) {
+  return new Set(roles.map((role) => `${role.workspaceCode}:${role.roleCode}`)).size;
+}
+
 function App() {
   const devSecurityContextEnabled = isDevSecurityContextEnabled();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -155,6 +161,7 @@ function App() {
   const [securityUsers, setSecurityUsers] = useState<SecurityUser[]>([]);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [entityScopes, setEntityScopes] = useState<EntityScope[]>([]);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [auditPage, setAuditPage] = useState<PageResponse<AuditEvent>>({
     items: [],
@@ -325,6 +332,7 @@ function App() {
   useEffect(() => {
     void refreshWorkspaces();
     void refreshSecurityUsers();
+    void refreshCurrentUser();
   }, []);
 
   useEffect(() => {
@@ -449,6 +457,18 @@ function App() {
         nextUsers.some((user) => user.id === current) ? current : nextUsers[0]?.id ?? '',
       );
       setNotice('Security users loaded.');
+    });
+  }
+
+  async function refreshCurrentUser() {
+    await runAction(async () => {
+      const nextCurrentUser = await getCurrentUser();
+      setCurrentUser(nextCurrentUser ?? null);
+      setNotice(
+        nextCurrentUser?.authenticated
+          ? `Current user ${nextCurrentUser.userId ?? 'unknown'} resolved.`
+          : 'Authentication required.',
+      );
     });
   }
 
@@ -1135,6 +1155,28 @@ function App() {
           </label>
         </section>
       ) : null}
+
+      <section className="current-user-strip" aria-label="Current authenticated user">
+        <div>
+          <p className="eyebrow">Current User</p>
+          <strong>{currentUser?.userId ?? 'Unauthenticated'}</strong>
+        </div>
+        <div>
+          <p className="eyebrow">Auth Mode</p>
+          <span>{currentUser?.authMode ?? 'N/A'}</span>
+        </div>
+        <div>
+          <p className="eyebrow">App Roles</p>
+          <span>{currentUser ? uniqueRoleCount(currentUser.applicationRoles) : 0}</span>
+        </div>
+        <div>
+          <p className="eyebrow">Entity Scopes</p>
+          <span>{currentUser?.entityScopes.length ?? 0}</span>
+        </div>
+        <button type="button" onClick={() => void refreshCurrentUser()} disabled={loading}>
+          Refresh User
+        </button>
+      </section>
 
       <section className="status-row" aria-live="polite">
         <span>{notice}</span>

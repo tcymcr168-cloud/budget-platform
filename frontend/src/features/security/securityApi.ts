@@ -38,6 +38,15 @@ export interface EntityScope {
   includeDescendants: boolean;
 }
 
+export interface CurrentUser {
+  userId: string | null;
+  roles: SecurityRoleCode[];
+  authenticated: boolean;
+  authMode: 'DEV_HEADER' | 'JWT' | 'REVERSE_PROXY' | null;
+  applicationRoles: UserRole[];
+  entityScopes: EntityScope[];
+}
+
 export interface CreateSecurityUserInput {
   username: string;
   displayName: string;
@@ -101,5 +110,10 @@ export async function grantEntityScope(userId: string, input: GrantEntityScopeIn
       body: JSON.stringify(input),
     },
   );
+  return response.data;
+}
+
+export async function getCurrentUser() {
+  const response = await requestJson<CurrentUser>('/api/security/me');
   return response.data;
 }

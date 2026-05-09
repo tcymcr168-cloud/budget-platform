@@ -5041,3 +5041,98 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUTH-004`：前端生产当前用户边界收敛。目标是让前端读取 `/api/security/me` 的可信字段并展示当前用户/auth mode，同时保持生产构建不注入开发身份或角色覆盖。
+
+## AUTH-004
+
+阶段名称：前端当前用户边界收敛
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+让前端读取后端 `/api/security/me` 的可信当前用户契约，并展示 userId、authMode、应用角色数量和 Entity 范围数量；同时保持开发身份选择器只在 Vite dev 模式启用，不在生产构建中注入 `X-User-Id` 或 `X-User-Roles`。本阶段不实现登录、登出、JWT/OIDC token、cookie session、不新增 migration、不接外部服务、不写 secrets。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `auth-003-current-user-actor-trust.md`、`sec-008-frontend-auth-boundary.md`、`frontend/src/shared/api/http.ts`、`frontend/src/App.tsx` |
+| 允许修改 | 前端安全 API client、App 当前用户展示、样式、AUTH-004 文档、README、PROJECT_STEP_RECORD |
+| 禁止修改 | 后端代码、JWT/OIDC 依赖、登录页、token 存储、migration、PDF 原文、OCR 全文、secrets、外部服务、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `pnpm type-check`、`pnpm lint`、`pnpm build`、`git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段未删除文件，未新增 migration，未访问外部服务 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `frontend/src/features/security/securityApi.ts` | 新增 `CurrentUser` 类型和 `getCurrentUser()` |
+| `frontend/src/App.tsx` | 新增当前用户状态、刷新逻辑和顶部可信用户摘要 |
+| `frontend/src/styles.css` | 新增当前用户摘要布局 |
+| `docs/architecture/auth-004-frontend-current-user-boundary.md` | 新增 AUTH-004 架构说明 |
+| `README.md` | 更新当前治理状态和 AUTH-004 文档入口 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUTH-004 阶段记录 |
+
+### 关键产出
+
+1. 前端通过 `getCurrentUser()` 调用 `/api/security/me`。
+2. 顶部展示后端可信 `userId`、`authMode`、应用角色数量和 Entity 范围数量。
+3. 生产构建仍不会自动注入 `X-User-Id` 或 `X-User-Roles`。
+4. 开发身份选择器仍仅在 dev security context 启用时显示。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过；Vite 生产构建成功，产物位于已忽略的 `frontend/dist` |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示多个工作副本文件 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 AUTH-004 相关前端代码、文档、README 和阶段记录 |
+| 边界关键词扫描 | 命中既有 `AuthMode.JWT`、`CurrentUserContextResolver` JWT 失败关闭占位，以及前端 `CurrentUser.authMode` 的类型枚举；未新增 JWT/OAuth 依赖、token 存储、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 前端三项验证首轮通过，未出现类型、lint 或构建失败。
+2. 本阶段未修改后端代码，因此未运行 `mvn test`。
+
+### 风险与限制
+
+1. 本阶段不是登录/登出实现。
+2. 如果后端返回 401，仍由现有错误条展示。
+3. 当前用户授权信息以数量摘要展示，未展开复杂权限矩阵。
+4. 失败认证审计仍未实现。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端代码 | 未修改 |
+| migration | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| token 存储 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 失败认证审计尚未实现。
+2. JWT/OIDC bearer 校验尚未实现。
+3. 正式登录/登出流程尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUTH-004。
+
+关闭理由：前端已消费 `/api/security/me` 并展示后端可信当前用户摘要；生产构建仍不注入开发身份头；前端 type-check、lint、build 通过，仓库保护检查通过，未删除文件，未新增 migration，未提交 PDF/OCR 全文、secrets 或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUTH-005`：失败认证审计。目标是在不存储 raw token、secrets 或 PII-heavy payload 的前提下，记录缺失 principal、可信头缺失、未实现 JWT 模式等认证失败类别。

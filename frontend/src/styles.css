@@ -123,6 +123,41 @@ h2 {
   background: #ffffff;
 }
 
+.current-user-strip {
+  max-width: 1440px;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(140px, 0.45fr)) auto;
+  gap: 12px;
+  align-items: center;
+  margin: 0 auto 18px;
+  border: 1px solid #d9e1e4;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #ffffff;
+}
+
+.current-user-strip div {
+  min-width: 0;
+}
+
+.current-user-strip strong,
+.current-user-strip span {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #172026;
+  font-size: 0.9rem;
+}
+
+.current-user-strip button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 16px;
+  color: #ffffff;
+  background: #285a7c;
+  font-weight: 700;
+}
+
 .status-row strong {
   color: #9d2f2f;
 }
@@ -486,7 +521,8 @@ td {
   .query-form,
   .variance-form,
   .import-form,
-  .security-strip {
+  .security-strip,
+  .current-user-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -515,7 +551,8 @@ td {
   .query-form,
   .variance-form,
   .import-form,
-  .security-strip {
+  .security-strip,
+  .current-user-strip {
     grid-template-columns: 1fr;
   }
 
