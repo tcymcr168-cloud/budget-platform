@@ -195,6 +195,10 @@ public class FactValue {
         return sourceType;
     }
 
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
     public String getNote() {
         return note;
     }

@@ -3,6 +3,7 @@ package com.budgetplatform.budgetquery.api;
 import com.budgetplatform.budgetquery.service.BudgetQueryService;
 import com.budgetplatform.budgetsubmission.domain.FactValueStatus;
 import com.budgetplatform.common.api.ApiResponse;
+import com.budgetplatform.common.api.PageResponse;
 import com.budgetplatform.security.context.CurrentUserContext;
 import com.budgetplatform.security.context.CurrentUserContextResolver;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -46,6 +47,37 @@ public class BudgetQueryController {
                 categoryMemberId,
                 versionMemberId,
                 status
+        ));
+    }
+
+    @GetMapping("/facts/page")
+    ApiResponse<PageResponse<FactQueryResponse>> queryFactsPage(
+            @RequestParam UUID budgetModelId,
+            @RequestParam(required = false) UUID entityMemberId,
+            @RequestParam(required = false) UUID timeMemberId,
+            @RequestParam(required = false) UUID categoryMemberId,
+            @RequestParam(required = false) UUID versionMemberId,
+            @RequestParam(required = false) FactValueStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(defaultValue = "updatedAt") String sort,
+            @RequestParam(defaultValue = "DESC") String direction,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles
+    ) {
+        CurrentUserContext context = contextResolver.resolve(userId, roles);
+        return ApiResponse.success(budgetQueryService.queryFactsPage(
+                context,
+                budgetModelId,
+                entityMemberId,
+                timeMemberId,
+                categoryMemberId,
+                versionMemberId,
+                status,
+                page,
+                size,
+                sort,
+                direction
         ));
     }
 

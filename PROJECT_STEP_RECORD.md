@@ -6685,3 +6685,100 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `PERF-002`：预算 facts 后端分页与共享分页校验。目标是只改 `/api/budget-query/facts` 的后端查询契约与测试，建立可复用 page/size/sort 校验，不同时改 summary、variance、CSV 或前端。
+
+## PERF-002
+
+阶段名称：预算 facts 后端分页与共享分页校验
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+为预算事实明细查询新增后端分页能力和共享 page/size/sort/direction 校验，同时保留现有 `/api/budget-query/facts` List 接口，避免在前端适配前造成运行时断裂。本阶段不修改前端运行时代码，不新增 migration，不修改 summary、variance 或 CSV export，不处理 PDF/OCR。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`perf-001-query-pagination-governance.md`、`BudgetQueryController`、`BudgetQueryService`、`BudgetQueryControllerIntegrationTests`、当前 Git 状态 |
+| 允许修改 | 后端 budget query 相关代码、共享分页响应/校验、后端测试、`docs/architecture/perf-002-budget-facts-pagination-backend.md`、README、PROJECT_STEP_RECORD |
+| 禁止修改 | 前端运行时代码、migration、summary/variance/CSV 行为、PDF/OCR、ERP 直连、BI 图表、合并报表、删除文件 |
+| 验证命令 | targeted Maven test、`mvn test`、资料保护检查、空白检查、git 状态和边界扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/common/api/PageRequestSpec.java` | 新增共享分页请求校验与内存切片 helper |
+| `backend/src/main/java/com/budgetplatform/common/api/PageResponse.java` | 新增 `fromList` 工厂方法 |
+| `backend/src/main/java/com/budgetplatform/budgetsubmission/domain/FactValue.java` | 暴露 `updatedAt` getter 作为 facts 默认排序源 |
+| `backend/src/main/java/com/budgetplatform/budgetquery/api/BudgetQueryController.java` | 新增 `/api/budget-query/facts/page` |
+| `backend/src/main/java/com/budgetplatform/budgetquery/service/BudgetQueryService.java` | 新增 `queryFactsPage`，复用现有授权和 Entity 数据范围过滤 |
+| `backend/src/test/java/com/budgetplatform/budgetquery/api/BudgetQueryControllerIntegrationTests.java` | 覆盖 paged facts 默认返回和非法分页参数 |
+| `docs/architecture/perf-002-budget-facts-pagination-backend.md` | 新增阶段设计与验证说明 |
+| `README.md` | 更新 PERF-002 文档入口和当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 PERF-002 阶段记录 |
+
+### 关键产出
+
+1. 新增兼容型 `GET /api/budget-query/facts/page`，返回 `ApiResponse<PageResponse<FactQueryResponse>>`。
+2. 保留旧 `GET /api/budget-query/facts`，继续返回 `ApiResponse<List<FactQueryResponse>>`，前端在 `PERF-003` 前不受影响。
+3. 新增共享分页校验：`page >= 0`，`size` 范围 `1..100`，`direction` 仅允许 `ASC`/`DESC`。
+4. 本阶段 facts 排序 allow-list 只开放 `updatedAt`，默认 `DESC`。
+5. 复用现有预算读取授权与 Entity 数据范围，不引入新权限模型。
+6. 暂不修改 summary、variance、CSV export 和 repository-level pushdown。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn "-Dtest=com.budgetplatform.budgetquery.api.BudgetQueryControllerIntegrationTests" test` | 通过；6 tests，0 failures，0 errors，0 skipped |
+| `mvn test` | 通过；71 tests，0 failures，0 errors，0 skipped |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物和依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示若干文本/Java 文件后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 PERF-002 后端分页代码、后端测试、PERF-002 文档、README 和阶段记录 |
+| 边界关键词扫描 | 仅命中既有授权/JWT/前端 dev env guard 代码；本阶段未新增前端 token 存储、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 本阶段 targeted Maven test 和完整 Maven test 均通过，未出现测试失败。
+
+### 风险与限制
+
+1. `/facts/page` 仍为服务层过滤和内存切片，不是数据库级分页。
+2. 只有 `updatedAt` sort 被允许，业务字段排序留到 repository pushdown 或更明确查询阶段。
+3. 前端仍使用旧 `/facts`，需要 `PERF-003` 适配后才能获得分页体验。
+4. summary、variance、CSV export 仍未分页或限流。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 前端运行时代码 | 未修改 |
+| migration | 未新增 |
+| summary/variance/CSV 行为 | 未修改 |
+| 新业务功能 | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. 前端预算 facts 查询尚未消费 paged endpoint。
+2. repository-level 查询下推和 PostgreSQL 执行计划尚未处理。
+3. summary、variance、CSV export 仍需要后续分页/限流。
+
+### 是否建议关闭本阶段
+
+建议关闭 PERF-002。
+
+关闭理由：预算 facts 兼容型后端分页接口、共享分页校验、测试、文档、README 和阶段记录已完成；targeted Maven test 和完整 Maven test 均通过。本阶段未删除文件，未修改前端运行时代码或 migration，未新增 ERP、BI、合并报表、PDF/OCR 全文、构建产物或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `PERF-003`：前端预算 facts 分页适配。目标是只改预算 facts 查询的前端 API 类型和 UI previous/next 控制，调用 `/api/budget-query/facts/page`，不修改 summary、variance、CSV、后端接口或业务功能。

@@ -55,6 +55,62 @@ class BudgetQueryControllerIntegrationTests {
     }
 
     @Test
+    void queriesFactsPageWithDefaults() throws Exception {
+        Fixture fixture = createApprovedFactFixture("PERF002_PAGE");
+
+        mockMvc.perform(get("/api/budget-query/facts/page")
+                        .param("budgetModelId", fixture.modelId())
+                        .param("status", "APPROVED")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(1)))
+                .andExpect(jsonPath("$.data.items[0].accountCode").value(fixture.accountCode()))
+                .andExpect(jsonPath("$.data.items[0].amount").value(930.25))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(25))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.totalPages").value(1));
+    }
+
+    @Test
+    void rejectsInvalidFactsPageParameters() throws Exception {
+        Fixture fixture = createApprovedFactFixture("PERF002_BAD");
+
+        mockMvc.perform(get("/api/budget-query/facts/page")
+                        .param("budgetModelId", fixture.modelId())
+                        .param("page", "-1")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"));
+
+        mockMvc.perform(get("/api/budget-query/facts/page")
+                        .param("budgetModelId", fixture.modelId())
+                        .param("size", "101")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"));
+
+        mockMvc.perform(get("/api/budget-query/facts/page")
+                        .param("budgetModelId", fixture.modelId())
+                        .param("sort", "accountCode")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"));
+
+        mockMvc.perform(get("/api/budget-query/facts/page")
+                        .param("budgetModelId", fixture.modelId())
+                        .param("direction", "SIDEWAYS")
+                        .header("X-User-Id", "admin@example.com")
+                        .header("X-User-Roles", "BUDGET_ADMIN"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"));
+    }
+
+    @Test
     void exportsFactsAsCsv() throws Exception {
         Fixture fixture = createApprovedFactFixture("BUD008_CSV");
 

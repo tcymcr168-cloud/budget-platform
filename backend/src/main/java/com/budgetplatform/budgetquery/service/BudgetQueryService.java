@@ -11,6 +11,8 @@ import com.budgetplatform.budgetsubmission.domain.FactValueStatus;
 import com.budgetplatform.budgetsubmission.repository.FactValueRepository;
 import com.budgetplatform.common.api.ApplicationException;
 import com.budgetplatform.common.api.ErrorCode;
+import com.budgetplatform.common.api.PageRequestSpec;
+import com.budgetplatform.common.api.PageResponse;
 import com.budgetplatform.metadata.domain.DimensionMember;
 import com.budgetplatform.security.context.CurrentUserContext;
 import com.budgetplatform.security.domain.SecurityRoleCode;
@@ -30,6 +32,9 @@ import java.util.UUID;
 
 @Service
 public class BudgetQueryService {
+
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final Set<String> FACT_SORTS = Set.of("updatedAt");
 
     private final FactValueRepository factValueRepository;
     private final BudgetModelRepository budgetModelRepository;
@@ -61,6 +66,44 @@ public class BudgetQueryService {
                 .stream()
                 .map(FactQueryResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<FactQueryResponse> queryFactsPage(
+            CurrentUserContext context,
+            UUID budgetModelId,
+            UUID entityMemberId,
+            UUID timeMemberId,
+            UUID categoryMemberId,
+            UUID versionMemberId,
+            FactValueStatus status,
+            int page,
+            int size,
+            String sort,
+            String direction
+    ) {
+        PageRequestSpec pageRequest = PageRequestSpec.of(
+                page,
+                size,
+                sort,
+                direction,
+                FACT_SORTS,
+                "updatedAt",
+                PageRequestSpec.Direction.DESC,
+                MAX_PAGE_SIZE
+        );
+        BudgetModel model = loadModel(budgetModelId);
+        authorizeRead(context, model.getWorkspace().getId());
+        List<FactValue> facts = filterFacts(context, model, entityMemberId, timeMemberId, categoryMemberId, versionMemberId, status)
+                .stream()
+                .sorted(factComparator(pageRequest))
+                .toList();
+        return PageResponse.fromList(
+                pageRequest.slice(facts).stream().map(FactQueryResponse::from).toList(),
+                pageRequest.page(),
+                pageRequest.size(),
+                facts.size()
+        );
     }
 
     @Transactional(readOnly = true)
@@ -189,6 +232,16 @@ public class BudgetQueryService {
                 .filter(value -> versionMemberId == null || value.getVersionMember().getId().equals(versionMemberId))
                 .filter(value -> status == null || value.getValueStatus() == status)
                 .toList();
+    }
+
+    private Comparator<FactValue> factComparator(PageRequestSpec pageRequest) {
+        Comparator<FactValue> comparator = Comparator
+                .comparing(FactValue::getUpdatedAt)
+                .thenComparing(value -> value.getId().toString());
+        if (pageRequest.direction() == PageRequestSpec.Direction.DESC) {
+            return comparator.reversed();
+        }
+        return comparator;
     }
 
     private void authorizeRead(CurrentUserContext context, UUID workspaceId) {

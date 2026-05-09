@@ -22,4 +22,9 @@ public record PageResponse<T>(
                 page.getTotalPages()
         );
     }
+
+    public static <T> PageResponse<T> fromList(List<T> items, int page, int size, long totalElements) {
+        int totalPages = totalElements == 0 ? 0 : (int) Math.ceil((double) totalElements / size);
+        return new PageResponse<>(items, page, size, totalElements, totalPages);
+    }
 }
