@@ -7552,3 +7552,97 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `PG-EXPLAIN-001`：PostgreSQL EXPLAIN 采集准备与可执行脚本。目标是在不依赖 Docker 的前提下检查本机 PostgreSQL 可用性、沉淀可重复 EXPLAIN 采集脚本和数据准备策略；如无法连接本机数据库，则输出真实错误和替代路径。
+
+## PG-EXPLAIN-001
+
+阶段名称：PostgreSQL facts 查询执行计划采集准备
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+将 `PERF-007` 的 PostgreSQL EXPLAIN checklist 转化为可重复执行的 facts 查询执行计划采集脚本，并记录本机 PostgreSQL 可用性与真实连接状态。本阶段不修改后端运行时代码、前端代码或 Flyway migration，不处理 PDF/OCR，不新增业务功能、ERP 直连、BI 图表或合并报表。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`perf-007-postgresql-index-plan.md`、`perf-008-fact-query-index-migration.md`、Flyway schema、当前 Git 状态 |
+| 允许修改 | `tools/postgres_fact_query_explain.sql`、`docs/architecture/pg-explain-001-fact-query-plan-capture.md`、README、PROJECT_STEP_RECORD |
+| 禁止修改 | backend/src、frontend/src、migration、PDF/OCR、ERP 直连、BI 图表、合并报表、删除文件、密钥文件 |
+| 验证命令 | `psql --version`、PostgreSQL 服务检查、默认连接短超时探测、资料保护检查、空白检查、git 状态和边界扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段未删除文件，未写入密钥 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `tools/postgres_fact_query_explain.sql` | 新增 facts page/status-filtered 和可选 fully scoped EXPLAIN 脚本 |
+| `docs/architecture/pg-explain-001-fact-query-plan-capture.md` | 新增脚本说明、运行示例、真实本机连接状态、输出解读 checklist 和限制 |
+| `README.md` | 新增 PG-EXPLAIN-001 文档入口和当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 PG-EXPLAIN-001 阶段记录 |
+
+### 关键产出
+
+1. 新增 `tools/postgres_fact_query_explain.sql`，使用 psql variables 接收 `budget_model_id`、`value_status`、`limit_rows`、`offset_rows` 和可选维度成员 id。
+2. 脚本输出 `fact_value` 当前 index definitions。
+3. 脚本输出所选 model/status 的 fact 行数。
+4. 脚本执行 status-filtered facts page 的 `EXPLAIN (ANALYZE, BUFFERS)`。
+5. 当提供 Entity/Time/Category/Version 全部 scope variables 时，脚本额外执行 fully scoped facts page 的 `EXPLAIN (ANALYZE, BUFFERS)`。
+6. 文档明确不得提交数据库密码、`.pgpass`、原始敏感 EXPLAIN 输出或本地 dump。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `psql --version` | 通过；`psql (PostgreSQL) 16.13` |
+| `Get-Service | Where-Object { $_.Name -like '*postgres*' -or $_.DisplayName -like '*PostgreSQL*' }` | 通过；`postgresql-x64-16` 状态为 `Running` |
+| `$env:PGCONNECT_TIMEOUT='3'; $env:PGPASSWORD='budget_platform'; psql -h localhost -p 5432 -U budget_platform -d budget_platform -c "select current_database(), current_user;"` | 失败但已定位；真实错误为 `psql: error: connection to server at "localhost" (::1), port 5432 failed: 致命错误:  用户 "budget_platform" Password 认证失败` |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ frontend/playwright-report/ frontend/test-results/ backend/target/` | 通过；PDF、OCR、构建产物、依赖和 Playwright 输出目录均被忽略 |
+| `git diff --check` | 通过；仅提示 README、PROJECT_STEP_RECORD 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 PG-EXPLAIN-001 SQL 脚本、PG-EXPLAIN-001 文档、README 和阶段记录 |
+| 边界扫描 | 仅命中既有授权/JWT/前端 dev env guard 代码；本阶段未新增 ERP、BI、合并报表、PDF/OCR 原文或密钥 |
+
+### 失败项与修复记录
+
+1. 默认项目连接失败，真实原因是本机 PostgreSQL 对用户 `budget_platform` 的密码认证失败。
+2. 未猜测或修改本机数据库密码，未写入任何凭据；文档改为要求通过 `PGPASSWORD`、`.pgpass` 或操作员提供的连接串运行。
+
+### 风险与限制
+
+1. 本阶段完成了脚本与手册，但由于本机默认凭据失败，未实际采集 PostgreSQL query plan。
+2. `EXPLAIN ANALYZE` 会执行只读查询；在代表性环境运行前应确认查询对象和凭据。
+3. 小型本地库无法代表生产数据分布，不能单独作为索引决策依据。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| backend/src | 未修改 |
+| frontend/src | 未修改 |
+| migration | 未新增，未修改 |
+| 新业务模块 | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 密钥/密码 | 未写入仓库 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. 需要操作员提供本地或 staging PostgreSQL 凭据，或修复 `budget_platform` 用户密码后再执行真实 EXPLAIN。
+2. 需要代表性 facts 数据集才能判断 `idx_fact_value_model_status_updated` 的真实收益。
+3. fully scoped 查询的最优索引仍需基于实际计划判断。
+
+### 是否建议关闭本阶段
+
+建议关闭 PG-EXPLAIN-001。
+
+关闭理由：可重复 EXPLAIN 脚本、运行手册、真实本机连接错误、README 和阶段记录已完成；本阶段没有写入密钥，没有删除文件，没有修改 backend/src、frontend/src 或 migration，没有新增业务模块、ERP、BI、合并报表、PDF/OCR 全文或构建产物。
+
+### 下一阶段建议
+
+下一阶段建议进入 `TEMPLATE-001`：预算模板版本治理设计。目标是基于现有模板管理 MVP 设计模板版本、发布与兼容策略，先做文档和 API 边界设计，不直接修改业务代码或 migration。
