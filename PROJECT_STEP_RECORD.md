@@ -5512,3 +5512,102 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `SEC-014`：inactive 用户授权拦截。目标是在授权服务中复用现有 `app_user.status`，拒绝 inactive 用户继续执行受保护操作，并补充测试与文档；不新增 migration，不做前端 UI，不做角色/Entity 范围软撤销。
+
+## SEC-014
+
+阶段名称：inactive 用户授权拦截
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+在后端授权层复用现有 `app_user.status`，拒绝已注册 inactive 用户继续执行受保护操作。本阶段不新增 migration，不做角色/Entity 范围软撤销，不做前端 UI，不做物理删除，不接入外部 IdP。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `sec-012-revoke-disable-design.md`、`sec-013-user-disable-backend.md`、`AuthorizationService`、授权服务测试 |
+| 允许修改 | `AuthorizationService`、`AuthorizationServiceTests`、SEC-014 架构文档、README、PROJECT_STEP_RECORD |
+| 禁止修改 | migration、前端 UI、角色/Entity 范围软撤销 schema、物理删除接口、PDF 原文、OCR 全文、secrets、外部服务、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `mvn test`、`git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/security/service/AuthorizationService.java` | 对已注册 inactive 用户执行授权失败关闭 |
+| `backend/src/test/java/com/budgetplatform/security/service/AuthorizationServiceTests.java` | 新增 inactive bootstrap 与 inactive 请求头角色绕过测试 |
+| `docs/architecture/sec-014-inactive-user-authorization.md` | 新增 SEC-014 架构说明 |
+| `README.md` | 更新当前治理状态和 SEC-014 文档入口 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-014 阶段记录 |
+
+### 关键产出
+
+1. `requireHeaderAdmin` 在允许 bootstrap 或可信请求角色前检查已注册用户是否 inactive。
+2. `rolesForWorkspace` 在返回持久化角色或请求头角色前检查已注册用户是否 inactive。
+3. 未注册 bootstrap 管理员仍保留初始化能力，避免新环境被锁死。
+4. 已注册 inactive 用户不能通过 bootstrap、请求头角色、Workspace 角色或 Entity 范围继续使用受保护操作。
+5. 本阶段不新增 migration，不改变授权数据结构。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `rg ...` | 失败；当前 Codex 打包路径下的 `rg.exe` 启动报 Windows “拒绝访问”，已改用 `Get-ChildItem` + `Select-String` 检索 |
+| `mvn test` 第一次 | 失败；`AuthorizationServiceTests.java:[96,40] 找不到符号 BUDGET_PLANNER` |
+| `mvn test` 第二次 | 通过；56 个测试全部通过，0 failures，0 errors，0 skipped |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示当前工作副本下若干文本文件 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 SEC-014 相关代码、测试、文档、README 和阶段记录 |
+| 边界关键词扫描 | 仅命中既有 `AuditAction.DELETE`、`AuthMode.JWT`、JWT fail-closed 占位、前端 `CurrentUser.authMode` 类型和审计 `DELETE` 筛选；未新增 `DeleteMapping`、OAuth 依赖、token 存储、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 工具检索失败：`rg.exe` 因 Windows “拒绝访问”无法启动，使用 PowerShell `Select-String` 完成同等检索。
+2. 首次后端测试失败：测试误用了不存在的 `SecurityRoleCode.BUDGET_PLANNER`。
+3. 最小修复：改为项目已有 `SecurityRoleCode.BUDGET_OWNER`。
+4. 复测结果：`mvn test` 通过，56 个测试全部通过。
+
+### 风险与限制
+
+1. inactive 用户已有 Workspace 角色和 Entity 范围仍保留在数据库中；重新启用用户会恢复这些授权。
+2. 角色/Entity 范围软撤销仍需后续 migration 和 API。
+3. 前端禁用/启用入口尚未实现。
+4. JWT/OIDC bearer 校验仍未实现。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| migration | 未新增 |
+| 物理删除接口 | 未新增 |
+| 角色/Entity 范围软撤销 | 未新增 |
+| 前端 UI | 未修改 |
+| JWT/OAuth 依赖 | 未新增 |
+| token 存储 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 角色/Entity 范围软撤销仍需后续 migration 和 API。
+2. 前端禁用/启用与撤销入口尚未实现。
+3. JWT/OIDC bearer 校验尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-014。
+
+关闭理由：inactive 用户授权拦截已在 `AuthorizationService` 集中实现，inactive bootstrap 和 inactive 请求头角色绕过测试已覆盖；后端测试、资料保护检查、空白检查和越界扫描均通过。本阶段未删除文件，未新增 migration，未新增物理删除接口，未修改前端 UI，未提交 PDF/OCR 全文、secrets、构建产物或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `SEC-015`：角色与 Entity 范围软撤销 schema/API。目标是为 Workspace 角色授权和 Entity 范围授权增加软撤销能力、撤销 action endpoints、审计和测试；该阶段将涉及 migration，但用户已授权非删除事项自动推进。

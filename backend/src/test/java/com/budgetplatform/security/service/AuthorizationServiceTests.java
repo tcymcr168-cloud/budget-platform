@@ -3,6 +3,7 @@ package com.budgetplatform.security.service;
 import com.budgetplatform.common.api.ApplicationException;
 import com.budgetplatform.security.context.AuthProperties;
 import com.budgetplatform.security.context.CurrentUserContext;
+import com.budgetplatform.security.domain.AppUser;
 import com.budgetplatform.security.domain.SecurityRoleCode;
 import com.budgetplatform.security.repository.AppUserEntityScopeRepository;
 import com.budgetplatform.security.repository.AppUserRepository;
@@ -10,6 +11,7 @@ import com.budgetplatform.security.repository.AppUserRoleRepository;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -66,6 +68,37 @@ class AuthorizationServiceTests {
         );
 
         assertThatCode(() -> service.requireHeaderAdmin(context)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void requireHeaderAdminRejectsInactiveRegisteredBootstrapAdmin() {
+        AppUserRepository userRepository = mock(AppUserRepository.class);
+        AppUser user = new AppUser("admin@example.com", "Admin", "admin@example.com");
+        user.disable();
+        when(userRepository.findByUsername("admin@example.com")).thenReturn(Optional.of(user));
+        AuthorizationService service = service(userRepository, false, List.of("admin@example.com"));
+        CurrentUserContext context = new CurrentUserContext("admin@example.com", Set.of());
+
+        assertThatThrownBy(() -> service.requireHeaderAdmin(context))
+                .isInstanceOf(ApplicationException.class)
+                .hasMessageContaining("Security user is inactive");
+    }
+
+    @Test
+    void rolesForWorkspaceRejectsInactiveRegisteredUser() {
+        AppUserRepository userRepository = mock(AppUserRepository.class);
+        AppUser user = new AppUser("planner@example.com", "Planner", "planner@example.com");
+        user.disable();
+        when(userRepository.findByUsername("planner@example.com")).thenReturn(Optional.of(user));
+        AuthorizationService service = service(userRepository, true, List.of());
+        CurrentUserContext context = new CurrentUserContext(
+                "planner@example.com",
+                Set.of(SecurityRoleCode.BUDGET_OWNER)
+        );
+
+        assertThatThrownBy(() -> service.rolesForWorkspace(context, UUID.randomUUID()))
+                .isInstanceOf(ApplicationException.class)
+                .hasMessageContaining("Security user is inactive");
     }
 
     private AuthorizationService service(

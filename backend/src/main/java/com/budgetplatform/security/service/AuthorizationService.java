@@ -6,6 +6,7 @@ import com.budgetplatform.security.context.AuthProperties;
 import com.budgetplatform.security.context.CurrentUserContext;
 import com.budgetplatform.security.domain.AppUser;
 import com.budgetplatform.security.domain.SecurityRoleCode;
+import com.budgetplatform.security.domain.SecurityUserStatus;
 import com.budgetplatform.security.repository.AppUserEntityScopeRepository;
 import com.budgetplatform.security.repository.AppUserRepository;
 import com.budgetplatform.security.repository.AppUserRoleRepository;
@@ -42,6 +43,7 @@ public class AuthorizationService {
     @Transactional(readOnly = true)
     public void requireHeaderAdmin(CurrentUserContext context) {
         requireAuthenticated(context);
+        requireActiveIfRegistered(context);
         boolean headerAdmin = authProperties.isAllowHeaderRoles()
                 && context.roles().contains(SecurityRoleCode.BUDGET_ADMIN);
         if (!headerAdmin && !isBootstrapAdmin(context)) {
@@ -100,11 +102,16 @@ public class AuthorizationService {
         if (context == null || !context.authenticated()) {
             return Set.of();
         }
-        Set<SecurityRoleCode> persistedRoles = userRepository.findByUsername(AppUser.normalizeUsername(context.userId()))
-                .map(user -> roleRepository.findByUser_IdAndWorkspace_IdOrderByRoleCodeAsc(user.getId(), workspaceId)
-                        .stream()
-                        .map(role -> role.getRoleCode()))
-                .orElseGet(Stream::empty)
+        AppUser user = userRepository.findByUsername(AppUser.normalizeUsername(context.userId()))
+                .orElse(null);
+        if (user != null) {
+            requireActive(context, user);
+        }
+        Set<SecurityRoleCode> persistedRoles = (user == null
+                ? Stream.<SecurityRoleCode>empty()
+                : roleRepository.findByUser_IdAndWorkspace_IdOrderByRoleCodeAsc(user.getId(), workspaceId)
+                .stream()
+                .map(role -> role.getRoleCode()))
                 .collect(Collectors.toSet());
         if (authProperties.isAllowHeaderRoles()) {
             persistedRoles.addAll(context.roles());
@@ -128,6 +135,17 @@ public class AuthorizationService {
                     HttpStatus.UNAUTHORIZED,
                     "Authenticated user context is required."
             );
+        }
+    }
+
+    private void requireActiveIfRegistered(CurrentUserContext context) {
+        userRepository.findByUsername(AppUser.normalizeUsername(context.userId()))
+                .ifPresent(user -> requireActive(context, user));
+    }
+
+    private void requireActive(CurrentUserContext context, AppUser user) {
+        if (user.getStatus() == SecurityUserStatus.INACTIVE) {
+            throw forbidden("Security user is inactive: " + context.userId());
         }
     }
 
