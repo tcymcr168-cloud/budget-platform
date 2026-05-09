@@ -5233,3 +5233,93 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUTH-006`：部署与密钥运维手册。目标是沉淀 `DEV_HEADER`、`REVERSE_PROXY` 和未来 JWT/OIDC 的环境变量、网关 header 覆盖、CORS/TLS、日志脱敏、回滚与检查清单；仍不实现 JWT/OIDC 代码。
+
+## AUTH-006
+
+阶段名称：部署与密钥运维手册
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+沉淀生产认证部署与运维控制：认证模式矩阵、环境变量、反向代理 header 覆盖、未来 JWT/OIDC 配置、CORS/TLS、日志脱敏、回滚和日常巡检。本阶段只写文档，不修改运行时代码、不新增 migration、不新增依赖、不写 secrets、不访问外部服务。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `auth-005-failed-authentication-audit.md`、`ops-001-local-runbook.md`、`sec-009-session-token-operations.md` |
+| 允许修改 | `docs/architecture/auth-006-deployment-secret-operations-runbook.md`、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 后端代码、前端代码、migration、JWT/OIDC 依赖、token 存储、secrets、外部服务、PDF 原文、OCR 全文、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段未删除文件，未写代码，未新增 migration，未访问外部服务 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/auth-006-deployment-secret-operations-runbook.md` | 新增生产认证部署与密钥运维手册 |
+| `README.md` | 更新当前治理状态和 AUTH-006 文档入口 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUTH-006 阶段记录 |
+
+### 关键产出
+
+1. 明确 `DEV_HEADER` 仅限本地/测试，`REVERSE_PROXY` 是当前生产候选，`JWT` 仍失败关闭。
+2. 明确认证相关环境变量和哪些属于未来 JWT/OIDC 配置。
+3. 明确反向代理部署前必须剥离客户端身份头、设置可信 principal header、禁止外部直连后端。
+4. 明确未来 JWT/OIDC 的 issuer/audience/JWKS/clock skew/算法校验/不存 token 原则。
+5. 明确 CORS/TLS/cookie/CSRF、日志脱敏、回滚和日常生产巡检清单。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| 文档阶段 | 未运行后端/前端测试；本阶段未修改代码 |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示 `PROJECT_STEP_RECORD.md` 与 `README.md` 在当前工作副本下 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 `PROJECT_STEP_RECORD.md`、`README.md` 和 `docs/architecture/auth-006-deployment-secret-operations-runbook.md` |
+| 边界关键词扫描 | 仅命中既有 `AuthMode.JWT`、`CurrentUserContextResolver` JWT 失败关闭占位，以及前端 `CurrentUser.authMode` 的类型枚举；本阶段未修改代码，未新增 OAuth 依赖、token 存储、Bearer 处理、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 本阶段为文档阶段，未出现验证失败。
+
+### 风险与限制
+
+1. 本阶段是 runbook，不是生产部署自动化。
+2. JWT/OIDC bearer 校验仍未实现。
+3. 授权撤销、用户禁用和审计保留策略仍需后续阶段。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端代码 | 未修改 |
+| 前端代码 | 未修改 |
+| migration | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| token 存储 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. JWT/OIDC bearer 校验尚未实现。
+2. 授权撤销/用户禁用流程尚未设计实现。
+3. 审计保留、归档和告警策略尚未进入实现阶段。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUTH-006。
+
+关闭理由：生产认证部署与密钥运维手册已沉淀，仓库保护检查通过；本阶段未删除文件，未修改后端/前端代码，未新增 migration，未提交 PDF/OCR 全文、secrets、token 或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `SEC-012`：授权撤销与用户禁用设计。目标是先设计最小撤销/禁用边界，再决定是否需要 migration 和后端/前端实现阶段。
