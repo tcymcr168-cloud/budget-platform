@@ -6584,3 +6584,104 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `PERF-001`：查询分页与性能治理设计。目标是先定义预算查询、差异查询、审计查询等列表接口的分页、排序、最大 page size、默认限制和性能风险边界，再按小阶段实现。
+
+## PERF-001
+
+阶段名称：查询分页与性能治理设计
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+定义 MVP 查询接口的分页、排序、默认限制、最大 page size、CSV 导出限制和后续小阶段实现路线。本阶段只做设计与治理文档，不修改后端生产代码、前端运行时代码、migration、PDF/OCR 或任何业务功能。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`bud-008-budget-query-baseline.md`、`bud-010-budget-actual-variance.md`、`audit-002-audit-query-api.md`、`e2e-001-smoke-test-baseline.md`、当前 Git 状态 |
+| 允许修改 | `docs/architecture/perf-001-query-pagination-governance.md`、README、PROJECT_STEP_RECORD |
+| 禁止修改 | 后端生产代码、前端运行时代码、migration、PDF/OCR、ERP 直连、BI 图表、合并报表、删除文件 |
+| 验证命令 | `git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 现状分析
+
+1. 审计查询已使用 `PageResponse<T>`、`PageRequest`、默认 size `25`、最大 size `100` 和 `occurredAt DESC` 排序。
+2. 预算 facts、summary、variance 仍返回 `List<T>`，服务层先按模型读取全部 fact，再在内存过滤、汇总或计算差异。
+3. CSV export 当前是轻量文本导出，但没有明确 row cap。
+4. `E2E-001` 已建立主路径 smoke，后续查询返回结构变更时必须同步更新测试或保持兼容。
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/perf-001-query-pagination-governance.md` | 新增查询分页与性能治理设计 |
+| `README.md` | 更新 PERF-001 文档入口和当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 PERF-001 阶段记录 |
+
+### 关键产出
+
+1. 统一查询分页参数：`page` 默认 `0`，`size` 默认 `25`，最大 `100`。
+2. 明确新列表接口默认返回 `PageResponse<T>`，预算 query 旧接口需分阶段迁移。
+3. 明确 unsupported sort 必须返回 `400 BAD_REQUEST`，不得接受任意实体字段名。
+4. 明确 facts、summary、variance 的目标响应形态和排序 allow-list。
+5. 明确 CSV export 默认 cap `1000`、最大 cap `5000`，大导出需单独异步导出阶段。
+6. 明确实现路线：`PERF-002` 先做后端预算 facts 分页和共享校验，后续再做前端、summary/variance、CSV cap 和 repository pushdown。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| 文档阶段 | 未运行后端/前端完整测试；本阶段未修改运行时代码、依赖或 migration |
+| `rg --files docs\architecture ...` / `rg -n ...` | 失败；真实错误为 Codex bundled `rg.exe` 启动被拒绝访问：`Program 'rg.exe' failed to run ... 拒绝访问` |
+| PowerShell `Get-ChildItem` / `Select-String` 检索 | 通过；完成相关文档和查询代码定位 |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物和依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示 README 和 PROJECT_STEP_RECORD 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 PERF-001 文档、README 和阶段记录 |
+| 边界关键词扫描 | 仅命中既有授权/JWT/前端 dev env guard 代码；本阶段未新增生产代码、前端 token 存储、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. `rg` 在当前 Codex desktop 环境中启动失败，错误为 `拒绝访问`。
+2. 修复方式：改用 PowerShell `Get-ChildItem` 与 `Select-String` 完成检索；未修改系统 PATH，未安装软件。
+
+### 风险与限制
+
+1. 本阶段只做设计，预算 query endpoints 仍未实际分页。
+2. 将 `List<T>` 改为 `PageResponse<T>` 是前后端契约变更，必须小阶段推进。
+3. summary/variance 即使先分页最终结果，仍可能在服务层读取全量事实；真正性能治理需要 repository 查询下推。
+4. CSV export cap 会改变用户对导出完整性的预期，后续实现必须在 UI 和响应中明确提示。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端生产代码 | 未修改 |
+| 前端运行时代码 | 未修改 |
+| migration | 未新增 |
+| 新业务功能 | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. 预算 facts 分页尚未实现。
+2. 前端预算查询区域尚未适配 `PageResponse<T>`。
+3. summary/variance 的数据库级聚合和索引策略仍需后续阶段。
+4. CSV export row cap 尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 PERF-001。
+
+关闭理由：分页与性能治理设计、README 和阶段记录已完成；本阶段未删除文件，未修改后端生产代码、前端运行时代码或 migration，未新增 ERP、BI、合并报表、PDF/OCR 全文、构建产物或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `PERF-002`：预算 facts 后端分页与共享分页校验。目标是只改 `/api/budget-query/facts` 的后端查询契约与测试，建立可复用 page/size/sort 校验，不同时改 summary、variance、CSV 或前端。
