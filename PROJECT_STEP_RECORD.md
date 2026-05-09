@@ -6011,3 +6011,96 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUTH-007`：JWT/OIDC bearer 校验设计。目标是先设计 production bearer validation 的依赖、配置、失败关闭、审计、测试和回滚边界；设计阶段不新增依赖、不实现 token 校验。
+
+## AUTH-007
+
+阶段名称：JWT/OIDC bearer 校验设计
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+设计未来 `budget-platform.auth.mode=JWT` 的 JWT/OIDC bearer 校验边界，明确依赖方向、配置项、请求处理、失败关闭、审计脱敏、测试矩阵和回滚方案。本阶段只写设计文档，不新增依赖、不修改运行时代码、不访问外部 IdP、不新增 secrets。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `auth-001-production-auth-implementation-plan.md`、`auth-006-deployment-secret-operations-runbook.md`、`sec-009-session-token-operations.md`、`auth-005-failed-authentication-audit.md`、当前认证代码与 Maven 依赖 |
+| 允许修改 | `docs/architecture/auth-007-jwt-oidc-bearer-validation-design.md`、README、PROJECT_STEP_RECORD |
+| 禁止修改 | 后端运行时代码、前端代码、Maven 依赖、migration、secrets、外部 IdP 访问、PDF 原文、OCR 全文、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/auth-007-jwt-oidc-bearer-validation-design.md` | 新增 JWT/OIDC bearer 校验设计 |
+| `README.md` | 更新当前治理状态和 AUTH-007 文档入口 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUTH-007 阶段记录 |
+
+### 关键产出
+
+1. 明确未来 JWT adapter 应接入现有 `CurrentUserContextResolver` 边界，只解析可信 principal。
+2. 推荐未来实现优先使用 Spring Security OAuth2 Resource Server，并跟随 Spring Boot BOM；本阶段不新增依赖。
+3. 明确 JWT 配置契约：issuer、audience、JWKS URI、username claim、clock skew、token length、allowed algorithms。
+4. 明确失败关闭和审计 reason 分类：missing bearer、unsupported scheme、malformed token、invalid issuer/audience/signature、expired token 等。
+5. 明确禁止把 IdP group/scope claim 作为预算授权来源，预算授权继续来自 `app_user_role` 和 Entity scope。
+6. 明确实现拆分：`AUTH-008` 依赖与配置、`AUTH-009` adapter 实现、`AUTH-010` 前端 bearer 边界、`AUTH-011` 部署烟测与回滚。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| 文档阶段 | 未运行后端/前端完整测试；本阶段未修改运行时代码、依赖或 migration |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示当前工作副本下 README 与阶段记录 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 AUTH-007 文档、README 和阶段记录 |
+| 边界关键词扫描 | 仅命中既有 `AuditAction.DELETE`、`AuthMode.JWT`、JWT fail-closed 占位、前端 `CurrentUser.authMode` 类型和审计 `DELETE` 筛选；本阶段未新增 `DeleteMapping`、OAuth 依赖、token 存储、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 本阶段为设计文档阶段，未出现验证失败。
+
+### 风险与限制
+
+1. 本阶段是设计阶段，不提供实际 JWT/OIDC 校验能力。
+2. 后续实现会新增 Spring Security/OAuth2 相关依赖，需要单独阶段验证。
+3. JWKS 访问、缓存和 key rotation 仍需实现阶段细化。
+4. 反向代理可信身份仍是当前已实现的生产推荐路径。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端运行时代码 | 未修改 |
+| 前端代码 | 未修改 |
+| Maven 依赖 | 未新增 |
+| migration | 未新增 |
+| 外部 IdP 访问 | 未执行 |
+| secrets | 未新增 |
+| token 存储 | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. JWT/OIDC bearer 校验实现尚未开始。
+2. 前端 direct bearer token 流是否需要仍需部署形态确认。
+3. 审计保留、归档和告警策略仍未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUTH-007。
+
+关闭理由：JWT/OIDC bearer 校验设计、配置契约、失败关闭、审计脱敏、测试矩阵、实现拆分和回滚边界已沉淀；资料保护检查、空白检查和越界扫描通过。本阶段未删除文件，未新增运行时代码、依赖、migration、外部服务访问、secrets、PDF/OCR 全文、构建产物或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUTH-008`：JWT/OIDC 依赖与配置属性基线。目标是新增最小依赖和配置结构，但暂不实现完整 token 校验逻辑；需要后端测试覆盖配置绑定和 JWT 模式失败关闭行为不退化。
