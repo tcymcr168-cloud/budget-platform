@@ -12,6 +12,19 @@ export interface FactQueryFilters {
   status?: FactValueStatus;
 }
 
+export interface PageResponse<T> {
+  items: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface FactQueryPageInput extends FactQueryFilters {
+  page: number;
+  size: number;
+}
+
 export interface FactQueryRow {
   id: string;
   budgetModelId: string;
@@ -71,11 +84,13 @@ export interface BudgetActualVarianceRow {
   actualLineCount: number;
 }
 
-function buildQuery(filters: FactQueryFilters | FactSummaryFilters) {
+export type FactQueryPage = PageResponse<FactQueryRow>;
+
+function buildQuery(filters: FactQueryFilters | FactSummaryFilters | FactQueryPageInput) {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
-    if (value) {
-      params.set(key, value);
+    if (value !== undefined && value !== '') {
+      params.set(key, String(value));
     }
   });
   return params.toString();
@@ -86,6 +101,19 @@ export async function queryFacts(filters: FactQueryFilters) {
     `/api/budget-query/facts?${buildQuery(filters)}`,
   );
   return response.data ?? [];
+}
+
+export async function queryFactsPage(filters: FactQueryPageInput) {
+  const response = await requestJson<FactQueryPage>(
+    `/api/budget-query/facts/page?${buildQuery(filters)}`,
+  );
+  return response.data ?? {
+    items: [],
+    page: filters.page,
+    size: filters.size,
+    totalElements: 0,
+    totalPages: 0,
+  };
 }
 
 export async function summarizeFacts(filters: FactSummaryFilters) {

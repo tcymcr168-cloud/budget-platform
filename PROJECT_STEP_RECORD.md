@@ -6782,3 +6782,97 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `PERF-003`：前端预算 facts 分页适配。目标是只改预算 facts 查询的前端 API 类型和 UI previous/next 控制，调用 `/api/budget-query/facts/page`，不修改 summary、variance、CSV、后端接口或业务功能。
+
+## PERF-003
+
+阶段名称：前端预算 facts 分页适配
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+让 React 工作台的预算 facts 查询消费 `PERF-002` 新增的 `/api/budget-query/facts/page`，展示总行数和 Previous/Next 分页控制。本阶段不修改后端接口，不修改 summary、variance、CSV export，不新增业务功能，不新增 migration，不处理 PDF/OCR。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`perf-002-budget-facts-pagination-backend.md`、`budgetQueryApi.ts`、`App.tsx`、当前 Git 状态 |
+| 允许修改 | 前端预算 facts API 类型、前端 facts 查询 UI、`docs/architecture/perf-003-frontend-facts-pagination.md`、README、PROJECT_STEP_RECORD |
+| 禁止修改 | 后端接口、summary/variance/CSV 行为、migration、PDF/OCR、ERP 直连、BI 图表、合并报表、删除文件 |
+| 验证命令 | `pnpm type-check`、`pnpm lint`、`pnpm build`、资料保护检查、空白检查、git 状态和边界扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `frontend/src/features/budgetQuery/budgetQueryApi.ts` | 新增 `PageResponse`、`FactQueryPage`、`FactQueryPageInput` 和 `queryFactsPage` |
+| `frontend/src/App.tsx` | facts 查询改为 paged state，展示总行数和 Previous/Next 控制 |
+| `docs/architecture/perf-003-frontend-facts-pagination.md` | 新增阶段说明 |
+| `README.md` | 更新 PERF-003 文档入口和当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 PERF-003 阶段记录 |
+
+### 关键产出
+
+1. Query 按钮调用 `/api/budget-query/facts/page` 并拉取第 0 页。
+2. facts 结果面板显示 `totalElements`，不是只显示当前页行数。
+3. 新增 Previous/Next 控制，禁用条件基于 loading、模型选择和当前页范围。
+4. Workspace 或 budget model 切换时重置 facts page。
+5. summary、variance 和 CSV export 未变更。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过；Vite 输出 `frontend/dist`，该目录应继续被忽略 |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物和依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示 README、PROJECT_STEP_RECORD 和前端源码后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 PERF-003 前端代码、PERF-003 文档、README 和阶段记录 |
+| 边界关键词扫描 | 仅命中既有授权/JWT/前端 dev env guard 代码；本阶段未新增前端 token 存储、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 本阶段前端 type-check、lint 和 build 均通过，未出现验证失败。
+
+### 风险与限制
+
+1. Page size 仍固定为 `25`，暂未提供用户选择器。
+2. 当前只适配 facts；summary、variance 和 CSV export 仍按原接口工作。
+3. 未引入浏览器自动化，视觉交互只通过静态构建验证。
+4. `/facts/page` 仍是后端服务层过滤与切片，不是数据库级分页。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端接口 | 未修改 |
+| summary/variance/CSV 行为 | 未修改 |
+| migration | 未新增 |
+| 新业务功能 | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. summary 和 variance 仍未分页。
+2. CSV export 仍未限制 row cap。
+3. 数据库级查询下推和 PostgreSQL 执行计划尚未处理。
+4. 浏览器级 smoke 自动化尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 PERF-003。
+
+关闭理由：前端预算 facts 分页适配、文档、README 和阶段记录已完成；前端 type-check、lint 和 build 均通过。本阶段未删除文件，未修改后端接口或 migration，未新增 ERP、BI、合并报表、PDF/OCR 全文、构建产物或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `PERF-004`：summary 和 variance 分页响应契约。目标是分小步让 grouped query 结果也返回 `PageResponse` 并同步前端，避免继续扩散无界 List。

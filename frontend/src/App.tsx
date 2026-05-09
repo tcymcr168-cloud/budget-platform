@@ -39,9 +39,9 @@ import {
   analyzeBudgetActualVariance,
   BudgetActualVarianceRow,
   exportFactsCsv,
-  FactQueryRow,
+  FactQueryPage,
   FactSummaryRow,
-  queryFacts,
+  queryFactsPage,
   QueryGroupBy,
   summarizeFacts,
 } from './features/budgetQuery/budgetQueryApi';
@@ -102,6 +102,14 @@ const dimensionTypes: DimensionType[] = [
 const axisTypes: TemplateAxisType[] = ['ROW', 'COLUMN', 'FILTER'];
 
 const queryGroupByOptions: QueryGroupBy[] = ['ACCOUNT', 'ENTITY', 'TIME', 'CATEGORY', 'VERSION'];
+
+const emptyFactQueryPage: FactQueryPage = {
+  items: [],
+  page: 0,
+  size: 25,
+  totalElements: 0,
+  totalPages: 0,
+};
 
 const auditActionOptions = [
   'CREATE',
@@ -199,7 +207,7 @@ function App() {
     useState<Record<DimensionType, DimensionMember[]>>(initialScopeMembers);
   const [submissionTasks, setSubmissionTasks] = useState<SubmissionTask[]>([]);
   const [factValues, setFactValues] = useState<FactValue[]>([]);
-  const [queryRows, setQueryRows] = useState<FactQueryRow[]>([]);
+  const [queryPage, setQueryPage] = useState<FactQueryPage>(emptyFactQueryPage);
   const [summaryRows, setSummaryRows] = useState<FactSummaryRow[]>([]);
   const [varianceRows, setVarianceRows] = useState<BudgetActualVarianceRow[]>([]);
   const [csvExport, setCsvExport] = useState('');
@@ -372,7 +380,7 @@ function App() {
       setScopeMembers(initialScopeMembers);
       setSubmissionTasks([]);
       setSelectedSubmissionTaskId('');
-      setQueryRows([]);
+      setQueryPage(emptyFactQueryPage);
       setSummaryRows([]);
       setVarianceRows([]);
       setCsvExport('');
@@ -411,7 +419,7 @@ function App() {
       setModelBindings([]);
       setBudgetTemplates([]);
       setSelectedBudgetTemplateId('');
-      setQueryRows([]);
+      setQueryPage(emptyFactQueryPage);
       setSummaryRows([]);
       setVarianceRows([]);
       setCsvExport('');
@@ -1121,16 +1129,20 @@ function App() {
     };
   }
 
-  async function handleRunQuery() {
+  async function handleRunQuery(page = 0) {
     if (!selectedBudgetModelId) {
       setError('Select a budget model first.');
       return;
     }
 
     await runAction(async () => {
-      const rows = await queryFacts(buildFactQueryFilters());
-      setQueryRows(rows);
-      setNotice(`${rows.length} fact rows loaded.`);
+      const nextPage = await queryFactsPage({
+        ...buildFactQueryFilters(),
+        page,
+        size: queryPage.size,
+      });
+      setQueryPage(nextPage);
+      setNotice(`${nextPage.totalElements} fact rows matched.`);
     });
   }
 
@@ -2637,7 +2649,32 @@ function App() {
               <p className="eyebrow">Read only</p>
               <h2 id="query-results-title">Results</h2>
             </div>
-            <span>{queryRows.length} rows</span>
+            <span>{queryPage.totalElements} rows</span>
+          </div>
+
+          <div className="model-actions">
+            <button
+              type="button"
+              onClick={() => void handleRunQuery(Math.max(queryPage.page - 1, 0))}
+              disabled={loading || !selectedBudgetModelId || queryPage.page <= 0}
+            >
+              Previous
+            </button>
+            <span>
+              Page {queryPage.totalPages === 0 ? 0 : queryPage.page + 1} / {queryPage.totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleRunQuery(queryPage.page + 1)}
+              disabled={
+                loading ||
+                !selectedBudgetModelId ||
+                queryPage.totalPages === 0 ||
+                queryPage.page + 1 >= queryPage.totalPages
+              }
+            >
+              Next
+            </button>
           </div>
 
           <div className="table-wrap">
@@ -2654,7 +2691,7 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {queryRows.map((row) => (
+                {queryPage.items.map((row) => (
                   <tr key={row.id}>
                     <td>
                       {row.accountCode} - {row.accountName}
