@@ -4245,6 +4245,10 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 | `pnpm build` | 通过；Vite 生产构建成功，产物位于已忽略的 `frontend/dist` |
 | `git check-ignore` | 通过；PDF、OCR、前端依赖/构建产物、后端 `target` 均被忽略 |
 | `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| `git status --short` | 通过；仅 SEC-011 前端、文档和阶段记录修改 |
+| 边界关键词扫描 | 通过；未发现 ERP、Chart、BI 图表、合并报表、secrets、password、新增删除或撤销实现；仅命中既有 `AuditAction.DELETE` 枚举 |
+| `git check-ignore` | 通过；PDF、OCR、前端依赖/构建产物、后端 `target` 均被忽略 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
 | `git status --short` | 通过；仅 SEC-008 前端、文档和阶段记录修改 |
 | 前端边界关键词扫描 | 通过；`frontend/src` 未发现 token/password/sessionStorage/localStorage、ERP、Chart、BI 图表或合并报表实现 |
 | 生产 bundle 身份头检查 | 通过；`frontend/dist/assets/*.js` 不包含 `X-User-Id` 或 `X-User-Roles` 字符串，且 `frontend/dist` 被忽略 |
@@ -4481,3 +4485,95 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `SEC-011`：前端 Entity 范围管理 MVP。目标是在现有安全 API 范围内，为用户角色与 Entity 范围维护提供最小前端入口，补齐当前安全治理中的实际操作缺口。
+
+## SEC-011
+
+阶段名称：前端 Entity 范围管理 MVP
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+基于现有 `/api/security` 后端 API，在前端补齐安全用户、Workspace 角色和 Entity 范围授权的最小管理入口。阶段范围只做新增、查询和授权，不做删除/撤销、不改后端、不新增 migration、不引入复杂多维权限矩阵、不实现生产登录。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `SecurityController` API、`CreateSecurityUserRequest`、`GrantUserRoleRequest`、`GrantEntityScopeRequest`、现有 `App.tsx`、`metadataApi.ts`、SEC-007/SEC-008 文档 |
+| 允许修改 | 前端安全 API 客户端、`App.tsx` 安全管理面板、`styles.css`、SEC-011 架构文档、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 删除文件、后端业务逻辑、migration、PDF 原文、OCR 全文、JWT/OAuth 依赖、secrets、外部服务、ERP 直连、BI 图表、合并报表、授权撤销/删除 |
+| 验证命令 | `pnpm type-check`、`pnpm lint`、`pnpm build`、`git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段未删除文件，未新增 migration，未访问外部服务 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `frontend/src/features/security/securityApi.ts` | 新增 typed client，封装用户、角色、Entity 范围管理 API |
+| `frontend/src/App.tsx` | 新增安全管理面板：用户创建/选择、角色授权、Entity 范围授权和列表 |
+| `frontend/src/styles.css` | 新增安全管理面板布局、表单和紧凑表格样式 |
+| `docs/architecture/sec-011-frontend-entity-scope-management.md` | 新增 SEC-011 架构说明 |
+| `README.md` | 更新当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-011 阶段记录 |
+
+### 关键产出
+
+1. 前端新增 `/api/security` typed client。
+2. 前端支持创建安全用户并选择当前管理用户。
+3. 前端支持给选中用户授予当前 Workspace 下的角色。
+4. 前端支持给选中用户授予当前 Workspace 下的 Entity 成员范围。
+5. 前端展示选中用户在当前 Workspace 的角色和 Entity 范围列表。
+6. 本阶段没有实现删除、撤销、禁用或复杂权限矩阵。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过；Vite 生产构建成功，产物位于已忽略的 `frontend/dist` |
+
+### 失败项与修复记录
+
+1. 前端三项验证首轮通过，未出现类型、lint 或构建失败。
+2. 本阶段未修改后端代码，因此未运行 `mvn test`。
+
+### 风险与限制
+
+1. 后端默认不信任 `X-User-Roles`；本地手工测试需要配置 bootstrap admin 或显式启用受控 header roles。
+2. 没有撤销/删除入口；重复授权会由后端唯一约束返回错误。
+3. Entity 范围选择依赖当前 Workspace 的 Entity 成员已加载。
+4. 本阶段不是生产登录实现，仍依赖后续可信认证阶段。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端业务逻辑 | 未修改 |
+| migration | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 授权撤销、用户禁用和批量授权尚未设计。
+2. 生产登录仍未实现。
+3. 审计查询前端体验仍未建设。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-011。
+
+关闭理由：安全用户、角色和 Entity 范围的最小前端管理入口已实现，前端 type-check、lint、build 全部通过；未删除文件，未改后端业务逻辑，未新增 migration，未提交 PDF/OCR 全文、secrets 或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUDIT-004`：审计查询前端 MVP。目标是复用现有只读审计 API，提供最小筛选与分页查看能力，不做 BI 仪表盘、导出或复杂报表。

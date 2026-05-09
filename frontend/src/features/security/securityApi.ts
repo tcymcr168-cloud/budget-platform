@@ -1,0 +1,105 @@
+import { requestJson } from '../../shared/api/http';
+
+export type SecurityRoleCode =
+  | 'BUDGET_ADMIN'
+  | 'METADATA_MANAGER'
+  | 'TEMPLATE_DESIGNER'
+  | 'BUDGET_OWNER'
+  | 'BUDGET_REVIEWER'
+  | 'IMPORT_OPERATOR'
+  | 'READ_ONLY';
+
+export type SecurityUserStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface SecurityUser {
+  id: string;
+  username: string;
+  displayName: string;
+  email: string | null;
+  status: SecurityUserStatus;
+}
+
+export interface UserRole {
+  id: string;
+  userId: string;
+  workspaceId: string;
+  workspaceCode: string;
+  roleCode: SecurityRoleCode;
+}
+
+export interface EntityScope {
+  id: string;
+  userId: string;
+  workspaceId: string;
+  workspaceCode: string;
+  entityMemberId: string;
+  entityMemberCode: string;
+  entityMemberName: string;
+  includeDescendants: boolean;
+}
+
+export interface CreateSecurityUserInput {
+  username: string;
+  displayName: string;
+  email?: string;
+}
+
+export interface GrantUserRoleInput {
+  workspaceId: string;
+  roleCode: SecurityRoleCode;
+}
+
+export interface GrantEntityScopeInput {
+  workspaceId: string;
+  entityMemberId: string;
+  includeDescendants: boolean;
+}
+
+export async function listSecurityUsers() {
+  const response = await requestJson<SecurityUser[]>('/api/security/users');
+  return response.data ?? [];
+}
+
+export async function createSecurityUser(input: CreateSecurityUserInput) {
+  const response = await requestJson<SecurityUser>('/api/security/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  return response.data;
+}
+
+export async function listUserRoles(userId: string, workspaceId?: string) {
+  const query = workspaceId ? `?workspaceId=${workspaceId}` : '';
+  const response = await requestJson<UserRole[]>(`/api/security/users/${userId}/roles${query}`);
+  return response.data ?? [];
+}
+
+export async function grantUserRole(userId: string, input: GrantUserRoleInput) {
+  const response = await requestJson<UserRole>(`/api/security/users/${userId}/roles`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  return response.data;
+}
+
+export async function listEntityScopes(userId: string, workspaceId?: string) {
+  const query = workspaceId ? `?workspaceId=${workspaceId}` : '';
+  const response = await requestJson<EntityScope[]>(
+    `/api/security/users/${userId}/entity-scopes${query}`,
+  );
+  return response.data ?? [];
+}
+
+export async function grantEntityScope(userId: string, input: GrantEntityScopeInput) {
+  const response = await requestJson<EntityScope>(
+    `/api/security/users/${userId}/entity-scopes`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+  return response.data;
+}

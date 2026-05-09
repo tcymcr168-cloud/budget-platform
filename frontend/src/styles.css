@@ -136,6 +136,15 @@ h2 {
   align-items: start;
 }
 
+.security-management-layout {
+  max-width: 1440px;
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) minmax(260px, 0.8fr) minmax(360px, 1.1fr);
+  gap: 16px;
+  margin: 0 auto 16px;
+  align-items: start;
+}
+
 .model-layout,
 .template-layout,
 .submission-layout,
@@ -176,6 +185,8 @@ h2 {
 }
 
 .form-grid,
+.security-user-form,
+.security-grant-form,
 .member-form,
 .model-form,
 .binding-form,
@@ -190,6 +201,16 @@ h2 {
   gap: 12px;
   padding: 16px 18px;
   border-bottom: 1px solid #e4eaed;
+}
+
+.security-user-form {
+  grid-template-columns: 1fr 1fr 1fr auto;
+  align-items: end;
+}
+
+.security-grant-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
 }
 
 .member-form,
@@ -297,6 +318,10 @@ h2 {
 .model-actions button:last-child {
   color: #172026;
   background: #d9e1e4;
+}
+
+.compact-table {
+  max-height: 320px;
 }
 
 label {
@@ -423,6 +448,7 @@ td {
 
 @media (max-width: 1100px) {
   .metadata-layout,
+  .security-management-layout,
 .model-layout,
 .template-layout,
 .submission-layout,
@@ -432,6 +458,8 @@ td {
   }
 
   .member-form,
+  .security-user-form,
+  .security-grant-form,
   .model-form,
   .binding-form,
   .axis-form,
@@ -458,6 +486,8 @@ td {
   }
 
   .member-form,
+  .security-user-form,
+  .security-grant-form,
   .model-form,
   .binding-form,
   .axis-form,

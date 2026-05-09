@@ -52,6 +52,18 @@ import {
   Workspace,
 } from './features/metadata/metadataApi';
 import {
+  createSecurityUser,
+  EntityScope,
+  grantEntityScope,
+  grantUserRole,
+  listEntityScopes,
+  listSecurityUsers,
+  listUserRoles,
+  SecurityRoleCode,
+  SecurityUser,
+  UserRole,
+} from './features/security/securityApi';
+import {
   approveSubmissionTask,
   createSubmissionTask,
   FactValueStatus,
@@ -87,7 +99,7 @@ const securityRoleOptions = [
   'BUDGET_REVIEWER',
   'IMPORT_OPERATOR',
   'READ_ONLY',
-];
+] satisfies SecurityRoleCode[];
 
 const initialScopeMembers: Record<DimensionType, DimensionMember[]> = {
   ACCOUNT: [],
@@ -125,6 +137,9 @@ function App() {
   const [modelBindings, setModelBindings] = useState<BudgetModelDimensionBinding[]>([]);
   const [budgetTemplates, setBudgetTemplates] = useState<BudgetTemplate[]>([]);
   const [templateAxes, setTemplateAxes] = useState<TemplateAxis[]>([]);
+  const [securityUsers, setSecurityUsers] = useState<SecurityUser[]>([]);
+  const [userRoles, setUserRoles] = useState<UserRole[]>([]);
+  const [entityScopes, setEntityScopes] = useState<EntityScope[]>([]);
   const [scopeMembers, setScopeMembers] =
     useState<Record<DimensionType, DimensionMember[]>>(initialScopeMembers);
   const [submissionTasks, setSubmissionTasks] = useState<SubmissionTask[]>([]);
@@ -137,6 +152,7 @@ function App() {
   const [actualImportRows, setActualImportRows] = useState<ActualImportRow[]>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('');
   const [selectedDimensionId, setSelectedDimensionId] = useState('');
+  const [selectedSecurityUserId, setSelectedSecurityUserId] = useState('');
   const [selectedBudgetModelId, setSelectedBudgetModelId] = useState('');
   const [selectedBudgetTemplateId, setSelectedBudgetTemplateId] = useState('');
   const [selectedSubmissionTaskId, setSelectedSubmissionTaskId] = useState('');
@@ -210,6 +226,18 @@ function App() {
     operatorUser: 'importer@example.com',
     csvContent: 'account,entity,time,category,version,amount\nTRAVEL,OPS,2026M03,ACTUAL,FINAL,1200.00',
   });
+  const [securityUserDraft, setSecurityUserDraft] = useState({
+    username: '',
+    displayName: '',
+    email: '',
+  });
+  const [roleGrantDraft, setRoleGrantDraft] = useState({
+    roleCode: 'READ_ONLY' as SecurityRoleCode,
+  });
+  const [entityScopeDraft, setEntityScopeDraft] = useState({
+    entityMemberId: '',
+    includeDescendants: true,
+  });
   const [returnReason, setReturnReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [securityContext, setSecurityContext] = useState({
@@ -229,6 +257,11 @@ function App() {
   const selectedDimension = useMemo(
     () => dimensions.find((dimension) => dimension.id === selectedDimensionId),
     [dimensions, selectedDimensionId],
+  );
+
+  const selectedSecurityUser = useMemo(
+    () => securityUsers.find((user) => user.id === selectedSecurityUserId),
+    [securityUsers, selectedSecurityUserId],
   );
 
   const selectedBudgetModel = useMemo(
@@ -262,6 +295,7 @@ function App() {
 
   useEffect(() => {
     void refreshWorkspaces();
+    void refreshSecurityUsers();
   }, []);
 
   useEffect(() => {
@@ -299,6 +333,15 @@ function App() {
   useEffect(() => {
     void refreshScopeMembers(dimensions);
   }, [dimensions]);
+
+  useEffect(() => {
+    if (!selectedSecurityUserId) {
+      setUserRoles([]);
+      setEntityScopes([]);
+      return;
+    }
+    void refreshSecurityGrants(selectedSecurityUserId, selectedWorkspaceId);
+  }, [selectedSecurityUserId, selectedWorkspaceId]);
 
   useEffect(() => {
     if (!selectedBudgetModelId) {
@@ -366,6 +409,29 @@ function App() {
         setSelectedWorkspaceId(nextWorkspaces[0].id);
       }
       setNotice('Workspace metadata loaded.');
+    });
+  }
+
+  async function refreshSecurityUsers() {
+    await runAction(async () => {
+      const nextUsers = await listSecurityUsers();
+      setSecurityUsers(nextUsers);
+      setSelectedSecurityUserId((current) =>
+        nextUsers.some((user) => user.id === current) ? current : nextUsers[0]?.id ?? '',
+      );
+      setNotice('Security users loaded.');
+    });
+  }
+
+  async function refreshSecurityGrants(userId: string, workspaceId: string) {
+    await runAction(async () => {
+      const [nextRoles, nextScopes] = await Promise.all([
+        listUserRoles(userId, workspaceId || undefined),
+        workspaceId ? listEntityScopes(userId, workspaceId) : Promise.resolve([]),
+      ]);
+      setUserRoles(nextRoles);
+      setEntityScopes(nextScopes);
+      setNotice('Security grants loaded.');
     });
   }
 
@@ -555,6 +621,68 @@ function App() {
         setMemberDraft({ code: '', name: '', parentId: '', sortOrder: '' });
         await refreshMembers(selectedDimensionId);
         setNotice(`Member ${member.code} created.`);
+      }
+    });
+  }
+
+  async function handleCreateSecurityUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await runAction(async () => {
+      const user = await createSecurityUser({
+        username: securityUserDraft.username,
+        displayName: securityUserDraft.displayName,
+        email: securityUserDraft.email || undefined,
+      });
+      if (user) {
+        setSecurityUserDraft({ username: '', displayName: '', email: '' });
+        const nextUsers = await listSecurityUsers();
+        setSecurityUsers(nextUsers);
+        setSelectedSecurityUserId(user.id);
+        setNotice(`Security user ${user.username} created.`);
+      }
+    });
+  }
+
+  async function handleGrantUserRole(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedSecurityUserId || !selectedWorkspaceId) {
+      setError('Select a user and workspace first.');
+      return;
+    }
+
+    await runAction(async () => {
+      const role = await grantUserRole(selectedSecurityUserId, {
+        workspaceId: selectedWorkspaceId,
+        roleCode: roleGrantDraft.roleCode,
+      });
+      if (role) {
+        await refreshSecurityGrants(selectedSecurityUserId, selectedWorkspaceId);
+        setNotice(`${role.roleCode} granted to ${selectedSecurityUser?.username ?? 'user'}.`);
+      }
+    });
+  }
+
+  async function handleGrantEntityScope(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedSecurityUserId || !selectedWorkspaceId) {
+      setError('Select a user and workspace first.');
+      return;
+    }
+    if (!entityScopeDraft.entityMemberId) {
+      setError('Select an Entity member first.');
+      return;
+    }
+
+    await runAction(async () => {
+      const scope = await grantEntityScope(selectedSecurityUserId, {
+        workspaceId: selectedWorkspaceId,
+        entityMemberId: entityScopeDraft.entityMemberId,
+        includeDescendants: entityScopeDraft.includeDescendants,
+      });
+      if (scope) {
+        setEntityScopeDraft({ entityMemberId: '', includeDescendants: true });
+        await refreshSecurityGrants(selectedSecurityUserId, selectedWorkspaceId);
+        setNotice(`Entity scope ${scope.entityMemberCode} granted.`);
       }
     });
   }
@@ -961,6 +1089,196 @@ function App() {
       <section className="status-row" aria-live="polite">
         <span>{notice}</span>
         {error ? <strong>{error}</strong> : null}
+      </section>
+
+      <section className="security-management-layout" aria-label="Security administration">
+        <section className="panel" aria-labelledby="security-users-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Security</p>
+              <h2 id="security-users-title">Users</h2>
+            </div>
+            <span>{securityUsers.length}</span>
+          </div>
+
+          <form
+            className="security-user-form"
+            onSubmit={(event) => void handleCreateSecurityUser(event)}
+          >
+            <label>
+              Username
+              <input
+                required
+                value={securityUserDraft.username}
+                onChange={(event) =>
+                  setSecurityUserDraft({ ...securityUserDraft, username: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Display name
+              <input
+                required
+                value={securityUserDraft.displayName}
+                onChange={(event) =>
+                  setSecurityUserDraft({ ...securityUserDraft, displayName: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Email
+              <input
+                type="email"
+                value={securityUserDraft.email}
+                onChange={(event) =>
+                  setSecurityUserDraft({ ...securityUserDraft, email: event.target.value })
+                }
+              />
+            </label>
+            <button type="submit" disabled={loading}>
+              Create
+            </button>
+          </form>
+
+          <div className="list" role="list">
+            {securityUsers.map((user) => (
+              <button
+                className="list-row"
+                data-selected={user.id === selectedSecurityUserId}
+                key={user.id}
+                onClick={() => setSelectedSecurityUserId(user.id)}
+                role="listitem"
+                type="button"
+              >
+                <span>
+                  <strong>{user.username}</strong>
+                  {user.displayName}
+                </span>
+                <em>{user.status}</em>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel" aria-labelledby="security-roles-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Workspace</p>
+              <h2 id="security-roles-title">Roles</h2>
+            </div>
+            <span>{selectedWorkspace?.code ?? 'No workspace'}</span>
+          </div>
+
+          <form className="security-grant-form" onSubmit={(event) => void handleGrantUserRole(event)}>
+            <label>
+              Role
+              <select
+                value={roleGrantDraft.roleCode}
+                onChange={(event) =>
+                  setRoleGrantDraft({ roleCode: event.target.value as SecurityRoleCode })
+                }
+              >
+                {securityRoleOptions.map((role) => (
+                  <option key={role}>{role}</option>
+                ))}
+              </select>
+            </label>
+            <button type="submit" disabled={loading || !selectedWorkspaceId || !selectedSecurityUserId}>
+              Grant
+            </button>
+          </form>
+
+          <div className="table-wrap compact-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Workspace</th>
+                  <th>Role</th>
+                </tr>
+              </thead>
+              <tbody>
+                {userRoles.map((role) => (
+                  <tr key={role.id}>
+                    <td>{role.workspaceCode}</td>
+                    <td>{role.roleCode}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="panel" aria-labelledby="security-scopes-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Entity</p>
+              <h2 id="security-scopes-title">Scopes</h2>
+            </div>
+            <span>{selectedSecurityUser?.username ?? 'No user'}</span>
+          </div>
+
+          <form
+            className="security-grant-form"
+            onSubmit={(event) => void handleGrantEntityScope(event)}
+          >
+            <label>
+              Entity
+              <select
+                value={entityScopeDraft.entityMemberId}
+                onChange={(event) =>
+                  setEntityScopeDraft({
+                    ...entityScopeDraft,
+                    entityMemberId: event.target.value,
+                  })
+                }
+              >
+                <option value="">Select entity</option>
+                {scopeMembers.ENTITY.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.code} - {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="check-row">
+              <input
+                checked={entityScopeDraft.includeDescendants}
+                type="checkbox"
+                onChange={(event) =>
+                  setEntityScopeDraft({
+                    ...entityScopeDraft,
+                    includeDescendants: event.target.checked,
+                  })
+                }
+              />
+              Include descendants
+            </label>
+            <button type="submit" disabled={loading || !selectedWorkspaceId || !selectedSecurityUserId}>
+              Grant
+            </button>
+          </form>
+
+          <div className="table-wrap compact-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Entity</th>
+                  <th>Desc.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entityScopes.map((scope) => (
+                  <tr key={scope.id}>
+                    <td>
+                      {scope.entityMemberCode} - {scope.entityMemberName}
+                    </td>
+                    <td>{scope.includeDescendants ? 'Yes' : 'No'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </section>
 
       <section className="metadata-layout" aria-label="Metadata workspace">
