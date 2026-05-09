@@ -7256,3 +7256,93 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `PERF-008`：最小 PostgreSQL fact query 索引 migration。目标是在既有设计基础上只新增一个窄索引，并通过 Flyway/H2 兼容验证和完整 `mvn test` 收口。
+
+## PERF-008
+
+阶段名称：最小 PostgreSQL fact query 索引 migration
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+在 `PERF-007` 索引治理设计基础上，为 facts page 和 CSV export 的常见 status-filtered 查询新增一个窄索引。只新增 `idx_fact_value_model_status_updated`，不新增宽维度索引，不修改后端运行时代码或前端。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、migration 列表、`perf-007-postgresql-index-plan.md`、当前 Git 状态 |
+| 允许修改 | Flyway migration、`docs/architecture/perf-008-fact-query-index-migration.md`、README、PROJECT_STEP_RECORD |
+| 禁止修改 | backend/src、frontend/src、PDF/OCR、ERP 直连、BI 图表、合并报表、删除文件 |
+| 验证命令 | targeted Maven test、`mvn test`、资料保护检查、空白检查、git 状态和边界扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段新增 migration 已按规则记录；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/resources/db/migration/V9__fact_query_index.sql` | 新增 `idx_fact_value_model_status_updated` |
+| `docs/architecture/perf-008-fact-query-index-migration.md` | 新增阶段说明、索引理由、验证和 rollback note |
+| `README.md` | 更新 PERF-008 文档入口和当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 PERF-008 阶段记录 |
+
+### 关键产出
+
+1. 新增索引：
+   `idx_fact_value_model_status_updated (budget_model_id, value_status, updated_at DESC, id DESC)`。
+2. 索引覆盖常见 facts page 与 CSV export：budget model + status filter + updatedAt/id order。
+3. 没有新增宽维度索引，避免过早增加写入成本。
+4. 文档记录 rollback note：后续如需回滚应通过受控 migration `DROP INDEX idx_fact_value_model_status_updated`。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn "-Dtest=com.budgetplatform.budgetquery.api.BudgetQueryControllerIntegrationTests" test` | 通过；11 tests，0 failures，0 errors，0 skipped；Flyway validated 9 migrations and applied V9 |
+| `mvn test` | 通过；76 tests，0 failures，0 errors，0 skipped；Flyway validated 9 migrations |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物和依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示 README、PROJECT_STEP_RECORD、migration 文档后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 PERF-008 migration、文档、README 和阶段记录 |
+| 边界扫描 | 本阶段未修改 backend/src 或 frontend/src；未新增 ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. targeted Maven test 和完整 Maven test 均通过，未出现验证失败。
+
+### 风险与限制
+
+1. H2/Flyway 兼容已验证，但尚未在真实 PostgreSQL 数据集上采集 EXPLAIN。
+2. 索引会增加 fact 写入成本，当前选择窄索引以控制成本。
+3. Entity-scoped 全维度过滤仍依赖既有 `idx_fact_value_model_scope` 和后续执行计划验证。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| backend/src | 未修改 |
+| frontend/src | 未修改 |
+| migration | 新增 `V9__fact_query_index.sql`，符合本阶段目标 |
+| 新业务模块 | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. PostgreSQL EXPLAIN 采集尚未执行。
+2. summary/variance 数据库级聚合尚未实现。
+3. 浏览器级 smoke 自动化尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 PERF-008。
+
+关闭理由：单一窄索引 migration、文档、README 和阶段记录已完成；targeted/full Maven tests 通过，Flyway validated/applied 9 migrations，资料保护和边界检查通过。本阶段未删除文件，未修改 backend/src 或 frontend/src，未新增 ERP、BI、合并报表、PDF/OCR 全文或构建产物。
+
+### 下一阶段建议
+
+下一阶段建议进入 `E2E-002`：浏览器端 smoke 测试基线。目标是对 React/Vite 工作台主路径做最小浏览器自动化验证，不新增业务功能。
