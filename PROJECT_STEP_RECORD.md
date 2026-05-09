@@ -7346,3 +7346,116 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `E2E-002`：浏览器端 smoke 测试基线。目标是对 React/Vite 工作台主路径做最小浏览器自动化验证，不新增业务功能。
+
+## E2E-002
+
+阶段名称：浏览器端 smoke 测试基线
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+为 React/Vite 工作台建立第一条浏览器级 smoke 自动化，验证正式前端应用可以启动、通过共享 HTTP 层消费平台 API envelope，并完成预算 facts 分页查询的核心 UI 路径。本阶段不新增业务功能，不修改后端运行时代码，不新增 migration，不处理 PDF/OCR，不新增 ERP 直连、BI 图表或合并报表。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`E2E-001` API smoke 结果、前端 Vite/React 配置、当前 Git 状态 |
+| 允许修改 | 前端 Playwright 配置、E2E 测试、前端 TS/ESLint 配置、`.gitignore`、E2E 文档、README、PROJECT_STEP_RECORD |
+| 禁止修改 | backend/src、migration、PDF/OCR、ERP 直连、BI 图表、合并报表、删除文件、临时入口页 |
+| 验证命令 | `pnpm e2e`、`pnpm type-check`、`pnpm lint`、`pnpm build`、资料保护检查、空白检查、git 状态和边界扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段引入 Playwright dev dependency 并执行 Chromium 浏览器安装，已在本记录说明；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `.gitignore` | 新增 Playwright report 和 test-results 忽略规则 |
+| `frontend/package.json` | 新增 `@playwright/test`、`pnpm e2e` 脚本，并让 type-check 覆盖 E2E TS |
+| `frontend/pnpm-lock.yaml` | 锁定 Playwright dev dependency |
+| `frontend/playwright.config.ts` | 新增 Chromium smoke 配置和正式 Vite webServer |
+| `frontend/tsconfig.e2e.json` | 新增 E2E TypeScript 校验配置 |
+| `frontend/tsconfig.node.json` | 将 Playwright config 纳入 Node-side TypeScript 配置 |
+| `frontend/eslint.config.js` | 将 E2E tsconfig 纳入 typed lint project |
+| `frontend/e2e/workbench-smoke.spec.ts` | 新增工作台加载与 facts page 查询浏览器 smoke |
+| `docs/architecture/e2e-002-browser-smoke-baseline.md` | 新增阶段说明、覆盖范围、失败修复和限制 |
+| `README.md` | 新增 E2E 命令与阶段文档入口 |
+| `PROJECT_STEP_RECORD.md` | 追加 E2E-002 阶段记录 |
+
+### 工具安装与范围说明
+
+1. 执行 `pnpm add -D @playwright/test`，仅新增前端开发依赖和 lockfile 记录。
+2. 执行 `pnpm exec playwright install chromium`，Chromium 浏览器安装在用户本地 Playwright 缓存，不进入仓库。
+3. `.gitignore` 已排除 `frontend/playwright-report/` 和 `frontend/test-results/`。
+
+### 关键产出
+
+1. 新增 `frontend/e2e/workbench-smoke.spec.ts`，覆盖工作台 shell 渲染、API mock envelope、workspace/model/template/task/fact 初始化和 facts page 查询结果展示。
+2. Playwright config 使用正式 `pnpm dev --host 127.0.0.1 --port 5173` 启动 Vite 应用，不使用临时 HTML 或一次性入口页。
+3. Mock route 仅处理 URL pathname 以 `/api/` 开头的请求，避免误拦截 Vite source module。
+4. 前端 type-check 和 lint 已覆盖 Playwright config 与 E2E spec。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `pnpm e2e` | 通过；Chromium，1 passed |
+| `pnpm type-check` | 通过；包含 app TS 与 `tsconfig.e2e.json` |
+| `pnpm lint` | 通过；已覆盖 E2E 与 Playwright config |
+| `pnpm build` | 通过；Vite production build 成功，`frontend/dist` 继续被忽略 |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ frontend/playwright-report/ frontend/test-results/ backend/target/` | 通过；PDF、OCR、构建产物、依赖和 Playwright 输出目录均被忽略 |
+| `git diff --check` | 通过；仅提示 README、PROJECT_STEP_RECORD、前端配置和测试文件后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 E2E-002 前端配置/测试、E2E 文档、README、`.gitignore` 和阶段记录 |
+| 边界扫描 | 未发现本阶段新增 ERP、BI、合并报表、PDF/OCR 原文或密钥；`frontend/src` 仅保留既有 dev header guard，未修改业务功能 |
+
+### 失败项与修复记录
+
+1. 首次 `pnpm e2e` 失败：`Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of "application/json".`
+   原因是初始 route glob 误拦截了 Vite module `/src/shared/api/http.ts`。修复为只拦截 pathname 以 `/api/` 开头的请求。
+2. 第二次 `pnpm e2e` 失败：UI 显示 `Request failed with status 200`。
+   原因是 mock API 返回 `{ data }`，缺少平台 envelope 的 `success: true`。修复为测试 helper 统一返回 `{ success: true, data }`。
+3. 后续 strict locator 失败：页面存在重复的 workspace/model/template 文本。
+   修复为初始存在性检查使用 `.first()`，查询结果断言 scoped 到 `Results` 区域。
+4. 首次 `pnpm lint` 失败：Playwright config 和 E2E 文件未包含在 ESLint typed parser project 中。
+   修复为新增 `tsconfig.e2e.json`，并更新 `frontend/eslint.config.js` 与 `frontend/tsconfig.node.json`。
+
+### 风险与限制
+
+1. 本阶段是 browser smoke baseline，后端行为使用 route mock；后端 API 正确性仍由 `E2E-001` 和后端集成测试覆盖。
+2. 尚未覆盖浏览器端 create/submit/import 完整流程。
+3. 仅覆盖 Chromium 桌面 viewport，未覆盖移动端。
+4. Playwright browser binary 位于用户本地缓存，仓库中只保留配置和测试。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| backend/src | 未修改 |
+| frontend/src | 未修改 |
+| migration | 未新增，未修改 |
+| 新业务模块 | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+| Playwright 测试产物 | 已通过 `.gitignore` 排除，未提交 |
+
+### 未解决问题
+
+1. 浏览器端 create workspace/model/template 流程尚未覆盖。
+2. backend-backed browser smoke 仍需稳定本地测试 profile 后再进入。
+3. PostgreSQL EXPLAIN 采集尚未执行。
+
+### 是否建议关闭本阶段
+
+建议关闭 E2E-002。
+
+关闭理由：Playwright dev dependency、Chromium smoke、正式 Vite webServer、E2E type/lint 纳管、文档、README 和阶段记录均已完成；`pnpm e2e`、`pnpm type-check`、`pnpm lint`、`pnpm build` 通过，资料保护和边界检查通过。本阶段未删除文件，未修改 backend/src 或 frontend/src，未新增 migration、业务模块、ERP、BI、合并报表、PDF/OCR 全文或构建产物。
+
+### 下一阶段建议
+
+下一阶段建议进入 `E2E-003`：浏览器端创建流程 smoke。目标是在继续使用受控 mock 的前提下覆盖 workspace/model/template 的前端创建交互，保持不新增业务功能，并为后续 backend-backed browser smoke 做准备。
