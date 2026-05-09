@@ -63,6 +63,7 @@ button:disabled {
 .import-form button,
 .security-action-form button,
 .table-action-button,
+.audit-preset-actions button,
 .model-actions button {
   min-height: 38px;
   border: 0;
@@ -279,6 +280,35 @@ h2 {
 .audit-form {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: end;
+}
+
+.audit-preset-actions {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 18px 16px;
+  border-bottom: 1px solid #e4eaed;
+}
+
+.audit-preset-actions button {
+  min-width: 0;
+  padding: 0 10px;
+  background: #285a7c;
+  overflow-wrap: anywhere;
+}
+
+.audit-preset-actions button:last-child {
+  color: #172026;
+  background: #d9e1e4;
+}
+
+.audit-details {
+  max-width: 460px;
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .member-form,
@@ -531,6 +561,7 @@ td {
   .security-grant-form,
   .security-action-form,
   .audit-form,
+  .audit-preset-actions,
   .model-form,
   .binding-form,
   .axis-form,
@@ -562,6 +593,7 @@ td {
   .security-grant-form,
   .security-action-form,
   .audit-form,
+  .audit-preset-actions,
   .model-form,
   .binding-form,
   .axis-form,

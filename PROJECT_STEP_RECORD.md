@@ -5770,6 +5770,10 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 | `pnpm build` | 通过；Vite 成功构建，产物位于被忽略的 `frontend/dist` |
 | `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
 | `git diff --check` | 通过；仅提示当前工作副本下若干文本文件 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 AUDIT-005 相关前端代码、文档、README 和阶段记录 |
+| 边界关键词扫描 | 仅命中既有 `AuditAction.DELETE`、`AuthMode.JWT`、JWT fail-closed 占位、前端 `CurrentUser.authMode` 类型和审计 `DELETE` 筛选；未新增 `DeleteMapping`、OAuth 依赖、token 存储、ERP、BI 或合并报表代码 |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示当前工作副本下若干文本文件 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
 | `git status --short` | 仅显示 SEC-016 相关前端代码、文档、README 和阶段记录 |
 | 边界关键词扫描 | 仅命中既有 `AuditAction.DELETE`、`AuthMode.JWT`、JWT fail-closed 占位、前端 `CurrentUser.authMode` 类型和审计 `DELETE` 筛选；未新增 `DeleteMapping`、OAuth 依赖、token 存储、ERP、BI 或合并报表代码 |
 
@@ -5819,3 +5823,93 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUDIT-005`：安全生命周期审计体验优化。目标是在现有审计前端筛选与展示中更清楚地支持 `STATUS_CHANGE`、`ACCESS_CHANGE`、`AUTH_FAILURE` 等安全治理事件；不新增 BI 图表，不做告警系统，不做外部服务。
+
+## AUDIT-005
+
+阶段名称：安全生命周期审计体验优化
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+优化现有审计前端对安全生命周期事件的筛选与展示，支持用户状态、角色授权、Entity 授权和认证失败的快捷筛选，并提升 `detailsJson` 可读性。本阶段不新增 BI 图表、不新增告警系统、不接入外部服务、不修改后端 schema。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `sec-016-frontend-disable-revoke-mvp.md`、现有审计 API、现有 `App.tsx` 审计区域 |
+| 允许修改 | `frontend/src/App.tsx`、`frontend/src/styles.css`、AUDIT-005 文档、README、PROJECT_STEP_RECORD |
+| 禁止修改 | 后端 schema、新审计表、BI 图表、告警系统、外部服务、物理删除控制、PDF 原文、OCR 全文、secrets、ERP 直连、合并报表 |
+| 验证命令 | `pnpm type-check`、`pnpm lint`、`pnpm build`、`git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `frontend/src/App.tsx` | 增加安全审计快捷筛选、清空筛选和 JSON details 格式化 |
+| `frontend/src/styles.css` | 增加审计快捷按钮与 details 代码块样式 |
+| `docs/architecture/audit-005-security-lifecycle-audit-ux.md` | 新增 AUDIT-005 架构说明 |
+| `README.md` | 更新当前治理状态和 AUDIT-005 文档入口 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUDIT-005 阶段记录 |
+
+### 关键产出
+
+1. 新增 User status、Role access、Entity access、Auth failures 审计快捷筛选。
+2. 快捷筛选复用现有 `/api/audit/events` 查询能力，不新增后端接口。
+3. 有效 JSON details 在表格中格式化展示，提升安全事件检查效率。
+4. 保持审计页面为运维型表格，不引入图表 BI 或告警系统。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过；Vite 成功构建，产物位于被忽略的 `frontend/dist` |
+
+### 失败项与修复记录
+
+1. 本阶段前端类型检查、lint 和构建未出现失败。
+
+### 风险与限制
+
+1. 快捷筛选覆盖当前安全生命周期事件，未实现保存筛选或导出。
+2. details 仍为只读 JSON 文本展示。
+3. 不包含告警、通知、审计保留和归档策略。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端 schema | 未修改 |
+| 新审计表 | 未新增 |
+| BI 图表 | 未新增 |
+| 告警系统 | 未新增 |
+| 外部服务接入 | 未执行 |
+| 物理删除控制 | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| token 存储 | 未新增 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | `frontend/dist` 已被忽略，未提交 |
+
+### 未解决问题
+
+1. JWT/OIDC bearer 校验尚未实现。
+2. 审计保留、归档和告警策略仍未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUDIT-005。
+
+关闭理由：安全生命周期快捷筛选和 JSON details 格式化展示已完成，前端类型检查、lint、构建、资料保护检查、空白检查和越界扫描均通过。本阶段未删除文件，未修改后端 schema，未新增 BI 图表、告警系统、外部服务、PDF/OCR 全文、secrets、构建产物或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `OPS-002`：阶段巡视与发布前治理检查。目标是对当前安全治理主线进行仓库状态、测试命令、资料保护、未解决风险和下一批阶段拆分检查；不新增业务功能。

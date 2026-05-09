@@ -113,6 +113,13 @@ const auditActionOptions = [
   'AUTH_FAILURE',
 ] satisfies AuditAction[];
 
+const securityAuditPresets = [
+  { label: 'User status', subjectType: 'app_user', action: 'STATUS_CHANGE' },
+  { label: 'Role access', subjectType: 'app_user_role', action: 'ACCESS_CHANGE' },
+  { label: 'Entity access', subjectType: 'app_user_entity_scope', action: 'ACCESS_CHANGE' },
+  { label: 'Auth failures', subjectType: 'authentication', action: 'AUTH_FAILURE' },
+] satisfies { label: string; subjectType: string; action: AuditAction }[];
+
 const securityRoleOptions = [
   'BUDGET_ADMIN',
   'METADATA_MANAGER',
@@ -157,6 +164,14 @@ function uniqueRoleCount(roles: UserRole[]) {
 function reasonPayload(reason: string) {
   const trimmed = reason.trim();
   return trimmed ? { reason: trimmed } : {};
+}
+
+function formatAuditDetails(detailsJson: string) {
+  try {
+    return JSON.stringify(JSON.parse(detailsJson), null, 2);
+  } catch {
+    return detailsJson;
+  }
 }
 
 function App() {
@@ -811,13 +826,13 @@ function App() {
     });
   }
 
-  async function refreshAuditEvents(page = auditPage.page) {
+  async function refreshAuditEvents(page = auditPage.page, nextDraft = auditDraft) {
     await runAction(async () => {
       const nextPage = await searchAuditEvents({
-        actorId: auditDraft.actorId || undefined,
-        subjectType: auditDraft.subjectType || undefined,
-        subjectId: auditDraft.subjectId || undefined,
-        action: auditDraft.action || undefined,
+        actorId: nextDraft.actorId || undefined,
+        subjectType: nextDraft.subjectType || undefined,
+        subjectId: nextDraft.subjectId || undefined,
+        action: nextDraft.action || undefined,
         page,
         size: auditPage.size,
       });
@@ -830,6 +845,31 @@ function App() {
   async function handleSearchAudit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await refreshAuditEvents(0);
+  }
+
+  async function handleSecurityAuditPreset(preset: {
+    subjectType: string;
+    action: AuditAction;
+  }) {
+    const nextDraft = {
+      actorId: '',
+      subjectType: preset.subjectType,
+      subjectId: '',
+      action: preset.action,
+    };
+    setAuditDraft(nextDraft);
+    await refreshAuditEvents(0, nextDraft);
+  }
+
+  async function handleClearAuditFilters() {
+    const nextDraft = {
+      actorId: '',
+      subjectType: '',
+      subjectId: '',
+      action: '' as '' | AuditAction,
+    };
+    setAuditDraft(nextDraft);
+    await refreshAuditEvents(0, nextDraft);
   }
 
   async function handleCreateBudgetModel(event: FormEvent<HTMLFormElement>) {
@@ -1542,6 +1582,22 @@ function App() {
             </button>
           </form>
 
+          <div className="audit-preset-actions">
+            {securityAuditPresets.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                disabled={loading}
+                onClick={() => void handleSecurityAuditPreset(preset)}
+              >
+                {preset.label}
+              </button>
+            ))}
+            <button type="button" disabled={loading} onClick={() => void handleClearAuditFilters()}>
+              Clear
+            </button>
+          </div>
+
           <div className="model-actions">
             <button
               type="button"
@@ -1593,7 +1649,9 @@ function App() {
                       {event.subjectId}
                     </td>
                     <td>{event.action}</td>
-                    <td>{event.detailsJson}</td>
+                    <td>
+                      <pre className="audit-details">{formatAuditDetails(event.detailsJson)}</pre>
+                    </td>
                   </tr>
                 ))}
               </tbody>
