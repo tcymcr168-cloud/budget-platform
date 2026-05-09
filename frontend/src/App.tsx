@@ -60,6 +60,8 @@ import {
 import {
   createSecurityUser,
   CurrentUser,
+  disableSecurityUser,
+  enableSecurityUser,
   EntityScope,
   getCurrentUser,
   grantEntityScope,
@@ -67,6 +69,8 @@ import {
   listEntityScopes,
   listSecurityUsers,
   listUserRoles,
+  revokeEntityScope,
+  revokeUserRole,
   SecurityRoleCode,
   SecurityUser,
   UserRole,
@@ -148,6 +152,11 @@ function formatActionError(caught: unknown) {
 
 function uniqueRoleCount(roles: UserRole[]) {
   return new Set(roles.map((role) => `${role.workspaceCode}:${role.roleCode}`)).size;
+}
+
+function reasonPayload(reason: string) {
+  const trimmed = reason.trim();
+  return trimmed ? { reason: trimmed } : {};
 }
 
 function App() {
@@ -269,6 +278,7 @@ function App() {
     entityMemberId: '',
     includeDescendants: true,
   });
+  const [securityActionReason, setSecurityActionReason] = useState('');
   const [auditDraft, setAuditDraft] = useState({
     actorId: '',
     subjectType: '',
@@ -712,6 +722,49 @@ function App() {
     });
   }
 
+  async function handleToggleSelectedSecurityUser() {
+    if (!selectedSecurityUser) {
+      setError('Select a user first.');
+      return;
+    }
+
+    await runAction(async () => {
+      const input = reasonPayload(securityActionReason);
+      const updatedUser =
+        selectedSecurityUser.status === 'ACTIVE'
+          ? await disableSecurityUser(selectedSecurityUser.id, input)
+          : await enableSecurityUser(selectedSecurityUser.id, input);
+      if (updatedUser) {
+        setSecurityActionReason('');
+        await refreshSecurityUsers();
+        await refreshCurrentUser();
+        setSelectedSecurityUserId(updatedUser.id);
+        setNotice(`${updatedUser.username} is now ${updatedUser.status}.`);
+      }
+    });
+  }
+
+  async function handleRevokeUserRole(role: UserRole) {
+    if (!selectedSecurityUserId) {
+      setError('Select a user first.');
+      return;
+    }
+
+    await runAction(async () => {
+      const revokedRole = await revokeUserRole(
+        selectedSecurityUserId,
+        role.id,
+        reasonPayload(securityActionReason),
+      );
+      if (revokedRole) {
+        setSecurityActionReason('');
+        await refreshSecurityGrants(selectedSecurityUserId, selectedWorkspaceId);
+        await refreshCurrentUser();
+        setNotice(`${revokedRole.roleCode} revoked.`);
+      }
+    });
+  }
+
   async function handleGrantEntityScope(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedSecurityUserId || !selectedWorkspaceId) {
@@ -733,6 +786,27 @@ function App() {
         setEntityScopeDraft({ entityMemberId: '', includeDescendants: true });
         await refreshSecurityGrants(selectedSecurityUserId, selectedWorkspaceId);
         setNotice(`Entity scope ${scope.entityMemberCode} granted.`);
+      }
+    });
+  }
+
+  async function handleRevokeEntityScope(scope: EntityScope) {
+    if (!selectedSecurityUserId) {
+      setError('Select a user first.');
+      return;
+    }
+
+    await runAction(async () => {
+      const revokedScope = await revokeEntityScope(
+        selectedSecurityUserId,
+        scope.id,
+        reasonPayload(securityActionReason),
+      );
+      if (revokedScope) {
+        setSecurityActionReason('');
+        await refreshSecurityGrants(selectedSecurityUserId, selectedWorkspaceId);
+        await refreshCurrentUser();
+        setNotice(`${revokedScope.entityMemberCode} scope revoked.`);
       }
     });
   }
@@ -1251,6 +1325,23 @@ function App() {
               </button>
             ))}
           </div>
+
+          <div className="security-action-form">
+            <label>
+              Reason
+              <input
+                value={securityActionReason}
+                onChange={(event) => setSecurityActionReason(event.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              disabled={loading || !selectedSecurityUser}
+              onClick={() => void handleToggleSelectedSecurityUser()}
+            >
+              {selectedSecurityUser?.status === 'INACTIVE' ? 'Enable' : 'Disable'}
+            </button>
+          </div>
         </section>
 
         <section className="panel" aria-labelledby="security-roles-title">
@@ -1287,6 +1378,7 @@ function App() {
                 <tr>
                   <th>Workspace</th>
                   <th>Role</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -1294,6 +1386,16 @@ function App() {
                   <tr key={role.id}>
                     <td>{role.workspaceCode}</td>
                     <td>{role.roleCode}</td>
+                    <td>
+                      <button
+                        className="table-action-button"
+                        type="button"
+                        disabled={loading}
+                        onClick={() => void handleRevokeUserRole(role)}
+                      >
+                        Revoke
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1357,6 +1459,7 @@ function App() {
                 <tr>
                   <th>Entity</th>
                   <th>Desc.</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -1366,6 +1469,16 @@ function App() {
                       {scope.entityMemberCode} - {scope.entityMemberName}
                     </td>
                     <td>{scope.includeDescendants ? 'Yes' : 'No'}</td>
+                    <td>
+                      <button
+                        className="table-action-button"
+                        type="button"
+                        disabled={loading}
+                        onClick={() => void handleRevokeEntityScope(scope)}
+                      >
+                        Revoke
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

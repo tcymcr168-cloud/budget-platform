@@ -10,6 +10,7 @@ export type SecurityRoleCode =
   | 'READ_ONLY';
 
 export type SecurityUserStatus = 'ACTIVE' | 'INACTIVE';
+export type SecurityGrantStatus = 'ACTIVE' | 'REVOKED';
 
 export interface SecurityUser {
   id: string;
@@ -25,6 +26,8 @@ export interface UserRole {
   workspaceId: string;
   workspaceCode: string;
   roleCode: SecurityRoleCode;
+  status: SecurityGrantStatus;
+  revokedAt: string | null;
 }
 
 export interface EntityScope {
@@ -36,6 +39,8 @@ export interface EntityScope {
   entityMemberCode: string;
   entityMemberName: string;
   includeDescendants: boolean;
+  status: SecurityGrantStatus;
+  revokedAt: string | null;
 }
 
 export interface CurrentUser {
@@ -64,6 +69,10 @@ export interface GrantEntityScopeInput {
   includeDescendants: boolean;
 }
 
+export interface SecurityActionReasonInput {
+  reason?: string;
+}
+
 export async function listSecurityUsers() {
   const response = await requestJson<SecurityUser[]>('/api/security/users');
   return response.data ?? [];
@@ -71,6 +80,24 @@ export async function listSecurityUsers() {
 
 export async function createSecurityUser(input: CreateSecurityUserInput) {
   const response = await requestJson<SecurityUser>('/api/security/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  return response.data;
+}
+
+export async function disableSecurityUser(userId: string, input: SecurityActionReasonInput) {
+  const response = await requestJson<SecurityUser>(`/api/security/users/${userId}/disable`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  return response.data;
+}
+
+export async function enableSecurityUser(userId: string, input: SecurityActionReasonInput) {
+  const response = await requestJson<SecurityUser>(`/api/security/users/${userId}/enable`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -93,6 +120,22 @@ export async function grantUserRole(userId: string, input: GrantUserRoleInput) {
   return response.data;
 }
 
+export async function revokeUserRole(
+  userId: string,
+  roleId: string,
+  input: SecurityActionReasonInput,
+) {
+  const response = await requestJson<UserRole>(
+    `/api/security/users/${userId}/roles/${roleId}/revoke`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+  return response.data;
+}
+
 export async function listEntityScopes(userId: string, workspaceId?: string) {
   const query = workspaceId ? `?workspaceId=${workspaceId}` : '';
   const response = await requestJson<EntityScope[]>(
@@ -104,6 +147,22 @@ export async function listEntityScopes(userId: string, workspaceId?: string) {
 export async function grantEntityScope(userId: string, input: GrantEntityScopeInput) {
   const response = await requestJson<EntityScope>(
     `/api/security/users/${userId}/entity-scopes`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+  return response.data;
+}
+
+export async function revokeEntityScope(
+  userId: string,
+  scopeId: string,
+  input: SecurityActionReasonInput,
+) {
+  const response = await requestJson<EntityScope>(
+    `/api/security/users/${userId}/entity-scopes/${scopeId}/revoke`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

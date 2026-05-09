@@ -5721,3 +5721,101 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `SEC-016`：前端禁用/启用与撤销 MVP。目标是在现有安全管理前端中增加用户 disable/enable、角色 revoke、Entity scope revoke 的最小操作入口和 reason 输入；不新增后端 schema，不做批量操作，不做复杂审批流。
+
+## SEC-016
+
+阶段名称：前端禁用/启用与撤销 MVP
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+在现有安全管理前端中增加用户 disable/enable、Workspace 角色 revoke、Entity scope revoke 的最小操作入口和 reason 输入。本阶段不新增后端 schema，不做批量撤销，不做复杂审批流，不新增物理删除控制。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `sec-013-user-disable-backend.md`、`sec-015-grant-soft-revoke-api.md`、现有 `App.tsx` 安全管理区域、`securityApi.ts` |
+| 允许修改 | `frontend/src/features/security/securityApi.ts`、`frontend/src/App.tsx`、`frontend/src/styles.css`、SEC-016 文档、README、PROJECT_STEP_RECORD |
+| 禁止修改 | 后端 schema、后端 API、新 migration、批量撤销、复杂审批流、物理删除控制、PDF 原文、OCR 全文、secrets、外部服务、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `pnpm type-check`、`pnpm lint`、`pnpm build`、`git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `frontend/src/features/security/securityApi.ts` | 增加 disable/enable/revoke API client 与 grant status 类型 |
+| `frontend/src/App.tsx` | 在安全管理界面增加 reason 输入、用户禁用/启用、角色撤销、Entity 范围撤销操作 |
+| `frontend/src/styles.css` | 增加安全操作区与表格操作按钮样式 |
+| `docs/architecture/sec-016-frontend-disable-revoke-mvp.md` | 新增 SEC-016 架构说明 |
+| `README.md` | 更新当前治理状态和 SEC-016 文档入口 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-016 阶段记录 |
+
+### 关键产出
+
+1. 前端 API client 支持 `disableSecurityUser`、`enableSecurityUser`、`revokeUserRole`、`revokeEntityScope`。
+2. 安全管理界面为选中用户提供 disable/enable 操作。
+3. Workspace role 与 Entity scope active 列表提供逐行 revoke 操作。
+4. 操作共用一个可选 reason 输入，提交后进入后端审计。
+5. 操作成功后刷新用户、授权和当前用户摘要。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过；Vite 成功构建，产物位于被忽略的 `frontend/dist` |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示当前工作副本下若干文本文件 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 SEC-016 相关前端代码、文档、README 和阶段记录 |
+| 边界关键词扫描 | 仅命中既有 `AuditAction.DELETE`、`AuthMode.JWT`、JWT fail-closed 占位、前端 `CurrentUser.authMode` 类型和审计 `DELETE` 筛选；未新增 `DeleteMapping`、OAuth 依赖、token 存储、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. 本阶段前端类型检查、lint 和构建未出现失败。
+
+### 风险与限制
+
+1. reason 输入为共享字段，不做每行独立 reason 状态。
+2. revoked grant 历史不在安全管理列表展示，当前通过审计查看。
+3. 后端仍负责 self-disable 等关键保护，前端不重复实现所有业务守卫。
+4. JWT/OIDC bearer 校验仍未实现。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端 schema | 未修改 |
+| migration | 未新增 |
+| 物理删除控制 | 未新增 |
+| 批量撤销 | 未新增 |
+| 复杂审批流 | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| token 存储 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | `frontend/dist` 已被忽略，未提交 |
+
+### 未解决问题
+
+1. 安全生命周期事件的审计筛选体验仍可在后续 AUDIT 阶段优化。
+2. JWT/OIDC bearer 校验尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-016。
+
+关闭理由：前端 disable/enable/revoke MVP 已完成，类型检查、lint、构建、资料保护检查、空白检查和越界扫描均通过。本阶段未删除文件，未新增后端 schema 或 migration，未新增物理删除控制、批量撤销、复杂审批流、PDF/OCR 全文、secrets、构建产物或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUDIT-005`：安全生命周期审计体验优化。目标是在现有审计前端筛选与展示中更清楚地支持 `STATUS_CHANGE`、`ACCESS_CHANGE`、`AUTH_FAILURE` 等安全治理事件；不新增 BI 图表，不做告警系统，不做外部服务。

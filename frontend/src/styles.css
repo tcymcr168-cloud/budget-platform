@@ -61,6 +61,8 @@ button:disabled {
 .query-form button,
 .variance-form button,
 .import-form button,
+.security-action-form button,
+.table-action-button,
 .model-actions button {
   min-height: 38px;
   border: 0;
@@ -231,6 +233,7 @@ h2 {
 .form-grid,
 .security-user-form,
 .security-grant-form,
+.security-action-form,
 .audit-form,
 .member-form,
 .model-form,
@@ -256,6 +259,21 @@ h2 {
 .security-grant-form {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
+}
+
+.security-action-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 16px 18px;
+  border-top: 1px solid #e4eaed;
+}
+
+.table-action-button {
+  min-width: 86px;
+  padding: 0 12px;
+  background: #7a3935;
 }
 
 .audit-form {
@@ -511,6 +529,7 @@ td {
   .member-form,
   .security-user-form,
   .security-grant-form,
+  .security-action-form,
   .audit-form,
   .model-form,
   .binding-form,
@@ -541,6 +560,7 @@ td {
   .member-form,
   .security-user-form,
   .security-grant-form,
+  .security-action-form,
   .audit-form,
   .model-form,
   .binding-form,
