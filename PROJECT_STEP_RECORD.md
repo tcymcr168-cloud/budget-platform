@@ -3915,3 +3915,91 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `SEC-005`：生产认证边界设计，明确 JWT/SSO/会话管理路线，但先做设计文档，不直接接入外部身份服务。
+
+## SEC-005
+
+阶段名称：生产认证边界设计
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+在不直接接入外部身份服务、不引入 JWT/OAuth 依赖、不新增登录页面、不新增 secrets 或 migration 的前提下，明确生产认证信任边界、当前请求头身份模式的风险、JWT/SSO/反向代理身份适配路线，以及后续 SEC 阶段拆分。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `docs/architecture/sec-001-security-scope-design.md`、`docs/architecture/sec-002-security-backend-baseline.md`、`docs/architecture/sec-004-frontend-security-context.md`、`docs/architecture/audit-003-core-write-audit-coverage.md`、`README.md` |
+| 允许修改 | `docs/architecture/sec-005-production-auth-boundary.md`、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 后端业务代码、前端实现、migration、PDF 原文、OCR 全文、外部身份服务接入、密钥配置、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `git check-ignore`、`git diff --check`、`git status --short` |
+| 授权状态 | 用户已授权全自动推进；本阶段无删除文件，无代码实现，无 migration |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/sec-005-production-auth-boundary.md` | 新增生产认证边界、身份契约、分阶段落地路线和非目标 |
+| `README.md` | 更新当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-005 阶段记录 |
+
+### 关键产出
+
+1. 明确当前 `X-User-Id` / `X-User-Roles` 是内部技术验证机制，不能作为生产可信身份。
+2. 明确生产认证应由后端作为信任边界，前端不得声明角色。
+3. 明确应用角色与 Entity 范围继续由预算平台自管，IdP 只负责认证人员。
+4. 拆分后续 `SEC-006` 可信 Principal 适配器、`SEC-007` 移除请求头角色信任、`SEC-008` 前端登录边界、`SEC-009` 会话与 Token 运维规则。
+5. 明确本阶段不实现 Spring Security、JWT/OAuth、登录页、密码存储、外部服务调用或 secrets。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `git check-ignore` | 通过；PDF、OCR、构建产物、依赖目录和后端 `target` 均被忽略 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| `git status --short` | 通过；仅 SEC-005 架构文档、README 和阶段记录修改 |
+
+### 失败项与修复记录
+
+1. 本阶段为文档设计阶段，未运行后端或前端测试；无代码编译风险。
+
+### 风险与限制
+
+1. 生产认证尚未实现，当前运行态仍依赖内部请求头上下文。
+2. 可信 Principal 适配器和生产配置仍需后续实现阶段。
+3. 前端内部身份选择器仍需后续生产登录阶段替换。
+4. 审计 actor 的可信度仍依赖当前请求头，需在可信身份接入后升级。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端业务代码 | 未修改 |
+| 前端实现 | 未修改 |
+| migration | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. `SEC-006` 尚未实现可信 Principal 后端适配器。
+2. `SEC-007` 尚未禁用生产环境中的 `X-User-Roles` 信任。
+3. `SEC-008` 尚未替换前端内部身份选择器。
+4. 生产 JWT/OIDC 或反向代理身份来源尚未最终选型。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-005。
+
+关闭理由：生产认证边界、身份契约、阶段路线和非目标已形成架构文档；本阶段未修改代码、未删除文件、未新增 migration、未提交 PDF/OCR 全文或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `SEC-006`：可信 Principal 后端适配器最小实现，保留显式 dev-header 模式，并为后续 JWT/反向代理模式预留接口。
