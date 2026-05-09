@@ -4343,6 +4343,10 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 | 命令 | 结果 |
 | --- | --- |
 | 文档阶段 | 未运行后端/前端测试；本阶段未修改代码 |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、前端构建/依赖、后端构建目录均被忽略 |
+| `git diff --check` | 通过；仅提示 `PROJECT_STEP_RECORD.md` 与 `README.md` 在当前工作副本下 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 `PROJECT_STEP_RECORD.md`、`README.md` 和 `docs/architecture/auth-001-production-auth-implementation-plan.md` |
+| 后端/前端边界关键词扫描 | 仅命中既有 `AuthMode.JWT` 和 `CurrentUserContextResolver` 的 JWT 失败关闭占位；本阶段未修改代码 |
 | `git check-ignore` | 通过；PDF、OCR、前端依赖/构建产物、后端 `target` 均被忽略 |
 | `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
 | `git status --short` | 通过；仅 OPS-001 runbook、README 和阶段记录修改 |
@@ -4761,3 +4765,89 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUTH-001`：生产认证实现方案拆分。目标是基于 SEC-005 至 SEC-009 形成可实施的 JWT/OIDC 与反向代理二选一路线、风险清单和最小实现拆分；只有设计确认后再进入代码实现。
+
+## AUTH-001
+
+阶段名称：生产认证实现方案拆分
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+基于 SEC-005、SEC-006、SEC-007、SEC-008 和 SEC-009，将生产认证从“边界原则”推进到“可执行实施路线”。本阶段只做文档设计，不实现 JWT/OIDC、不实现反向代理适配代码、不新增依赖、不修改后端或前端业务代码、不新增 migration、不访问外部服务、不写 secrets。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `sec-005-production-auth-boundary.md`、`sec-006-trusted-principal-adapter.md`、`sec-007-remove-header-role-trust.md`、`sec-008-frontend-auth-boundary.md`、`sec-009-session-token-operations.md`、现有认证代码状态 |
+| 允许修改 | `docs/architecture/auth-001-production-auth-implementation-plan.md`、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 后端代码、前端代码、migration、PDF 原文、OCR 全文、JWT/OAuth 依赖、secrets、外部服务、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段未删除文件，未写代码，未新增 migration，未访问外部服务 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/auth-001-production-auth-implementation-plan.md` | 新增生产认证实施路线与阶段拆分 |
+| `README.md` | 增加 AUTH-001 文档入口并更新当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUTH-001 阶段记录 |
+
+### 关键产出
+
+1. 对比反向代理可信身份与 JWT/OIDC bearer 校验两条生产认证路线。
+2. 建议优先实现 `AUTH-002A` 反向代理可信身份模式；当部署环境不具备可信网关时，再进入 `AUTH-002B` JWT/OIDC bearer 校验。
+3. 明确 Workspace 角色和 Entity 范围继续由平台表维护，不从 token 或 IdP group 直接推导预算授权。
+4. 拆分后续最小阶段：`AUTH-002A`、`AUTH-002B`、`AUTH-003`、`AUTH-004`、`AUTH-005`、`AUTH-006`。
+5. 明确本阶段不写代码、不加依赖、不接外部服务、不加 secrets。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| 文档阶段 | 未运行后端/前端测试；本阶段未修改代码 |
+
+### 失败项与修复记录
+
+1. 本阶段为认证方案拆分阶段，未出现验证失败。
+
+### 风险与限制
+
+1. AUTH-001 不是生产认证代码实现；`JWT` 和 `REVERSE_PROXY` 运行模式仍需后续实现。
+2. 反向代理路线依赖网关剥离/覆盖身份请求头，并要求后端不可被浏览器绕过直连。
+3. JWT/OIDC 路线会引入依赖、密钥轮换和 IdP 配置复杂度，需独立阶段实现与测试。
+4. 失败认证审计和授权撤销仍未实现。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端代码 | 未修改 |
+| 前端代码 | 未修改 |
+| migration | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. `AUTH-002A` 需要实现 `REVERSE_PROXY` 模式并补充测试。
+2. `AUTH-002B` 需要在实际需要时选择 JWT/OIDC 验证依赖并设计测试密钥。
+3. `/api/security/me`、失败认证审计、生产部署 runbook 仍需后续阶段。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUTH-001。
+
+关闭理由：生产认证两条路线、推荐顺序、后续最小阶段、非目标和风险控制已沉淀；本阶段未删除文件，未修改后端/前端代码，未新增 migration，未提交 PDF/OCR 全文、secrets 或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUTH-002A`：反向代理可信身份后端适配。目标是在不引入 JWT/OIDC 依赖、不修改前端登录、不新增 migration 的前提下，实现 `REVERSE_PROXY` 模式的可信 principal 解析和测试。
