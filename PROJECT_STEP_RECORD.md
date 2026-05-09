@@ -4245,6 +4245,10 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 | `pnpm build` | 通过；Vite 生产构建成功，产物位于已忽略的 `frontend/dist` |
 | `git check-ignore` | 通过；PDF、OCR、前端依赖/构建产物、后端 `target` 均被忽略 |
 | `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| `git status --short` | 通过；仅 AUDIT-004 前端、文档和阶段记录修改 |
+| 边界关键词扫描 | 通过；未发现审计导出、dashboard、ERP、Chart、BI 图表、合并报表、secrets 或 password；仅命中既有预算查询 CSV 导出 |
+| `git check-ignore` | 通过；PDF、OCR、前端依赖/构建产物、后端 `target` 均被忽略 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
 | `git status --short` | 通过；仅 SEC-011 前端、文档和阶段记录修改 |
 | 边界关键词扫描 | 通过；未发现 ERP、Chart、BI 图表、合并报表、secrets、password、新增删除或撤销实现；仅命中既有 `AuditAction.DELETE` 枚举 |
 | `git check-ignore` | 通过；PDF、OCR、前端依赖/构建产物、后端 `target` 均被忽略 |
@@ -4577,3 +4581,94 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUDIT-004`：审计查询前端 MVP。目标是复用现有只读审计 API，提供最小筛选与分页查看能力，不做 BI 仪表盘、导出或复杂报表。
+
+## AUDIT-004
+
+阶段名称：审计查询前端 MVP
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+复用现有 `/api/audit/events` 只读审计查询 API，在前端提供最小筛选、分页和结果查看能力。本阶段不新增后端接口、不新增 migration、不做 CSV 导出、不做 BI 图表或仪表盘、不做审计删除/清理、不做失败认证审计写入。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AuditController`、`AuditEventResponse`、`PageResponse`、`AUDIT-002`、`AUDIT-003`、现有 `App.tsx` |
+| 允许修改 | 前端审计 API 客户端、`App.tsx` 审计查询面板、`styles.css`、AUDIT-004 架构文档、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 删除文件、后端业务逻辑、migration、PDF 原文、OCR 全文、JWT/OAuth 依赖、secrets、外部服务、ERP 直连、BI 图表、合并报表、审计导出/删除 |
+| 验证命令 | `pnpm type-check`、`pnpm lint`、`pnpm build`、`git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段未删除文件，未新增 migration，未访问外部服务 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `frontend/src/features/audit/auditApi.ts` | 新增 typed audit query client |
+| `frontend/src/App.tsx` | 新增只读审计筛选、分页和结果表 |
+| `frontend/src/styles.css` | 新增审计查询布局和表单样式 |
+| `docs/architecture/audit-004-frontend-audit-query.md` | 新增 AUDIT-004 架构说明 |
+| `README.md` | 更新当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUDIT-004 阶段记录 |
+
+### 关键产出
+
+1. 前端新增 `/api/audit/events` typed client。
+2. 支持按 actor、subject type、subject id、action 筛选。
+3. 支持上一页/下一页分页查看。
+4. 展示审计时间、actor、subject、action 和 details JSON。
+5. 保持只读，不提供导出、删除、清理或 BI 图表。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `pnpm type-check` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过；Vite 生产构建成功，产物位于已忽略的 `frontend/dist` |
+
+### 失败项与修复记录
+
+1. 前端三项验证首轮通过，未出现类型、lint 或构建失败。
+2. 本阶段未修改后端代码，因此未运行 `mvn test`。
+
+### 风险与限制
+
+1. 审计查询访问仍依赖后端既有授权与当前认证模式。
+2. `detailsJson` 暂以文本展示，未做结构化报表或字段级解析。
+3. 未提供导出、保留策略、归档或失败认证事件写入。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 后端业务逻辑 | 未修改 |
+| migration | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| 审计导出/删除 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 失败认证审计仍未实现。
+2. 审计导出和保留/归档策略仍未进入阶段范围。
+3. 生产登录仍未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUDIT-004。
+
+关闭理由：只读审计查询前端、typed API client、分页和筛选已完成，前端 type-check、lint、build 全部通过；未删除文件，未改后端业务逻辑，未新增 migration，未提交 PDF/OCR 全文、secrets 或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `OPS-001`：本地运行与验证手册。目标是沉淀当前后端、前端、认证 bootstrap、PDF/OCR 保护和常用测试命令，降低后续 24 小时巡视时的交接成本。

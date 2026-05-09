@@ -9,6 +9,12 @@ import {
   validateActualImport,
 } from './features/actualImports/actualImportApi';
 import {
+  AuditAction,
+  AuditEvent,
+  PageResponse,
+  searchAuditEvents,
+} from './features/audit/auditApi';
+import {
   activateBudgetModel,
   bindBudgetModelDimension,
   BudgetModel,
@@ -91,6 +97,15 @@ const axisTypes: TemplateAxisType[] = ['ROW', 'COLUMN', 'FILTER'];
 
 const queryGroupByOptions: QueryGroupBy[] = ['ACCOUNT', 'ENTITY', 'TIME', 'CATEGORY', 'VERSION'];
 
+const auditActionOptions = [
+  'CREATE',
+  'UPDATE',
+  'DELETE',
+  'STATUS_CHANGE',
+  'IMPORT',
+  'ACCESS_CHANGE',
+] satisfies AuditAction[];
+
 const securityRoleOptions = [
   'BUDGET_ADMIN',
   'METADATA_MANAGER',
@@ -140,6 +155,14 @@ function App() {
   const [securityUsers, setSecurityUsers] = useState<SecurityUser[]>([]);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [entityScopes, setEntityScopes] = useState<EntityScope[]>([]);
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [auditPage, setAuditPage] = useState<PageResponse<AuditEvent>>({
+    items: [],
+    page: 0,
+    size: 10,
+    totalElements: 0,
+    totalPages: 0,
+  });
   const [scopeMembers, setScopeMembers] =
     useState<Record<DimensionType, DimensionMember[]>>(initialScopeMembers);
   const [submissionTasks, setSubmissionTasks] = useState<SubmissionTask[]>([]);
@@ -237,6 +260,12 @@ function App() {
   const [entityScopeDraft, setEntityScopeDraft] = useState({
     entityMemberId: '',
     includeDescendants: true,
+  });
+  const [auditDraft, setAuditDraft] = useState({
+    actorId: '',
+    subjectType: '',
+    subjectId: '',
+    action: '' as '' | AuditAction,
   });
   const [returnReason, setReturnReason] = useState('');
   const [loading, setLoading] = useState(false);
@@ -685,6 +714,27 @@ function App() {
         setNotice(`Entity scope ${scope.entityMemberCode} granted.`);
       }
     });
+  }
+
+  async function refreshAuditEvents(page = auditPage.page) {
+    await runAction(async () => {
+      const nextPage = await searchAuditEvents({
+        actorId: auditDraft.actorId || undefined,
+        subjectType: auditDraft.subjectType || undefined,
+        subjectId: auditDraft.subjectId || undefined,
+        action: auditDraft.action || undefined,
+        page,
+        size: auditPage.size,
+      });
+      setAuditPage(nextPage);
+      setAuditEvents(nextPage.items);
+      setNotice(`${nextPage.totalElements} audit events matched.`);
+    });
+  }
+
+  async function handleSearchAudit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await refreshAuditEvents(0);
   }
 
   async function handleCreateBudgetModel(event: FormEvent<HTMLFormElement>) {
@@ -1273,6 +1323,121 @@ function App() {
                       {scope.entityMemberCode} - {scope.entityMemberName}
                     </td>
                     <td>{scope.includeDescendants ? 'Yes' : 'No'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section className="audit-layout" aria-label="Audit event query">
+        <section className="panel" aria-labelledby="audit-search-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Audit</p>
+              <h2 id="audit-search-title">Event Search</h2>
+            </div>
+            <span>{auditPage.totalElements} events</span>
+          </div>
+
+          <form className="audit-form" onSubmit={(event) => void handleSearchAudit(event)}>
+            <label>
+              Actor
+              <input
+                value={auditDraft.actorId}
+                onChange={(event) => setAuditDraft({ ...auditDraft, actorId: event.target.value })}
+              />
+            </label>
+            <label>
+              Subject type
+              <input
+                value={auditDraft.subjectType}
+                onChange={(event) =>
+                  setAuditDraft({ ...auditDraft, subjectType: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Subject id
+              <input
+                value={auditDraft.subjectId}
+                onChange={(event) =>
+                  setAuditDraft({ ...auditDraft, subjectId: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Action
+              <select
+                value={auditDraft.action}
+                onChange={(event) =>
+                  setAuditDraft({ ...auditDraft, action: event.target.value as '' | AuditAction })
+                }
+              >
+                <option value="">All actions</option>
+                {auditActionOptions.map((action) => (
+                  <option key={action}>{action}</option>
+                ))}
+              </select>
+            </label>
+            <button type="submit" disabled={loading}>
+              Search
+            </button>
+          </form>
+
+          <div className="model-actions">
+            <button
+              type="button"
+              onClick={() => void refreshAuditEvents(Math.max(auditPage.page - 1, 0))}
+              disabled={loading || auditPage.page <= 0}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              onClick={() => void refreshAuditEvents(auditPage.page + 1)}
+              disabled={loading || auditPage.page + 1 >= auditPage.totalPages}
+            >
+              Next
+            </button>
+          </div>
+        </section>
+
+        <section className="panel" aria-labelledby="audit-results-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Read only</p>
+              <h2 id="audit-results-title">Audit Events</h2>
+            </div>
+            <span>
+              Page {auditPage.totalPages === 0 ? 0 : auditPage.page + 1} / {auditPage.totalPages}
+            </span>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Actor</th>
+                  <th>Subject</th>
+                  <th>Action</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {auditEvents.map((event) => (
+                  <tr key={event.id}>
+                    <td>{new Date(event.occurredAt).toLocaleString()}</td>
+                    <td>{event.actorId}</td>
+                    <td>
+                      {event.subjectType}
+                      <br />
+                      {event.subjectId}
+                    </td>
+                    <td>{event.action}</td>
+                    <td>{event.detailsJson}</td>
                   </tr>
                 ))}
               </tbody>

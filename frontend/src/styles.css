@@ -145,6 +145,15 @@ h2 {
   align-items: start;
 }
 
+.audit-layout {
+  max-width: 1440px;
+  display: grid;
+  grid-template-columns: minmax(320px, 0.8fr) minmax(640px, 1.6fr);
+  gap: 16px;
+  margin: 0 auto 16px;
+  align-items: start;
+}
+
 .model-layout,
 .template-layout,
 .submission-layout,
@@ -187,6 +196,7 @@ h2 {
 .form-grid,
 .security-user-form,
 .security-grant-form,
+.audit-form,
 .member-form,
 .model-form,
 .binding-form,
@@ -210,6 +220,11 @@ h2 {
 
 .security-grant-form {
   grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.audit-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: end;
 }
 
@@ -449,6 +464,7 @@ td {
 @media (max-width: 1100px) {
   .metadata-layout,
   .security-management-layout,
+  .audit-layout,
 .model-layout,
 .template-layout,
 .submission-layout,
@@ -460,6 +476,7 @@ td {
   .member-form,
   .security-user-form,
   .security-grant-form,
+  .audit-form,
   .model-form,
   .binding-form,
   .axis-form,
@@ -488,6 +505,7 @@ td {
   .member-form,
   .security-user-form,
   .security-grant-form,
+  .audit-form,
   .model-form,
   .binding-form,
   .axis-form,
