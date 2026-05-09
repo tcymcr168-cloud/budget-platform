@@ -14,3 +14,9 @@ spring:
 
 server:
   port: 8080
+
+budget-platform:
+  auth:
+    mode: ${BUDGET_PLATFORM_AUTH_MODE:DEV_HEADER}
+    allow-header-roles: ${BUDGET_PLATFORM_AUTH_ALLOW_HEADER_ROLES:true}
+    reverse-proxy-user-header: ${BUDGET_PLATFORM_AUTH_REVERSE_PROXY_USER_HEADER:X-Forwarded-User}

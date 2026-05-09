@@ -10,3 +10,8 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+
+budget-platform:
+  auth:
+    mode: DEV_HEADER
+    allow-header-roles: true

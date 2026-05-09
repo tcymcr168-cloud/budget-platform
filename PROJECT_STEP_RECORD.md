@@ -4003,3 +4003,100 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `SEC-006`：可信 Principal 后端适配器最小实现，保留显式 dev-header 模式，并为后续 JWT/反向代理模式预留接口。
+
+## SEC-006
+
+阶段名称：可信 Principal 后端适配器最小实现
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+围绕现有 `CurrentUserContextResolver` 建立可配置认证模式，让当前请求头身份机制明确限定为 `DEV_HEADER`，并为后续 JWT 和反向代理身份模式预留失败关闭的适配入口。本阶段不实现 JWT 验签、不接入外部 IdP、不新增 secrets、不修改数据库结构、不新增前端登录。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `docs/architecture/sec-005-production-auth-boundary.md`、现有 `CurrentUserContextResolver`、`application.yml`、后端安全测试 |
+| 允许修改 | 后端安全上下文/认证配置、测试配置、Resolver 单元测试、SEC-006 架构文档、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | migration、前端 UI、PDF 原文、OCR 全文、外部身份服务接入、JWT/OAuth 依赖、secrets、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `mvn test`、`git check-ignore`、`git diff --check`、`git status --short`、后端边界关键词扫描 |
+| 授权状态 | 用户已授权全自动推进；本阶段无删除文件，无 migration，无外部服务访问 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/security/context/AuthMode.java` | 新增认证模式枚举：`DEV_HEADER`、`JWT`、`REVERSE_PROXY` |
+| `backend/src/main/java/com/budgetplatform/security/context/AuthProperties.java` | 新增 `budget-platform.auth` 配置绑定 |
+| `backend/src/main/java/com/budgetplatform/security/context/CurrentUserContextResolver.java` | 按认证模式解析当前用户上下文，JWT/反向代理模式失败关闭 |
+| `backend/src/main/resources/application.yml` | 新增认证模式配置项和环境变量入口 |
+| `backend/src/test/resources/application-test.yml` | 测试环境显式使用 `DEV_HEADER` 且允许请求头角色 |
+| `backend/src/test/java/com/budgetplatform/security/context/CurrentUserContextResolverTests.java` | 新增 Resolver 单元测试 |
+| `docs/architecture/sec-006-trusted-principal-adapter.md` | 新增 SEC-006 架构与关闭建议文档 |
+| `README.md` | 更新当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-006 阶段记录 |
+
+### 关键产出
+
+1. 认证模式被显式配置为 `budget-platform.auth.mode`。
+2. `DEV_HEADER` 模式保留本地和测试兼容性。
+3. `allow-header-roles=false` 时 `X-User-Roles` 不再参与当前上下文解析。
+4. `JWT` 和 `REVERSE_PROXY` 当前失败关闭，避免误配置成未实现的生产认证。
+5. 后续 `SEC-007` 可以基于该适配器移除生产角色请求头信任。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 41, Failures: 0, Errors: 0, Skipped: 0 |
+| Flyway migration | 通过；成功验证 7 个 migrations，当前版本 v7 |
+| `git check-ignore` | 通过；PDF、OCR、构建产物、依赖目录和后端 `target` 均被忽略 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| `git status --short` | 通过；仅 SEC-006 后端安全上下文、配置、测试、文档和阶段记录修改 |
+| 后端边界关键词扫描 | 通过；`backend/src/main/java` 未发现 `@DeleteMapping`、ERP、Chart 或合并报表实现 |
+
+### 失败项与修复记录
+
+1. 后端测试首轮通过，未出现编译或测试失败。
+
+### 风险与限制
+
+1. 生产认证仍未完成，JWT 和反向代理模式只是失败关闭的占位入口。
+2. 默认 `DEV_HEADER` 仍允许 header roles，以保持当前 MVP 和测试可运行。
+3. 生产环境必须在后续阶段移除 `X-User-Roles` 信任，并从数据库角色表解析授权。
+4. 尚未接入 Spring Security 或任何外部 IdP。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| migration | 未新增 |
+| 前端 UI | 未修改 |
+| JWT/OAuth 依赖 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. `SEC-007` 尚需移除生产环境中 `X-User-Roles` 的授权信任。
+2. JWT 验签、issuer、audience、expiry 校验尚未实现。
+3. 反向代理身份模式的可信网络边界和 header overwrite 规则尚未实现。
+4. 前端内部身份选择器尚未替换为生产登录体验。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-006。
+
+关闭理由：认证模式配置、dev-header 适配器、生产候选模式失败关闭、单元测试、后端测试、架构文档和阶段记录均已完成；未删除文件，未新增 migration，未新增外部依赖、secrets、PDF/OCR 全文或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `SEC-007`：移除生产角色请求头信任，改为从 `app_user_role` 解析授权角色，同时保持测试和本地 bootstrap 路径可控。
