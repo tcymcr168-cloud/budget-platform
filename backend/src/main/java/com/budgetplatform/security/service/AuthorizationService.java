@@ -2,6 +2,7 @@ package com.budgetplatform.security.service;
 
 import com.budgetplatform.common.api.ApplicationException;
 import com.budgetplatform.common.api.ErrorCode;
+import com.budgetplatform.security.context.AuthProperties;
 import com.budgetplatform.security.context.CurrentUserContext;
 import com.budgetplatform.security.domain.AppUser;
 import com.budgetplatform.security.domain.SecurityRoleCode;
@@ -24,22 +25,27 @@ public class AuthorizationService {
     private final AppUserRepository userRepository;
     private final AppUserRoleRepository roleRepository;
     private final AppUserEntityScopeRepository scopeRepository;
+    private final AuthProperties authProperties;
 
     public AuthorizationService(
             AppUserRepository userRepository,
             AppUserRoleRepository roleRepository,
-            AppUserEntityScopeRepository scopeRepository
+            AppUserEntityScopeRepository scopeRepository,
+            AuthProperties authProperties
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.scopeRepository = scopeRepository;
+        this.authProperties = authProperties;
     }
 
     @Transactional(readOnly = true)
     public void requireHeaderAdmin(CurrentUserContext context) {
         requireAuthenticated(context);
-        if (!context.roles().contains(SecurityRoleCode.BUDGET_ADMIN)) {
-            throw forbidden("BUDGET_ADMIN request role is required.");
+        boolean headerAdmin = authProperties.isAllowHeaderRoles()
+                && context.roles().contains(SecurityRoleCode.BUDGET_ADMIN);
+        if (!headerAdmin && !isBootstrapAdmin(context)) {
+            throw forbidden("BUDGET_ADMIN bootstrap or trusted request role is required.");
         }
     }
 
@@ -100,8 +106,19 @@ public class AuthorizationService {
                         .map(role -> role.getRoleCode()))
                 .orElseGet(Stream::empty)
                 .collect(Collectors.toSet());
-        persistedRoles.addAll(context.roles());
+        if (authProperties.isAllowHeaderRoles()) {
+            persistedRoles.addAll(context.roles());
+        }
         return Set.copyOf(persistedRoles);
+    }
+
+    private boolean isBootstrapAdmin(CurrentUserContext context) {
+        String userId = AppUser.normalizeUsername(context.userId());
+        return authProperties.getBootstrapAdminUsers()
+                .stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(AppUser::normalizeUsername)
+                .anyMatch(userId::equals);
     }
 
     private void requireAuthenticated(CurrentUserContext context) {

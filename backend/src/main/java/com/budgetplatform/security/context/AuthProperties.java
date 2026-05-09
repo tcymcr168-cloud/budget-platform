@@ -2,12 +2,16 @@ package com.budgetplatform.security.context;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @ConfigurationProperties(prefix = "budget-platform.auth")
 public class AuthProperties {
 
     private AuthMode mode = AuthMode.DEV_HEADER;
-    private boolean allowHeaderRoles = true;
+    private boolean allowHeaderRoles = false;
     private String reverseProxyUserHeader = "X-Forwarded-User";
+    private List<String> bootstrapAdminUsers = new ArrayList<>();
 
     public AuthMode getMode() {
         return mode;
@@ -31,5 +35,13 @@ public class AuthProperties {
 
     public void setReverseProxyUserHeader(String reverseProxyUserHeader) {
         this.reverseProxyUserHeader = reverseProxyUserHeader;
+    }
+
+    public List<String> getBootstrapAdminUsers() {
+        return bootstrapAdminUsers;
+    }
+
+    public void setBootstrapAdminUsers(List<String> bootstrapAdminUsers) {
+        this.bootstrapAdminUsers = bootstrapAdminUsers == null ? new ArrayList<>() : bootstrapAdminUsers;
     }
 }

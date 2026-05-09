@@ -15,3 +15,4 @@ budget-platform:
   auth:
     mode: DEV_HEADER
     allow-header-roles: true
+    bootstrap-admin-users: admin@example.com

@@ -4100,3 +4100,99 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `SEC-007`：移除生产角色请求头信任，改为从 `app_user_role` 解析授权角色，同时保持测试和本地 bootstrap 路径可控。
+
+## SEC-007
+
+阶段名称：移除默认请求头角色信任
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+将 `X-User-Roles` 从默认可信授权路径中移除，使 Workspace 内授权默认只来自 `app_user_role` 和 `app_user_entity_scope`。在不接入外部 IdP、不新增 JWT/OAuth 依赖、不新增 migration、不改前端 UI 的前提下，保留显式配置的本地/测试兼容能力，并新增 bootstrap admin 用户白名单承接初始全局管理入口。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `docs/architecture/sec-005-production-auth-boundary.md`、`docs/architecture/sec-006-trusted-principal-adapter.md`、`CurrentUserContextResolver`、`AuthorizationService`、认证配置和后端测试 |
+| 允许修改 | 后端安全上下文、授权服务、认证配置、后端安全单元测试、SEC-007 架构文档、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 删除文件、migration、前端 UI、PDF 原文、OCR 全文、外部 IdP/JWT/OAuth 接入、secrets、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `mvn test`、`git check-ignore`、`git diff --check`、`git status --short`、后端边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段未删除文件，未新增 migration，未访问外部服务 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/security/context/AuthProperties.java` | 将 `allowHeaderRoles` 默认值改为 `false`，新增 `bootstrapAdminUsers` 配置 |
+| `backend/src/main/java/com/budgetplatform/security/service/AuthorizationService.java` | Workspace 角色默认只取持久化角色；请求头角色仅在显式允许时合并；全局引导入口支持 bootstrap admin 用户白名单 |
+| `backend/src/main/resources/application.yml` | 将 `BUDGET_PLATFORM_AUTH_ALLOW_HEADER_ROLES` 默认值改为 `false`，新增 `BUDGET_PLATFORM_AUTH_BOOTSTRAP_ADMIN_USERS` |
+| `backend/src/test/resources/application-test.yml` | 测试环境显式保留 header roles，并设置 `admin@example.com` 为 bootstrap admin |
+| `backend/src/test/java/com/budgetplatform/security/service/AuthorizationServiceTests.java` | 新增授权服务单元测试，覆盖禁用请求头角色、bootstrap admin、显式启用 header roles |
+| `docs/architecture/sec-007-remove-header-role-trust.md` | 新增 SEC-007 架构说明、配置、行为、非目标和验证结果 |
+| `README.md` | 更新当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 SEC-007 阶段记录 |
+
+### 关键产出
+
+1. `budget-platform.auth.allow-header-roles` 生产默认值从 `true` 收紧为 `false`。
+2. `AuthorizationService.rolesForWorkspace` 在默认配置下不再合并 `CurrentUserContext.roles()`。
+3. Workspace 权限默认来自 `app_user_role`，Entity 范围仍来自 `app_user_entity_scope`。
+4. `bootstrap-admin-users` 作为显式配置的全局引导管理员白名单，不自动授予 Workspace 角色。
+5. 测试 profile 继续显式启用 header roles，避免为安全收敛阶段一次性重写所有既有集成测试夹具。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；Tests run: 45, Failures: 0, Errors: 0, Skipped: 0 |
+| Flyway migration | 通过；H2 测试库成功验证并应用 7 个 migrations，未新增 migration |
+| `git check-ignore` | 通过；PDF、OCR、前端依赖/构建产物、后端 `target` 均被忽略 |
+| `git diff --check` | 通过；仅出现 Git 对 LF/CRLF 的换行提示，无空白错误 |
+| `git status --short` | 通过；仅 SEC-007 后端安全配置、授权服务、测试、文档和阶段记录修改 |
+| 后端边界关键词扫描 | 通过；`backend/src/main/java` 未发现 `@DeleteMapping`、ERP、Chart、BI 图表或合并报表实现 |
+
+### 失败项与修复记录
+
+1. 首轮后端测试通过，未出现编译或测试失败。
+2. 阶段探索时 `rg.exe` 命中 Codex 打包路径并被 Windows 拒绝访问；已改用 PowerShell `Select-String` 进行源码检索，不影响实现和验证。
+
+### 风险与限制
+
+1. 生产认证仍未完成；`JWT` 与 `REVERSE_PROXY` 模式仍是 SEC-006 的失败关闭入口。
+2. 默认禁用请求头角色后，非测试环境需要通过 `BUDGET_PLATFORM_AUTH_BOOTSTRAP_ADMIN_USERS` 指定初始全局管理员，或在受控本地验证中显式设置 `BUDGET_PLATFORM_AUTH_ALLOW_HEADER_ROLES=true`。
+3. 前端仍会发送内部身份请求头；SEC-007 仅保证后端默认不信任角色头，前端登录边界需 SEC-008 继续推进。
+4. 早期架构文档中关于请求头角色的描述已被 SEC-007 默认行为 supersede，后续可在文档治理阶段统一标注历史状态。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| migration | 未新增 |
+| 前端 UI | 未修改 |
+| JWT/OAuth 依赖 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. 生产 JWT/OIDC 或反向代理身份来源尚未真正实现。
+2. 前端内部身份选择器尚未替换为生产登录或会话感知 UX。
+3. bootstrap admin 白名单只是过渡机制，后续需要正式管理员初始化方案。
+
+### 是否建议关闭本阶段
+
+建议关闭 SEC-007。
+
+关闭理由：默认角色头信任已移除，授权服务默认使用数据库角色，bootstrap admin 入口已显式配置，后端测试全部通过；未删除文件，未新增 migration，未提交 PDF/OCR 全文、secrets 或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `SEC-008`：前端生产身份边界与内部身份选择器收敛。目标是在不实现完整登录/IdP 的前提下，把当前前端身份选择器明确限定为开发模式，并为生产认证接入预留稳定 UX 和 API 边界。
