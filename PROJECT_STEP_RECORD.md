@@ -6202,3 +6202,99 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUTH-009`：JWT bearer adapter 后端实现。目标是在 `CurrentUserContextResolver` 边界内实现 bearer token 提取、长度限制、签名/issuer/audience/expiry 校验、username claim 映射、未知用户处理、失败审计分类和测试覆盖；不引入前端 token 存储，不使用 IdP group/scope 作为预算授权。
+
+## AUTH-009
+
+阶段名称：JWT bearer adapter 后端实现
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+在现有 `CurrentUserContextResolver` 边界内实现 `budget-platform.auth.mode=JWT` 的后端 bearer token adapter：提取 `Authorization: Bearer`、限制 token 长度、使用 Nimbus/Spring Security JWT decoder 校验签名与标准 claims、映射 username claim、拒绝未知或 inactive 应用用户，并记录脱敏失败审计。本阶段不修改前端、不新增 token 存储、不新增 migration、不接入 ERP/BI/合并报表、不处理 PDF/OCR。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `auth-007-jwt-oidc-bearer-validation-design.md`、`auth-008-jwt-config-baseline.md`、现有 `CurrentUserContextResolver`、`AuthorizationService`、`AppUser` 生命周期规则 |
+| 允许修改 | 后端认证上下文 resolver、后端认证单测、`docs/architecture/auth-009-jwt-bearer-adapter.md`、README、PROJECT_STEP_RECORD |
+| 禁止修改 | 前端业务代码、migration、PDF 原文、OCR 全文、secrets、token 存储、外部 IdP 配置文件、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `mvn test`、`git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/security/context/CurrentUserContextResolver.java` | 实现 JWT bearer adapter、decoder 构建、失败 reason 分类、未知/inactive 用户拦截 |
+| `backend/src/test/java/com/budgetplatform/security/context/CurrentUserContextResolverTests.java` | 新增 JWT 成功与失败路径单测 |
+| `docs/architecture/auth-009-jwt-bearer-adapter.md` | 新增 JWT bearer adapter 架构与运维说明 |
+| `README.md` | 更新 AUTH-009 文档入口与当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUTH-009 阶段记录 |
+
+### 关键产出
+
+1. `JWT` 模式不再只是未实现占位；后端可从 HTTP `Authorization: Bearer` 解析 JWT。
+2. 生产 decoder 基于 `NimbusJwtDecoder.withJwkSetUri(...)`，配置 issuer、audience、timestamp validator 和 JWS algorithm allow-list。
+3. 缺失 bearer、错误 scheme、空 token、超长 token、缺配置、坏配置、校验失败、缺 username claim、未知用户、inactive 用户均失败关闭。
+4. JWT 映射后的角色为空，预算授权继续通过 `AuthorizationService` 从 `app_user_role` 与 `app_user_entity_scope` 查询。
+5. JWT 不使用 IdP group/scope 作为预算授权，不自动创建应用用户。
+6. 审计只记录稳定 reason、authMode、headerName 和请求元数据，不记录 raw token、JWT header、payload、cookie、refresh token、private key 或 client secret。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `mvn test` | 通过；68 个测试全部通过，0 failures，0 errors，0 skipped；Flyway 成功验证并应用 8 个 migration |
+| 新增单测覆盖 | valid JWT、missing bearer、unsupported scheme、oversized token、missing username claim、expired validation failure、malformed token、unknown user、inactive user、missing JWT configuration |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示 README 和 Java 文件后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 AUTH-009 后端认证代码、测试、README、架构文档和阶段记录 |
+| 边界关键词扫描 | 命中既有授权服务引用、`AuditAction.DELETE`、`AuthMode.JWT`、前端 `CurrentUser.authMode`/审计 `DELETE` 类型，以及本阶段新增 JWT/bearer/Authorization adapter 代码；未新增 `DeleteMapping`、前端 token 存储、ERP、BI 图表、合并报表、PDF/OCR 处理或 secrets |
+
+### 失败项与修复记录
+
+1. 本阶段第一次 `mvn test` 通过，后续清理代码后再次运行 `mvn test` 仍通过。
+2. 未出现需要两轮最小修复的阻塞。
+
+### 风险与限制
+
+1. JWT 生产启用仍依赖正确的 issuer、audience、JWKS URI、算法 allow-list 和用户预置。
+2. JWKS 访问发生在 token decode 阶段；若 IdP/JWKS 不可用，请回退到已实现的 `REVERSE_PROXY` trusted principal 模式。
+3. 失败 reason 依赖 Spring Security/Nimbus 异常描述做稳定归类，未来可在真实 IdP smoke test 后继续细化。
+4. 本阶段未实现前端 direct bearer flow，也未设计 token 获取或刷新流程。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 前端业务代码 | 未修改 |
+| migration | 未新增 |
+| token 存储 | 未新增 |
+| localStorage/sessionStorage | 未新增 |
+| 外部 IdP/JWKS 配置文件 | 未新增 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. 前端是否需要 direct bearer token flow 仍需单独阶段确认。
+2. 真实 IdP/JWKS smoke test 与回滚手册仍需 `AUTH-011` 或后续运维阶段沉淀。
+3. JWT key rotation、缓存观察和告警仍未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUTH-009。
+
+关闭理由：JWT bearer 后端 adapter、失败关闭、脱敏审计、应用用户生命周期拦截、架构文档、README 和阶段记录已完成；后端 Maven 测试、资料保护检查、空白检查和越界扫描均通过。本阶段未删除文件，未修改前端业务代码，未新增 migration、token 存储、secrets、外部配置、PDF/OCR 全文、构建产物、ERP、BI、合并报表或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUTH-010`：前端 bearer 边界决策与设计。目标是判断浏览器是否需要 direct bearer flow；若需要，只做安全边界设计并避免 `localStorage`/`sessionStorage` token 存储；若不需要，则明确 JWT 用于 API/gateway 客户端，浏览器生产流量继续走 reverse proxy trusted principal。
