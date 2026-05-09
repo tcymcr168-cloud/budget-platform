@@ -4851,3 +4851,95 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `AUTH-002A`：反向代理可信身份后端适配。目标是在不引入 JWT/OIDC 依赖、不修改前端登录、不新增 migration 的前提下，实现 `REVERSE_PROXY` 模式的可信 principal 解析和测试。
+
+## AUTH-002A
+
+阶段名称：反向代理可信身份后端适配
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+实现 `REVERSE_PROXY` 认证模式的最小后端适配：从配置的可信反向代理头读取 principal，缺失或空值时失败关闭，并在该模式下继续忽略客户端传入的角色头。本阶段不实现 JWT/OIDC、不新增依赖、不修改前端登录、不新增 migration、不接外部服务、不写 secrets。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `auth-001-production-auth-implementation-plan.md`、`CurrentUserContextResolver`、`AuthProperties`、现有 resolver 测试 |
+| 允许修改 | 后端认证 resolver 与测试、`docs/architecture/auth-002a-reverse-proxy-auth-adapter.md`、`README.md`、`PROJECT_STEP_RECORD.md` |
+| 禁止修改 | 前端登录、JWT/OIDC 依赖、migration、PDF 原文、OCR 全文、secrets、外部服务、ERP 直连、BI 图表、合并报表 |
+| 验证命令 | `mvn test`、`git check-ignore`、`git diff --check`、`git status --short`、边界关键词扫描 |
+| 授权状态 | 用户已完全授权全自动推进；本阶段未删除文件，未新增 migration，未访问外部服务 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `backend/src/main/java/com/budgetplatform/security/context/CurrentUserContextResolver.java` | 实现 `REVERSE_PROXY` 模式读取当前 HTTP request 的可信 principal header |
+| `backend/src/test/java/com/budgetplatform/security/context/CurrentUserContextResolverTests.java` | 增加反向代理 principal 成功、缺失、空值、配置空白和角色头忽略测试 |
+| `docs/architecture/auth-002a-reverse-proxy-auth-adapter.md` | 新增阶段架构说明 |
+| `README.md` | 更新当前治理状态和 AUTH-002A 文档入口 |
+| `PROJECT_STEP_RECORD.md` | 追加 AUTH-002A 阶段记录 |
+
+### 关键产出
+
+1. `REVERSE_PROXY` 模式不再失败关闭，而是读取 `budget-platform.auth.reverse-proxy-user-header` 指定的可信 header。
+2. 缺失 principal、空白 principal、空白配置 header 名均返回 `UNAUTHORIZED`。
+3. `REVERSE_PROXY` 模式忽略 `X-User-Id` 和 `X-User-Roles` 这类客户端身份/角色输入。
+4. 角色和 Entity 范围仍由平台持久化授权模型控制。
+5. 未引入 JWT/OIDC 依赖，未修改数据库结构。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `rg -n "CurrentUserContextResolver|AuthProperties|REVERSE_PROXY|allowHeaderRoles|X-User-Roles" backend\src\test backend\src\main` | 失败；Codex 内嵌 `rg.exe` 启动时报 `拒绝访问`，已改用 PowerShell `Select-String` 完成检索 |
+| `mvn test` | 通过；Tests run: 49, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物与依赖目录均被忽略 |
+| `git diff --check` | 通过；仅提示多个工作副本文件 LF 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git status --short` | 仅显示 AUTH-002A 相关后端 resolver/test、文档、README 和阶段记录 |
+| 后端/前端边界关键词扫描 | 仅命中既有 `AuthMode.JWT` 与 `CurrentUserContextResolver` JWT 失败关闭占位；未新增 JWT/OAuth 依赖、ERP、BI 或合并报表代码 |
+
+### 失败项与修复记录
+
+1. `rg` 工具不可用，真实错误为 `Program 'rg.exe' failed to run ... 拒绝访问`；已使用 PowerShell `Get-ChildItem` + `Select-String` 继续定位。
+
+### 风险与限制
+
+1. 如果后端被浏览器或外部客户端绕过网关直连，反向代理 header 仍可能被伪造。
+2. 本阶段不做可信代理 IP/CIDR 校验。
+3. 本阶段不做 JWT/OIDC bearer 校验。
+4. 失败认证审计仍未实现。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| 前端登录 | 未修改 |
+| migration | 未新增 |
+| JWT/OAuth 依赖 | 未新增 |
+| 外部服务接入 | 未执行 |
+| secrets | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+
+### 未解决问题
+
+1. `AUTH-002B` JWT/OIDC bearer 校验尚未实现。
+2. 失败认证审计尚未实现。
+3. 生产部署需要确保网关剥离/覆盖身份 header，并禁止外部直连后端。
+
+### 是否建议关闭本阶段
+
+建议关闭 AUTH-002A。
+
+关闭理由：`REVERSE_PROXY` 模式已实现可信 principal header 解析和失败关闭，角色头在该模式下不被信任；后端 `mvn test` 通过，仓库保护检查通过，未删除文件，未新增 migration，未提交 PDF/OCR 全文、secrets 或构建产物，未进入 ERP、BI 或合并报表。
+
+### 下一阶段建议
+
+下一阶段建议进入 `AUTH-004`：前端生产当前用户边界收敛。由于 `/api/security/me` 已存在，目标是确认前端生产构建只展示后端可信当前用户，不重新引入开发身份注入或角色覆盖；如发现前端已满足，则以文档和测试方式关闭该阶段。`AUTH-005` 失败认证审计可随后进入。
