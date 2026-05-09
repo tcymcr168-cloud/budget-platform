@@ -7165,3 +7165,94 @@ FOUNDATION-002 已完成并建议关闭。验证结果显示：
 ### 下一阶段建议
 
 下一阶段建议进入 `PERF-007`：PostgreSQL 索引与执行计划治理设计。目标是先文档化 `fact_value` 查询索引候选、执行计划验证方式和 migration 风险，再决定是否进入实际索引 migration。
+
+## PERF-007
+
+阶段名称：PostgreSQL 索引与执行计划治理设计
+
+记录日期：2026-05-09
+
+### 阶段目标
+
+在 `PERF-006` 已将 facts 常用过滤下推到 repository/database 层之后，设计 PostgreSQL 索引候选、EXPLAIN 采集口径和后续 migration gate。本阶段只做文档治理，不新增 Flyway migration，不修改后端或前端运行时代码。
+
+### 阶段计划
+
+| 项 | 内容 |
+| --- | --- |
+| 输入资料 | `AGENTS.md`、`PROJECT_STEP_RECORD.md`、`V4__budget_submission_baseline.sql`、`V5__actual_import_baseline.sql`、`perf-006-repository-query-pushdown.md`、当前 Git 状态 |
+| 允许修改 | `docs/architecture/perf-007-postgresql-index-plan.md`、README、PROJECT_STEP_RECORD |
+| 禁止修改 | backend/src、frontend/src、migration、PDF/OCR、ERP 直连、BI 图表、合并报表、删除文件 |
+| 验证命令 | `git diff --check`、`git check-ignore`、`git status --short`、边界扫描 |
+| 授权状态 | 用户已完全授权全自动推进；删除文件仍需暂停，本阶段未删除文件 |
+
+### 修改文件
+
+| 文件 | 变更 |
+| --- | --- |
+| `docs/architecture/perf-007-postgresql-index-plan.md` | 新增 PostgreSQL 索引候选、EXPLAIN checklist 和 migration gate |
+| `README.md` | 更新 PERF-007 文档入口和当前治理状态 |
+| `PROJECT_STEP_RECORD.md` | 追加 PERF-007 阶段记录 |
+
+### 关键产出
+
+1. 梳理现有 `fact_value` 索引：`uk_fact_value_submission_account`、`idx_fact_value_task_status`、`idx_fact_value_model_scope`、`idx_fact_value_import_batch`。
+2. 明确 `PERF-006` 后的 facts query shape：budget model、可选维度、status、Entity scope、`updated_at/id` 排序。
+3. 提出三个候选索引：
+   - `idx_fact_value_model_updated`
+   - `idx_fact_value_model_status_updated`
+   - `idx_fact_value_model_scope_status_updated`
+4. 建议未来优先评估窄索引 `idx_fact_value_model_status_updated`。
+5. 定义 PostgreSQL `EXPLAIN (ANALYZE, BUFFERS)` 采集项目和后续 migration gate。
+
+### 测试与验证结果
+
+| 命令 | 结果 |
+| --- | --- |
+| `git diff --check` | 通过；仅提示 README、PROJECT_STEP_RECORD 后续可能由 Git 触碰为 CRLF，无空白错误 |
+| `git check-ignore docs/source/bpc-pdf/*.pdf docs/source/bpc-pdf/*.PDF docs/source/bpc-ocr-cache/ docs/source/bpc-ocr-text/ docs/source/bpc-ocr-output/ frontend/dist/ frontend/node_modules/ backend/target/` | 通过；PDF、OCR、构建产物和依赖目录均被忽略 |
+| `git status --short` | 仅显示 PERF-007 文档、README 和阶段记录 |
+| 边界扫描 | 本阶段未修改 backend/src、frontend/src 或 migration |
+
+### 失败项与修复记录
+
+1. 本阶段为文档治理阶段，未运行 Maven 或 pnpm 测试。
+2. 验证命令未出现失败。
+
+### 风险与限制
+
+1. 尚未在真实 PostgreSQL 数据集上执行 EXPLAIN。
+2. 尚未新增索引 migration。
+3. 宽索引候选可能增加写入成本，必须在实际 migration 阶段再评估。
+
+### 越界检查
+
+| 项 | 结果 |
+| --- | --- |
+| 删除文件 | 未执行 |
+| backend/src | 未修改 |
+| frontend/src | 未修改 |
+| migration | 未新增，未修改 |
+| 新业务模块 | 未新增 |
+| ERP 直连 | 未新增 |
+| BI 图表 | 未新增 |
+| 合并报表 | 未新增 |
+| PDF 原文 | 未修改，未提交 |
+| OCR 全文 | 未提交 |
+| 构建产物 | 未提交 |
+
+### 未解决问题
+
+1. 是否实际新增 `idx_fact_value_model_status_updated` 仍需后续 migration 阶段决定。
+2. 需要准备 PostgreSQL 代表性数据和 EXPLAIN 采集环境。
+3. 浏览器级 smoke 自动化尚未实现。
+
+### 是否建议关闭本阶段
+
+建议关闭 PERF-007。
+
+关闭理由：PostgreSQL 索引候选、EXPLAIN checklist、migration gate、README 和阶段记录已完成；仓库保护检查通过。本阶段未删除文件，未修改 backend/src、frontend/src 或 migration，未新增 ERP、BI、合并报表、PDF/OCR 全文、构建产物或阶段外功能。
+
+### 下一阶段建议
+
+下一阶段建议进入 `PERF-008`：最小 PostgreSQL fact query 索引 migration。目标是在既有设计基础上只新增一个窄索引，并通过 Flyway/H2 兼容验证和完整 `mvn test` 收口。
